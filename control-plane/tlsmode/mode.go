@@ -2,11 +2,12 @@ package tlsmode
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
-	"strconv"
-	"strings"
 )
 
 type Mode int
@@ -21,20 +22,6 @@ var (
 
 	mode                        = Disabled
 	gatewayCertificatesFilePath = utils.DefaultTlsPath
-
-	internalSuffixLen = len("-internal")
-
-	staticCoreServices = map[string]bool{
-		"identity-provider": true,
-		"tenant-manager":    true,
-		"config-server":     true,
-		"control-plane":     true,
-		"site-management":   true,
-		"paas-mediation":    true,
-		"dbaas-agent":       true,
-		"maas-agent":        true,
-		"key-manager":       true,
-	}
 )
 
 func init() {
