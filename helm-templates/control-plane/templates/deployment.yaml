@@ -56,17 +56,6 @@ spec:
         spec:
             serviceAccountName: '{{ .Values.SERVICE_NAME }}'
             volumes:
-            -   name: client-credentials
-                secret:
-                    secretName: '{{ .Values.SERVICE_NAME }}-client-credentials'
-            -   name: '{{ .Values.SSL_SECRET }}'
-                secret:
-                    secretName: '{{ .Values.SSL_SECRET }}'
-{{ if .Values.INTERNAL_TLS_ENABLED }}
-            -   name: tls
-                secret:
-                    secretName: '{{ .Values.SERVICE_NAME }}-tls'
-{{ end }}
 {{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
             -   name: sslcerts
                 emptyDir: {}
@@ -78,16 +67,6 @@ spec:
                 image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
                 imagePullPolicy: Always
                 volumeMounts:
-                -   name: client-credentials
-                    mountPath: '/etc/secret'
-                    readOnly: true
-                -   name: '{{ .Values.SSL_SECRET }}'
-                    mountPath: /tmp/cert/{{ .Values.SSL_SECRET }}
-{{ if .Values.INTERNAL_TLS_ENABLED }}
-                -   name: tls
-                    mountPath: '/etc/tls'
-                    readOnly: true
-{{ end }}
 {{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
                 -   name: sslcerts
                     mountPath: /etc/ssl/certs
