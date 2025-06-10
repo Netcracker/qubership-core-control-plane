@@ -24,6 +24,9 @@ func routeMatcherLess(r1, r2 *domain.Route) bool {
 
 	if r == 0 {
 		if r == h {
+			if comparableR1.matchesByPermissions() {
+				return true
+			}
 			// Matching by prefix is more prioritized over regexp
 			if comparableR1.matchesByPrefix() && comparableR2.matchesByRegexp() {
 				return true
@@ -62,6 +65,10 @@ func (r comparisonTarget) matchesByRegexp() bool {
 
 func (r comparisonTarget) matchesByPrefix() bool {
 	return len(r.Prefix) > 0
+}
+
+func (r comparisonTarget) matchesByPermissions() bool {
+	return r.DirectResponseCode == 404
 }
 
 func replaceGroupCapturesWithMinimalMatching(str string) string {

@@ -339,7 +339,7 @@ func CreateGatewayContainer(serviceName string) *GatewayContainer {
 
 	cm.RunContainerWithRetry(&CreateContainerOpts{
 		name:  serviceName,
-		image: "ghcr.io/netcracker/qubership-core-ingress-gateway:main-20250325155941-6",
+		image: "ghcr.io/netcracker/qubership-core-ingress-gateway:main-20250325151826-6",
 		env: []string{"SERVICE_NAME_VARIABLE=" + serviceName,
 			"ENVOY_UID=0",
 			"IP_STACK=v4",
