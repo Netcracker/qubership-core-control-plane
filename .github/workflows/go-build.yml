@@ -12,7 +12,5 @@ jobs:
       go-module-dir: control-plane
       actor: ${{ github.actor }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
-    env:
-      TEST_DOCKER_URL: ""
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}

@@ -81,9 +81,10 @@ func TestMain(m *testing.M) {
 	// empty string is a valid value: resolveDockerHost function will resolve actual docker URL
 	testDockerUrl, found := os.LookupEnv("TEST_DOCKER_URL")
 	if !found {
-		log.InfoC(ctx, "Env variable TEST_DOCKER_URL is not set so docker tests will be skipped")
-		skipDockerTests = true
-		os.Exit(m.Run())
+		log.InfoC(ctx, "Env variable TEST_DOCKER_URL is not set, trying to resolve docker host")
+		skipDockerTests = false
+		testDockerUrl = ""
+		//os.Exit(m.Run())
 	}
 
 	// resolve Docker API URL and host machine IP for future usage
