@@ -91,7 +91,7 @@ func TestMain(m *testing.M) {
 	resolveDockerHost(strings.TrimSpace(testDockerUrl))
 
 	var err error
-	cli, err = client.NewClientWithOpts(client.WithHost(testDockerUrl), client.WithAPIVersionNegotiation())
+	cli, err = client.NewClientWithOpts(client.WithHostFromEnv(), client.WithAPIVersionNegotiation())
 	if err != nil {
 		log.PanicC(ctx, "Could not create docker client:\n %v", err)
 	}
