@@ -215,7 +215,7 @@ func resolveDockerHost(testDockerUrl string) {
 		dockerHost = dockerHost[:portIdx]
 	}
 	hostIP = getHostIp()
-	setEnvIfNotSet("DOCKER_HOST", "hostIP")
+	setEnvIfNotSet("DOCKER_HOST", hostIP)
 	log.InfoC(ctx, "Resolved host IP: %v", hostIP)
 }
 
