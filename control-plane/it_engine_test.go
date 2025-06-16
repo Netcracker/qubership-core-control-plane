@@ -119,12 +119,14 @@ func skipTestIfDockerDisabled(t *testing.T) {
 }
 
 func getHostIp() string {
+	exec.Command("ip", "addr", "show")
 	hostIPAddr, err := net.LookupIP("host.docker.internal")
 	if err != nil {
 		log.WarnC(ctx, "Failed to resolve host IP addr by \"host.docker.internal\" hostname: %v", err)
 
 		//notice! sometimes `hostname -I` can return list of IP adressess.
 		// `hostname -i` can return like this '10.88.0.2 fe80::c8f1:efff:fe68:a723%eth0' or 'fe80::c8f1:efff:fe68:a723%eth0 10.88.0.2'
+		
 		output, err := exec.Command("hostname", "-I").Output()
 		if err != nil {
 			log.WarnC(ctx, "'hostname -I' returned output '%s' and error: %v", output, err)
@@ -194,7 +196,8 @@ func resolveDockerHost(testDockerUrl string) {
 		dockerAddr = os.Getenv("DOCKER_HOST")
 		if dockerAddr == "" {
 			log.InfoC(ctx, "Env DOCKER_HOST is empty")
-			dockerAddr = "localhost"
+			dockerAddr = "host.docker.internal"
+			setEnvIfNotSet("DOCKER_HOST", dockerAddr)
 		}
 	} else {
 		if err := os.Setenv("DOCKER_HOST", dockerAddr); err != nil {
