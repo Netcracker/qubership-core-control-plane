@@ -84,7 +84,7 @@ func TestMain(m *testing.M) {
 	if !found {
 		log.InfoC(ctx, "Env variable TEST_DOCKER_URL is not set, trying to resolve docker host")
 		skipDockerTests = false
-		testDockerUrl = ""
+		testDockerUrl = "tcp://localhost:2375"
 		//os.Exit(m.Run())
 	}
 
