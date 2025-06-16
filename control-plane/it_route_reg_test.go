@@ -753,30 +753,21 @@ func Test_IT_RouteRegistration_AllowedV3Update(t *testing.T) {
 		dto.RouteV3{
 			Destination: dto.RouteDestination{Cluster: TestCluster, Endpoint: TestEndpointV1},
 			Rules: []dto.Rule{
-				{Allowed: &forbidden, Match: dto.RouteMatch{Prefix: "/api/v1/test-service/forbidden-route"}},
+				{Match: dto.RouteMatch{Prefix: "/api/v1/test-service/default-route"}},
+				{Allowed: &allowed, Match: dto.RouteMatch{Prefix: "/api/v1/test-service/allowed-route"}},
+				{Allowed: &forbidden, Match: dto.RouteMatch{Prefix: "/api/v1/test-service"}},
 			},
 		},
 	)
 
-	internalGateway.VerifyGatewayRequest(assert, http.StatusNotFound, "/api/v1/test-service/forbidden-route", "/api/v1/test-service/forbidden-route")
+	internalGateway.VerifyGatewayRequest(assert, http.StatusNotFound, "/api/v1/test-service/default-route", "/api/v1/test-service/default-route")
+	internalGateway.VerifyGatewayRequest(assert, http.StatusNotFound, "/api/v1/test-service/allowed-route", "/api/v1/test-service/allowed-route")
+	internalGateway.VerifyGatewayRequest(assert, http.StatusNotFound, "/api/v1/test-service", "/api/v1/test-service")
 
-	internalGateway.RegisterRoutesAndWait(
-		assert,
-		60*time.Second,
-		"v1",
-		dto.RouteV3{
-			Destination: dto.RouteDestination{Cluster: TestCluster, Endpoint: TestEndpointV1},
-			Rules: []dto.Rule{
-				{Allowed: &allowed, Match: dto.RouteMatch{Prefix: "/api/v1/test-service/forbidden-route"}},
-			},
-		},
-	)
-
-	internalGateway.VerifyGatewayRequest(assert, http.StatusNotFound, "/api/v1/test-service/forbidden-route", "/api/v1/test-service/forbidden-route")
-
-	// cleanup v1 routes
 	internalGateway.CleanupGatewayRoutes(assert, "v1",
-		"/api/v1/test-service/forbidden-route")
+		"/api/v1/test-service/default-route",
+		"/api/v1/test-service/allowed-route",
+		"/api/v1/test-service/")
 }
 
 func Test_IT_RouteRegistration_AllowedV2(t *testing.T) {

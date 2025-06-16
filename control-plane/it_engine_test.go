@@ -197,7 +197,6 @@ func resolveDockerHost(testDockerUrl string) {
 		if dockerAddr == "" {
 			log.InfoC(ctx, "Env DOCKER_HOST is empty")
 			dockerAddr = "host.docker.internal"
-			setEnvIfNotSet("DOCKER_HOST", dockerAddr)
 		}
 	} else {
 		if err := os.Setenv("DOCKER_HOST", dockerAddr); err != nil {
