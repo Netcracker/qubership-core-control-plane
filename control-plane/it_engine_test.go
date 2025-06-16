@@ -38,6 +38,7 @@ var (
 	// Indicates whether TEST_DOCKER_URL env is set. Each test must check this flag before execution.
 	skipDockerTests = false
 
+	localHost = "localhost"
 	dockerHost string
 	hostIP     string
 
@@ -237,7 +238,7 @@ func runControlPlaneForTests(deadline time.Time) {
 	setEnvIfNotSet("ECDH_CURVES", "P-256,P-384")
 
 	pgContainer := cm.containers[Postgres]
-	setEnvIfNotSet("PG_HOST", "localhost")
+	setEnvIfNotSet("PG_HOST", localHost)
 	setEnvIfNotSet("PG_PORT", fmt.Sprintf("%v", pgContainer.Ports[5432]))
 	setEnvIfNotSet("PG_DB", "test_control_plane")
 	setEnvIfNotSet("PG_USER", "postgres")
@@ -315,7 +316,7 @@ func CheckPostgresHealth(pgResource *ContainerInfo) error {
 func runPgQuery(pgResource *ContainerInfo, query string) error {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
-		"localhost", pgResource.Ports[5432], "postgres", "12345", "test_control_plane")
+		localHost, pgResource.Ports[5432], "postgres", "12345", "test_control_plane")
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		log.ErrorC(ctx, "Postgres connection was unsuccessful during ready check:\n %v", err)
@@ -357,9 +358,9 @@ func CreateGatewayContainer(serviceName string) *GatewayContainer {
 	c := cm.containers[serviceName]
 	return &GatewayContainer{
 		TestContainer: TestContainer{Name: serviceName},
-		Url:           fmt.Sprintf("http://%s:%v", dockerHost, c.Ports[8080]),
-		HostAndPort:   fmt.Sprintf("%s:%v", dockerHost, c.Ports[8080]),
-		AdminUrl:      fmt.Sprintf("http://%s:%v", dockerHost, c.Ports[9901]),
+		Url:           fmt.Sprintf("http://%s:%v", localHost, c.Ports[8080]),
+		HostAndPort:   fmt.Sprintf("%s:%v", localHost, c.Ports[8080]),
+		AdminUrl:      fmt.Sprintf("http://%s:%v", localHost, c.Ports[9901]),
 	}
 }
 
