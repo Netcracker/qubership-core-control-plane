@@ -215,7 +215,6 @@ func resolveDockerHost(testDockerUrl string) {
 		dockerHost = dockerHost[:portIdx]
 	}
 	hostIP = getHostIp()
-	setEnvIfNotSet("DOCKER_HOST", hostIP)
 	log.InfoC(ctx, "Resolved host IP: %v", hostIP)
 }
 
@@ -238,7 +237,7 @@ func runControlPlaneForTests(deadline time.Time) {
 	setEnvIfNotSet("ECDH_CURVES", "P-256,P-384")
 
 	pgContainer := cm.containers[Postgres]
-	setEnvIfNotSet("PG_HOST", dockerHost)
+	setEnvIfNotSet("PG_HOST", "localhost")
 	setEnvIfNotSet("PG_PORT", fmt.Sprintf("%v", pgContainer.Ports[5432]))
 	setEnvIfNotSet("PG_DB", "test_control_plane")
 	setEnvIfNotSet("PG_USER", "postgres")
@@ -316,7 +315,7 @@ func CheckPostgresHealth(pgResource *ContainerInfo) error {
 func runPgQuery(pgResource *ContainerInfo, query string) error {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
-		dockerHost, pgResource.Ports[5432], "postgres", "12345", "test_control_plane")
+		"localhost", pgResource.Ports[5432], "postgres", "12345", "test_control_plane")
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		log.ErrorC(ctx, "Postgres connection was unsuccessful during ready check:\n %v", err)
