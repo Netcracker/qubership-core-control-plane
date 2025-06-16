@@ -404,7 +404,7 @@ type httpHealthCheck struct {
 }
 
 func (healthChecker httpHealthCheck) CheckHealth(c *ContainerInfo) error {
-	url := fmt.Sprintf("http://%s:%v%s", dockerHost, c.Ports[healthChecker.PortId], healthChecker.Path)
+	url := fmt.Sprintf("http://%s:%v%s", localHost, c.Ports[healthChecker.PortId], healthChecker.Path)
 	resp, err := http.DefaultClient.Get(url)
 	if err != nil {
 		log.ErrorC(ctx, "Error in request to %v: %v", healthChecker, err)
