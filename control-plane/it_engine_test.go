@@ -194,7 +194,7 @@ func resolveDockerHost(testDockerUrl string) {
 		dockerAddr = os.Getenv("DOCKER_HOST")
 		if dockerAddr == "" {
 			log.InfoC(ctx, "Env DOCKER_HOST is empty")
-			dockerAddr = "host.docker.internal"
+			dockerAddr = "localhost"
 		}
 	} else {
 		if err := os.Setenv("DOCKER_HOST", dockerAddr); err != nil {
@@ -235,7 +235,7 @@ func runControlPlaneForTests(deadline time.Time) {
 	setEnvIfNotSet("ECDH_CURVES", "P-256,P-384")
 
 	pgContainer := cm.containers[Postgres]
-	setEnvIfNotSet("PG_HOST", hostIP)
+	setEnvIfNotSet("PG_HOST", dockerHost)
 	setEnvIfNotSet("PG_PORT", fmt.Sprintf("%v", pgContainer.Ports[5432]))
 	setEnvIfNotSet("PG_DB", "test_control_plane")
 	setEnvIfNotSet("PG_USER", "postgres")
@@ -313,7 +313,7 @@ func CheckPostgresHealth(pgResource *ContainerInfo) error {
 func runPgQuery(pgResource *ContainerInfo, query string) error {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
-		hostIP, pgResource.Ports[5432], "postgres", "12345", "test_control_plane")
+		dockerHost, pgResource.Ports[5432], "postgres", "12345", "test_control_plane")
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		log.ErrorC(ctx, "Postgres connection was unsuccessful during ready check:\n %v", err)
@@ -401,7 +401,7 @@ type httpHealthCheck struct {
 }
 
 func (healthChecker httpHealthCheck) CheckHealth(c *ContainerInfo) error {
-	url := fmt.Sprintf("http://%s:%v%s", hostIP, c.Ports[healthChecker.PortId], healthChecker.Path)
+	url := fmt.Sprintf("http://%s:%v%s", dockerHost, c.Ports[healthChecker.PortId], healthChecker.Path)
 	resp, err := http.DefaultClient.Get(url)
 	if err != nil {
 		log.ErrorC(ctx, "Error in request to %v: %v", healthChecker, err)
