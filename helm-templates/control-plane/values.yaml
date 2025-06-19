@@ -1,14 +1,15 @@
 # ============== DEPLOYMENT VARIABLES ============================
-INTERNAL_TLS_ENABLED: false
 SNI_PROPAGATION_ENABLED: false
 MONITORING_ENABLED: true
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 READONLY_CONTAINER_FILE_SYSTEM_ENABLED: false
+IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-control-plane'
 
 DB_CREDENTIALS_SECRET: "control-plane-db-credentials"
 
 # ============== SERVICE VARIABLES ============================
 LOG_LEVEL: "info"
+SERVICE_NAME: 'control-plane'
 
 TRACING_ENABLED: false
 TRACING_HOST: 'nc-diagnostic-agent'

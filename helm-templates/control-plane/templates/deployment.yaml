@@ -137,17 +137,6 @@ spec:
                     value: '{{ .Values.SWIM_PORT }}'
                 -   name: IP_STACK
                     value: '{{ .Values.IP_STACK }}'
-                -   name: INTERNAL_TLS_ENABLED
-                    value: '{{ .Values.INTERNAL_TLS_ENABLED }}'
-{{ if .Values.INTERNAL_TLS_ENABLED }}
-                -   name: CERTIFICATE_FILE_PASSWORD
-                    valueFrom:
-                      secretKeyRef:
-                        name: 'tls-password-secret'
-                        key: 'tls-password'
-                -   name: CERTIFICATE_FILE_PATH
-                    value: '/etc/tls'
-{{ end }}
                 -   name: PG_HOST
                     valueFrom:
                         secretKeyRef:
@@ -232,16 +221,16 @@ spec:
                     failureThreshold: 4
                     httpGet:
                         path: /health
-                        port: {{ if .Values.INTERNAL_TLS_ENABLED }} tls {{ else }} web {{ end }}
-                        scheme: {{ if .Values.INTERNAL_TLS_ENABLED }} HTTPS {{ else }} HTTP {{ end }}
+                        port: web
+                        scheme: HTTP
                     initialDelaySeconds: 180
                     timeoutSeconds: 5
                 readinessProbe:
                     failureThreshold: 4
                     httpGet:
                         path: /ready
-                        port: {{ if .Values.INTERNAL_TLS_ENABLED }} tls {{ else }} web {{ end }}
-                        scheme: {{ if .Values.INTERNAL_TLS_ENABLED }} HTTPS {{ else }} HTTP {{ end }}
+                        port: web
+                        scheme: HTTP
                     initialDelaySeconds: 5
                     timeoutSeconds: 5
                 securityContext:
