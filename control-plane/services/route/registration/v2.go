@@ -97,7 +97,7 @@ func (p V2RequestProcessor) ProcessRequestV2(ctx context.Context, nodeGroupName 
 			if isAllowed {
 				routeEntry.ConfigureAllowedRoute(route)
 			} else {
-				routeEntry.ConfigureProhibitedRoute(route)
+				routeEntry.ConfigureProhibitedRoute(route, false)
 			}
 			virtualHost.Routes = append(virtualHost.Routes, route)
 			// save route to grouped map for usage by RoutesAutoGenerator

@@ -318,14 +318,18 @@ func (p V3RequestProcessor) processGateway(gw, namespace, activeVersion string, 
 				if rule.Allowed != nil {
 					isAllowed = *rule.Allowed
 				}
-				if isAllowed {
+				isDenied := false
+				if rule.Deny != nil {
+					isDenied = *rule.Deny
+				}
+				if isAllowed && !isDenied{
 					routeEntry.ConfigureAllowedRoute(route)
 					if rule.StatefulSession != nil {
 						route.StatefulSession = rule.StatefulSession.ToRouteStatefulSession(gw)
 					}
 					route.RateLimitId = rule.RateLimit
 				} else {
-					routeEntry.ConfigureProhibitedRoute(route)
+					routeEntry.ConfigureProhibitedRoute(route, isDenied)
 				}
 
 				route.HostRewriteLiteral = strings.TrimSpace(rule.HostRewrite)

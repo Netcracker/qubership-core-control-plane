@@ -68,7 +68,7 @@ func (r comparisonTarget) matchesByPrefix() bool {
 }
 
 func (r comparisonTarget) matchesByPermissions() bool {
-	return r.DirectResponseCode == 404
+	return r.Deny
 }
 
 func replaceGroupCapturesWithMinimalMatching(str string) string {

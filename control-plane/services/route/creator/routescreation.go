@@ -148,10 +148,11 @@ func (entry *RouteEntry) ConfigureAllowedRoute(route *domain.Route) *domain.Rout
 	return route
 }
 
-func (entry *RouteEntry) ConfigureProhibitedRoute(route *domain.Route) *domain.Route {
+func (entry *RouteEntry) ConfigureProhibitedRoute(route *domain.Route, isDenied bool) *domain.Route {
 	route.PrefixRewrite = ""
 	route.RegexpRewrite = ""
 	route.DirectResponseCode = 404
+	route.Deny = isDenied
 	return route
 }
 
