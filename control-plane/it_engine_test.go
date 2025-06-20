@@ -134,7 +134,7 @@ func getHostIp() string {
 			return getIpWithNetSh()
 		}
 		log.InfoC(ctx, "'hostname -I' returned: %s", output)
-		return strings.SplitN(strings.TrimSpace(string(output)), " ", 2)[0]
+		return strings.SplitN(strings.TrimSpace(string(output)), " ", 2)[1]
 	} else if len(hostIPAddr) == 0 {
 		log.PanicC(ctx, "Resolved no host IP addresses")
 	}
