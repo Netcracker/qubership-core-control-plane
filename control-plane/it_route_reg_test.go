@@ -744,7 +744,7 @@ func Test_IT_RouteRegistration_AllowedV3Update(t *testing.T) {
 	defer traceSrvContainer.Purge()
 
 	allowed := true
-	forbidden := false
+	forbidden := true
 
 	internalGateway.RegisterRoutesAndWait(
 		assert,
@@ -755,7 +755,7 @@ func Test_IT_RouteRegistration_AllowedV3Update(t *testing.T) {
 			Rules: []dto.Rule{
 				{Match: dto.RouteMatch{Prefix: "/api/v1/test-service/default-route"}},
 				{Allowed: &allowed, Match: dto.RouteMatch{Prefix: "/api/v1/test-service/allowed-route"}},
-				{Allowed: &forbidden, Match: dto.RouteMatch{Prefix: "/api/v1/test-service"}},
+				{Deny: &forbidden, Match: dto.RouteMatch{Prefix: "/api/v1/test-service"}},
 			},
 		},
 	)
