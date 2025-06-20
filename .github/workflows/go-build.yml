@@ -35,7 +35,8 @@ jobs:
           load: true
           tags: |
             ghcr.io/netcracker/qubership/cp-test-service:1.0-SNAPSHOT
-          file: control-plane-test-service/Dockerfile
+          context: ./control-plane-test-service
+          file: Dockerfile
           platforms: linux/amd64  
   build:
     needs: prepare_environment
