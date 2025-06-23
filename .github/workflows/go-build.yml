@@ -34,7 +34,7 @@ jobs:
         with:
           load: true
           tags: |
-            ghcr.io/netcracker/qubership/cp-test-service:1.0-SNAPSHOT
+            cp-test-service:1.0-SNAPSHOT
           context: ./control-plane-test-service
           file: ./control-plane-test-service/Dockerfile
           platforms: linux/amd64  
