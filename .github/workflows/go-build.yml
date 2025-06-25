@@ -32,18 +32,19 @@ jobs:
       - name: Build and load test-service image
         uses: docker/build-push-action@v6
         with:
-          load: true
           tags: |
             cp-test-service:1.0-SNAPSHOT
           context: ./control-plane-test-service
           file: ./control-plane-test-service/Dockerfile
           platforms: linux/amd64  
+          outputs: type=docker,dest=/tmp/test-service.tar            
   build:
     needs: prepare_environment
-    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@v1.0.5
+    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@5ec1e522a3f6975f0edefec68c4163cb3bcda7a6
     with:
       go-module-dir: control-plane
       actor: ${{ github.actor }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
+      test-service-image: "/tmp/test-service.tar" 
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
