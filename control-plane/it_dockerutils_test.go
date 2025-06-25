@@ -24,9 +24,7 @@ const (
 var (
 	cm                *ContainerManager
 	cli               *client.Client
-	pulledImagesCache = map[string]bool{
-		"ghcr.io/netcracker/cp-test-service:1.0-snapshot": true,
-	}
+	pulledImagesCache = map[string]bool{}
 )
 
 type ContainerManager struct {
