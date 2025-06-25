@@ -32,7 +32,7 @@ func Test_IT_forEgressGateway_givenNoRoutesAndGroupNode_registerTlsConfig_NodeGr
 	assert.Equal(200, status)
 	assert.NotContains(body, `"name":"egress-gateway"`)
 
-	testServiceUrl := fmt.Sprintf("http://%s:%v", dockerHost, traceSrvContainer.GetPort(8080))
+	testServiceUrl := fmt.Sprintf("http://%s:%v", localHost, traceSrvContainer.GetPort(8080))
 	tlsConfig := &dto.TlsConfig{
 		Name:               "test-tls-config-egress-gateway",
 		TrustedForGateways: []string{egressGatewayName},
