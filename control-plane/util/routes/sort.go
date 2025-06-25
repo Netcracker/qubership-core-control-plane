@@ -22,11 +22,12 @@ func routeMatcherLess(r1, r2 *domain.Route) bool {
 	comparableR1, comparableR2 := comparisonTarget(*r1), comparisonTarget(*r2)
 	r := len(comparableR1.GetComparisonString()) - len(comparableR2.GetComparisonString())
 
+	if comparableR1.matchesByPermissions() {
+		return true
+	}
+	
 	if r == 0 {
 		if r == h {
-			if comparableR1.matchesByPermissions() {
-				return true
-			}
 			// Matching by prefix is more prioritized over regexp
 			if comparableR1.matchesByPrefix() && comparableR2.matchesByRegexp() {
 				return true
