@@ -384,7 +384,7 @@ func createTraceServiceContainerInternal(serviceFamilyName, deploymentVersion st
 
 	cm.RunContainerWithRetry(&CreateContainerOpts{
 		name:  openshiftServiceName,
-		image: "ghcr.io/netcracker/cp-test-service:1.0-SNAPSHOT",
+		image: "ghcr.io/netcracker/cp-test-service:1.0-snapshot",
 		env: []string{
 			"HTTP_SERVER_BIND=:" + portStr,
 			"HTTPS_SERVER_BIND=:" + httpsPortStr,
