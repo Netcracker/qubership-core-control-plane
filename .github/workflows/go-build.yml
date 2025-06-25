@@ -33,18 +33,32 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           tags: |
-            cp-test-service:1.0-SNAPSHOT
+            ghcr.io/netcracker/cp-test-service:1.0-SNAPSHOT
           context: ./control-plane-test-service
           file: ./control-plane-test-service/Dockerfile
-          platforms: linux/amd64  
-          outputs: type=docker,dest=/tmp/test-service.tar            
+          platforms: linux/amd64         
   build:
     needs: prepare_environment
-    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@test/add-env-to-go-build-w-sonar
+    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@v1.0.5
     with:
       go-module-dir: control-plane
       actor: ${{ github.actor }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
-      test-service-image: "/tmp/test-service.tar" 
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
+  
+  cleanup:
+    if: always()
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Container Package Cleanup Action
+        uses: netcracker/qubership-workflow-hub/actions/container-package-cleanup@7a4938da2973b95efe670c3b4cbb782d14b2cc9c
+        with:
+          threshold-days: 0
+          included-tags: 'cp-test-service'
+          excluded-tags: ''
+          dry-run: false
+          debug: false
+        env:
+          PACKAGE_TOKEN: ${{ secrets.GH_RWD_PACKAGE_TOKEN }}
