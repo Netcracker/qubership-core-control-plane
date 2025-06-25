@@ -32,6 +32,7 @@ jobs:
       - name: Build and load test-service image
         uses: docker/build-push-action@v6
         with:
+          push: true
           tags: |
             ghcr.io/netcracker/cp-test-service:1.0-SNAPSHOT
           context: ./control-plane-test-service
