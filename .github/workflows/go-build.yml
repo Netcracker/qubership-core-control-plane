@@ -40,7 +40,7 @@ jobs:
           outputs: type=docker,dest=/tmp/test-service.tar            
   build:
     needs: prepare_environment
-    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@5ec1e522a3f6975f0edefec68c4163cb3bcda7a6
+    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@test/add-env-to-go-build-w-sonar
     with:
       go-module-dir: control-plane
       actor: ${{ github.actor }}
