@@ -341,7 +341,7 @@ func CreateGatewayContainer(serviceName string) *GatewayContainer {
 
 	cm.RunContainerWithRetry(&CreateContainerOpts{
 		name:  serviceName,
-		image: "ghcr.io/netcracker/qubership-core-ingress-gateway:fix_max_heap_size-20250626121150-38",
+		image: "ghcr.io/netcracker/qubership-core-ingress-gateway:fix_max_heap_size-20250626122906-39",
 		env: []string{"SERVICE_NAME_VARIABLE=" + serviceName,
 			"ENVOY_UID=0",
 			"IP_STACK=v4",
