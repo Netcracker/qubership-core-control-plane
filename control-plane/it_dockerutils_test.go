@@ -25,7 +25,7 @@ var (
 	cm                *ContainerManager
 	cli               *client.Client
 	pulledImagesCache = map[string]bool{
-		"ghcr.io/netcracker/cp-test-service:test": true,
+		"cp-test-service:test": true,
 	}
 )
 

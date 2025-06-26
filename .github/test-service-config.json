@@ -1,7 +1,7 @@
 {
     "components" : [
       {
-        "tags": "ghcr.io/netcracker/cp-test-service:test",
+        "tags": "cp-test-service:test",
         "file": "./control-plane-test-service/Dockerfile",
         "context": "./"
       }
