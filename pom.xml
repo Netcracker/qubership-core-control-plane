@@ -16,19 +16,6 @@
 
     <profiles>
         <profile>
-            <id>docker-test</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-                <property>
-                    <name>env.TEST_DOCKER_URL</name>
-                </property>
-            </activation>
-            <modules>
-                <module>control-plane-test-service</module>
-                <module>control-plane-documents</module>
-            </modules>
-        </profile>
-        <profile>
             <id>default</id>
             <activation>
                 <activeByDefault>true</activeByDefault>

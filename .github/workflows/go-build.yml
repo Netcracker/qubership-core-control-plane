@@ -15,19 +15,3 @@ jobs:
       build-test-service-image: true
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
-  
-  cleanup:
-    if: always()
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Run Container Package Cleanup Action
-        uses: netcracker/qubership-workflow-hub/actions/container-package-cleanup@7a4938da2973b95efe670c3b4cbb782d14b2cc9c
-        with:
-          threshold-days: 0
-          included-tags: 'cp-test-service'
-          excluded-tags: ''
-          dry-run: false
-          debug: false
-        env:
-          PACKAGE_TOKEN: ${{ secrets.GH_RWD_PACKAGE_TOKEN }}
