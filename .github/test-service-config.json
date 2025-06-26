@@ -3,7 +3,7 @@
       {
         "tags": "cp-test-service:1.0-snapshot",
         "file": "./control-plane-test-service/Dockerfile",
-        "context": "./control-plane-test-service"
+        "context": "./"
       }
     ],
     "platforms" : "linux/amd64"
