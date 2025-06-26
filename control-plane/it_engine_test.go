@@ -120,7 +120,6 @@ func skipTestIfDockerDisabled(t *testing.T) {
 }
 
 func getHostIp() string {
-	exec.Command("ip", "addr", "show")
 	hostIPAddr, err := net.LookupIP("host.docker.internal")
 	if err != nil {
 		log.WarnC(ctx, "Failed to resolve host IP addr by \"host.docker.internal\" hostname: %v", err)
