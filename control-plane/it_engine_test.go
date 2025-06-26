@@ -85,7 +85,6 @@ func TestMain(m *testing.M) {
 		log.InfoC(ctx, "Env variable TEST_DOCKER_URL is not set, trying to resolve docker host")
 		skipDockerTests = false
 		testDockerUrl = ""
-		//os.Exit(m.Run())
 	}
 
 	// resolve Docker API URL and host machine IP for future usage
@@ -342,8 +341,7 @@ func CreateGatewayContainer(serviceName string) *GatewayContainer {
 
 	cm.RunContainerWithRetry(&CreateContainerOpts{
 		name:  serviceName,
-		//image: "ghcr.io/netcracker/qubership-core-ingress-gateway:main-20250325151826-6",
-		image: "ghcr.io/netcracker/qubership-core-ingress-gateway:max_heap_size_fix-20250626110738-35",
+		image: "ghcr.io/netcracker/qubership-core-ingress-gateway:fix_max_heap_size-20250626121150-38",
 		env: []string{"SERVICE_NAME_VARIABLE=" + serviceName,
 			"ENVOY_UID=0",
 			"IP_STACK=v4",
@@ -383,7 +381,7 @@ func createTraceServiceContainerInternal(serviceFamilyName, deploymentVersion st
 
 	cm.RunContainerWithRetry(&CreateContainerOpts{
 		name:  openshiftServiceName,
-		image: "cp-test-service:test",
+		image: "ghcr.io/netcracker/cp-test-service:latest",
 		env: []string{
 			"HTTP_SERVER_BIND=:" + portStr,
 			"HTTPS_SERVER_BIND=:" + httpsPortStr,

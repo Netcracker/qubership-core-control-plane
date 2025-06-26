@@ -24,9 +24,7 @@ const (
 var (
 	cm                *ContainerManager
 	cli               *client.Client
-	pulledImagesCache = map[string]bool{
-		"cp-test-service:test": true,
-	}
+	pulledImagesCache = map[string]bool{}
 )
 
 type ContainerManager struct {
