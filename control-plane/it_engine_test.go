@@ -38,7 +38,6 @@ var (
 	// Indicates whether TEST_DOCKER_URL env is set. Each test must check this flag before execution.
 	skipDockerTests = false
 
-	localHost = "localhost"
 	dockerHost string
 	hostIP     string
 
@@ -78,17 +77,8 @@ func TestMain(m *testing.M) {
 	startTime := time.Now()
 	deadline := startTime.Add(TestTimeout)
 
-	// contract requires TEST_DOCKER_URL env variable to be set to run tests with docker
-	// empty string is a valid value: resolveDockerHost function will resolve actual docker URL
-	testDockerUrl, found := os.LookupEnv("TEST_DOCKER_URL")
-	if !found {
-		log.InfoC(ctx, "Env variable TEST_DOCKER_URL is not set, trying to resolve docker host")
-		skipDockerTests = false
-		testDockerUrl = ""
-	}
-
 	// resolve Docker API URL and host machine IP for future usage
-	resolveDockerHost(strings.TrimSpace(testDockerUrl))
+	resolveDockerHost()
 
 	var err error
 	cli, err = client.NewClientWithOpts(client.WithHostFromEnv(), client.WithAPIVersionNegotiation())
@@ -187,20 +177,11 @@ func getIpWithNetSh() string {
 	return ""
 }
 
-func resolveDockerHost(testDockerUrl string) {
-	dockerAddr := testDockerUrl
+func resolveDockerHost() {
+	dockerAddr := os.Getenv("DOCKER_HOST")
 	if dockerAddr == "" {
-		log.InfoC(ctx, "Env TEST_DOCKER_URL is empty")
-
-		dockerAddr = os.Getenv("DOCKER_HOST")
-		if dockerAddr == "" {
-			log.InfoC(ctx, "Env DOCKER_HOST is empty")
-			dockerAddr = "host.docker.internal"
-		}
-	} else {
-		if err := os.Setenv("DOCKER_HOST", dockerAddr); err != nil {
-			log.PanicC(ctx, "Failed to set env DOCKER_HOST=%s\n %v", dockerAddr, err)
-		}
+		log.InfoC(ctx, "Env DOCKER_HOST is empty")
+			dockerAddr = "localhost"
 	}
 
 	log.InfoC(ctx, "Using docker host %s", dockerAddr)
@@ -236,7 +217,7 @@ func runControlPlaneForTests(deadline time.Time) {
 	setEnvIfNotSet("ECDH_CURVES", "P-256,P-384")
 
 	pgContainer := cm.containers[Postgres]
-	setEnvIfNotSet("PG_HOST", localHost)
+	setEnvIfNotSet("PG_HOST", dockerHost)
 	setEnvIfNotSet("PG_PORT", fmt.Sprintf("%v", pgContainer.Ports[5432]))
 	setEnvIfNotSet("PG_DB", "test_control_plane")
 	setEnvIfNotSet("PG_USER", "postgres")
@@ -314,7 +295,7 @@ func CheckPostgresHealth(pgResource *ContainerInfo) error {
 func runPgQuery(pgResource *ContainerInfo, query string) error {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
-		localHost, pgResource.Ports[5432], "postgres", "12345", "test_control_plane")
+		dockerHost, pgResource.Ports[5432], "postgres", "12345", "test_control_plane")
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		log.ErrorC(ctx, "Postgres connection was unsuccessful during ready check:\n %v", err)
@@ -341,13 +322,14 @@ func CreateGatewayContainer(serviceName string) *GatewayContainer {
 
 	cm.RunContainerWithRetry(&CreateContainerOpts{
 		name:  serviceName,
-		image: "ghcr.io/netcracker/qubership-core-ingress-gateway:fix_max_heap_size-20250626122906-39",
+		image: "ghcr.io/netcracker/qubership-core-ingress-gateway:fix_max_heap_size-20250630134229-40",
 		env: []string{"SERVICE_NAME_VARIABLE=" + serviceName,
 			"ENVOY_UID=0",
 			"IP_STACK=v4",
 			"IP_BIND=0.0.0.0",
 			"POD_HOSTNAME=localhost",
-			"GW_MEMORY_LIMIT=100Mi"},
+			"GW_MEMORY_LIMIT=100Mi",
+			"MAX_HEAP_SIZE_BYTES=128000000"},
 		ports:      []nat.Port{"8080", "9901"},
 		extraHosts: []string{"control-plane:" + hostIP, "control-plane:" + hostIP},
 		readyCheck: healthCheck.CheckHealth,
@@ -356,9 +338,9 @@ func CreateGatewayContainer(serviceName string) *GatewayContainer {
 	c := cm.containers[serviceName]
 	return &GatewayContainer{
 		TestContainer: TestContainer{Name: serviceName},
-		Url:           fmt.Sprintf("http://%s:%v", localHost, c.Ports[8080]),
-		HostAndPort:   fmt.Sprintf("%s:%v", localHost, c.Ports[8080]),
-		AdminUrl:      fmt.Sprintf("http://%s:%v", localHost, c.Ports[9901]),
+		Url:           fmt.Sprintf("http://%s:%v", dockerHost, c.Ports[8080]),
+		HostAndPort:   fmt.Sprintf("%s:%v", dockerHost, c.Ports[8080]),
+		AdminUrl:      fmt.Sprintf("http://%s:%v", dockerHost, c.Ports[9901]),
 	}
 }
 
@@ -402,7 +384,7 @@ type httpHealthCheck struct {
 }
 
 func (healthChecker httpHealthCheck) CheckHealth(c *ContainerInfo) error {
-	url := fmt.Sprintf("http://%s:%v%s", localHost, c.Ports[healthChecker.PortId], healthChecker.Path)
+	url := fmt.Sprintf("http://%s:%v%s", dockerHost, c.Ports[healthChecker.PortId], healthChecker.Path)
 	resp, err := http.DefaultClient.Get(url)
 	if err != nil {
 		log.ErrorC(ctx, "Error in request to %v: %v", healthChecker, err)
