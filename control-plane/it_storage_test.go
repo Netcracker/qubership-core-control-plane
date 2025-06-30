@@ -68,7 +68,7 @@ type TestPostgresStorageConfigurator struct {
 
 func NewTestPostgresStorageConfigurator(dataBaseName string) (*TestPostgresStorageConfigurator, error) {
 	cfg := &TestPostgresStorageConfigurator{}
-	cfg.dbHost = localHost
+	cfg.dbHost = dockerHost
 	cfg.dbPort = dbPort
 	cfg.dbName = dataBaseName
 	cfg.dbUserName = PostgresDataBaseUser

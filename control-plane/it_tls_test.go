@@ -32,7 +32,7 @@ func Test_IT_forEgressGateway_givenNoRoutesAndGroupNode_registerTlsConfig_NodeGr
 	assert.Equal(200, status)
 	assert.NotContains(body, `"name":"egress-gateway"`)
 
-	testServiceUrl := fmt.Sprintf("http://%s:%v", localHost, traceSrvContainer.GetPort(8080))
+	testServiceUrl := fmt.Sprintf("http://%s:%v", dockerHost, traceSrvContainer.GetPort(8080))
 	tlsConfig := &dto.TlsConfig{
 		Name:               "test-tls-config-egress-gateway",
 		TrustedForGateways: []string{egressGatewayName},
@@ -80,7 +80,7 @@ func Test_IT_TLS_add_self_sign_cert(t *testing.T) {
 
 	assert := asrt.New(t)
 
-	testServiceUrl := fmt.Sprintf("http://%s:%v", localHost, traceSrvContainer.GetPort(8080))
+	testServiceUrl := fmt.Sprintf("http://%s:%v", dockerHost, traceSrvContainer.GetPort(8080))
 	registerTestRoutingConfigWithTLS(assert, egressGatewayName, testClusterHttpsEndpoint, &dto.TlsConfig{
 		Name: "test-tls-config",
 		Tls: &dto.Tls{
@@ -128,7 +128,7 @@ func test_IT_TLS_Ecdh_Curves(t *testing.T, containerName, ecdhCurves string, che
 	assert := asrt.New(t)
 
 	endpoint := "https://" + containerName + ":8443"
-	testServiceUrl := fmt.Sprintf("http://%s:%v", localHost, traceSrvContainer.GetPort(8080))
+	testServiceUrl := fmt.Sprintf("http://%s:%v", dockerHost, traceSrvContainer.GetPort(8080))
 	registerTestRoutingConfigWithTLS(assert, egressGatewayName, endpoint, &dto.TlsConfig{
 		Name: "test-tls-config",
 		Tls: &dto.Tls{
@@ -282,7 +282,7 @@ func Test_IT_TLS_trusted_for_cluster_prior(t *testing.T) {
 	traceStatusCode, _ := getFromTraceServiceWithHost(assert, httpsHost, egressGateway.Url)
 	asrt.Equal(t, 200, traceStatusCode)
 
-	testServiceUrl := fmt.Sprintf("http://%s:%v", localHost, traceSrvContainer.GetPort(8080))
+	testServiceUrl := fmt.Sprintf("http://%s:%v", dockerHost, traceSrvContainer.GetPort(8080))
 	status, _ := registerTlsConfig(assert, &dto.TlsConfig{ //add global TLS config
 		Name:               "global-test-tls-config",
 		TrustedForGateways: []string{egressGatewayName},
@@ -305,7 +305,7 @@ func Test_IT_TLS_add_self_sign_cert_client_cert(t *testing.T) {
 
 	assert := asrt.New(t)
 
-	testServiceUrl := fmt.Sprintf("http://%s:%v", localHost, traceSrvContainer.GetPort(8080))
+	testServiceUrl := fmt.Sprintf("http://%s:%v", dockerHost, traceSrvContainer.GetPort(8080))
 
 	registerTestRoutingConfigWithTLS(assert, egressGatewayName, testClusterHttpsEndpoint, &dto.TlsConfig{
 		Name: "test-tls-config",
