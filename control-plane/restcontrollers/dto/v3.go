@@ -158,6 +158,7 @@ type Rule struct {
 	IdleTimeout     *int64             `json:"idleTimeout"`
 	StatefulSession *StatefulSession   `json:"statefulSession" yaml:"statefulSession"`
 	RateLimit       string             `json:"rateLimit"`
+	Deny            *bool              `json:"deny"`
 }
 
 type RouteMatch struct {

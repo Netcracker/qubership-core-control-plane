@@ -24,9 +24,7 @@ const (
 var (
 	cm                *ContainerManager
 	cli               *client.Client
-	pulledImagesCache = map[string]bool{
-		"cp-test-service:1.0-SNAPSHOT": true,
-	}
+	pulledImagesCache = map[string]bool{}
 )
 
 type ContainerManager struct {
@@ -84,6 +82,15 @@ func (cm *ContainerManager) RunContainerWithRetry(opts *CreateContainerOpts) {
 			break
 		}
 		log.ErrorC(ctx, "Ready check for %s failed:\n %v", opts.name, err)
+
+		logsStream, errStr := cli.ContainerLogs(ctx, cm.containers[opts.name].ID, container.LogsOptions{ShowStdout: true, ShowStderr: true })
+		if errStr != nil {
+			log.InfoC(ctx, "Failed to get cont logs:\n %v", errStr)
+		
+		}
+		logs, _ := io.ReadAll(logsStream)
+		log.InfoC(ctx, "Container logs:\n %v", string(logs))
+		
 		time.Sleep(500 * time.Millisecond)
 	}
 	if err != nil {

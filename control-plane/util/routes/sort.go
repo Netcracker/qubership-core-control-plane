@@ -22,6 +22,10 @@ func routeMatcherLess(r1, r2 *domain.Route) bool {
 	comparableR1, comparableR2 := comparisonTarget(*r1), comparisonTarget(*r2)
 	r := len(comparableR1.GetComparisonString()) - len(comparableR2.GetComparisonString())
 
+	if comparableR1.matchesByPermissions() {
+		return true
+	}
+	
 	if r == 0 {
 		if r == h {
 			// Matching by prefix is more prioritized over regexp
@@ -62,6 +66,10 @@ func (r comparisonTarget) matchesByRegexp() bool {
 
 func (r comparisonTarget) matchesByPrefix() bool {
 	return len(r.Prefix) > 0
+}
+
+func (r comparisonTarget) matchesByPermissions() bool {
+	return r.Deny
 }
 
 func replaceGroupCapturesWithMinimalMatching(str string) string {

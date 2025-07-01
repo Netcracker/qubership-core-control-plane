@@ -1,0 +1,1 @@
+ALTER TABLE routes ADD COLUMN IF NOT EXISTS deny boolean NOT NULL DEFAULT false;

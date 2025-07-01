@@ -263,6 +263,7 @@ type Route struct {
 	RateLimit                *RateLimit         `bun:"rel:belongs-to,join:rate_limit_id=name" json:"rateLimit"`
 	StatefulSessionId        int32              `bun:"statefulsessionid,nullzero,notnull" json:"statefulSessionId"`
 	StatefulSession          *StatefulSession   `bun:"rel:belongs-to,join:statefulsessionid=id" json:"statefulSession"`
+	Deny                     bool               `bun:"deny" json:"deny"`
 }
 
 // RouteAction is used for route transformation business logic. RouteAction structures are not persisted.

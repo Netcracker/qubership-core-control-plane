@@ -77,20 +77,11 @@ func TestMain(m *testing.M) {
 	startTime := time.Now()
 	deadline := startTime.Add(TestTimeout)
 
-	// contract requires TEST_DOCKER_URL env variable to be set to run tests with docker
-	// empty string is a valid value: resolveDockerHost function will resolve actual docker URL
-	testDockerUrl, found := os.LookupEnv("TEST_DOCKER_URL")
-	if !found {
-		log.InfoC(ctx, "Env variable TEST_DOCKER_URL is not set so docker tests will be skipped")
-		skipDockerTests = true
-		os.Exit(m.Run())
-	}
-
 	// resolve Docker API URL and host machine IP for future usage
-	resolveDockerHost(strings.TrimSpace(testDockerUrl))
+	resolveDockerHost()
 
 	var err error
-	cli, err = client.NewClientWithOpts(client.WithHost(testDockerUrl), client.WithAPIVersionNegotiation())
+	cli, err = client.NewClientWithOpts(client.WithHostFromEnv(), client.WithAPIVersionNegotiation())
 	if err != nil {
 		log.PanicC(ctx, "Could not create docker client:\n %v", err)
 	}
@@ -124,13 +115,14 @@ func getHostIp() string {
 
 		//notice! sometimes `hostname -I` can return list of IP adressess.
 		// `hostname -i` can return like this '10.88.0.2 fe80::c8f1:efff:fe68:a723%eth0' or 'fe80::c8f1:efff:fe68:a723%eth0 10.88.0.2'
+		
 		output, err := exec.Command("hostname", "-I").Output()
 		if err != nil {
 			log.WarnC(ctx, "'hostname -I' returned output '%s' and error: %v", output, err)
 			return getIpWithNetSh()
 		}
 		log.InfoC(ctx, "'hostname -I' returned: %s", output)
-		return strings.SplitN(strings.TrimSpace(string(output)), " ", 2)[0]
+		return strings.SplitN(strings.TrimSpace(string(output)), " ", 2)[1]
 	} else if len(hostIPAddr) == 0 {
 		log.PanicC(ctx, "Resolved no host IP addresses")
 	}
@@ -185,20 +177,11 @@ func getIpWithNetSh() string {
 	return ""
 }
 
-func resolveDockerHost(testDockerUrl string) {
-	dockerAddr := testDockerUrl
+func resolveDockerHost() {
+	dockerAddr := os.Getenv("DOCKER_HOST")
 	if dockerAddr == "" {
-		log.InfoC(ctx, "Env TEST_DOCKER_URL is empty")
-
-		dockerAddr = os.Getenv("DOCKER_HOST")
-		if dockerAddr == "" {
-			log.InfoC(ctx, "Env DOCKER_HOST is empty")
-			dockerAddr = "host.docker.internal"
-		}
-	} else {
-		if err := os.Setenv("DOCKER_HOST", dockerAddr); err != nil {
-			log.PanicC(ctx, "Failed to set env DOCKER_HOST=%s\n %v", dockerAddr, err)
-		}
+		log.InfoC(ctx, "Env DOCKER_HOST is empty")
+			dockerAddr = "localhost"
 	}
 
 	log.InfoC(ctx, "Using docker host %s", dockerAddr)
@@ -339,13 +322,14 @@ func CreateGatewayContainer(serviceName string) *GatewayContainer {
 
 	cm.RunContainerWithRetry(&CreateContainerOpts{
 		name:  serviceName,
-		image: "ghcr.io/netcracker/qubership-core-ingress-gateway:main-20250325155941-6",
+		image: "ghcr.io/netcracker/qubership-core-ingress-gateway:main-snapshot",
 		env: []string{"SERVICE_NAME_VARIABLE=" + serviceName,
 			"ENVOY_UID=0",
 			"IP_STACK=v4",
 			"IP_BIND=0.0.0.0",
 			"POD_HOSTNAME=localhost",
-			"GW_MEMORY_LIMIT=100Mi"},
+			"GW_MEMORY_LIMIT=100Mi",
+			"MAX_HEAP_SIZE_FOR_TEST=128000000"},
 		ports:      []nat.Port{"8080", "9901"},
 		extraHosts: []string{"control-plane:" + hostIP, "control-plane:" + hostIP},
 		readyCheck: healthCheck.CheckHealth,
@@ -379,7 +363,7 @@ func createTraceServiceContainerInternal(serviceFamilyName, deploymentVersion st
 
 	cm.RunContainerWithRetry(&CreateContainerOpts{
 		name:  openshiftServiceName,
-		image: "cp-test-service:1.0-SNAPSHOT",
+		image: "ghcr.io/netcracker/cp-test-service:latest",
 		env: []string{
 			"HTTP_SERVER_BIND=:" + portStr,
 			"HTTPS_SERVER_BIND=:" + httpsPortStr,

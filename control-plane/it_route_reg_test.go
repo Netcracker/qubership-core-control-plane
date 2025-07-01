@@ -736,6 +736,40 @@ func Test_IT_RouteRegistration_AllowedV3(t *testing.T) {
 		"/api/v1/test-service/forbidden-route")
 }
 
+func Test_IT_RouteRegistration_AllowedV3Update(t *testing.T) {
+	skipTestIfDockerDisabled(t)
+	assert := asrt.New(t)
+
+	traceSrvContainer := createTraceServiceContainer(TestCluster, "v1", true)
+	defer traceSrvContainer.Purge()
+
+	allowed := true
+	forbidden := true
+
+	internalGateway.RegisterRoutesAndWait(
+		assert,
+		60*time.Second,
+		"v1",
+		dto.RouteV3{
+			Destination: dto.RouteDestination{Cluster: TestCluster, Endpoint: TestEndpointV1},
+			Rules: []dto.Rule{
+				{Match: dto.RouteMatch{Prefix: "/api/v1/test-service/default-route"}},
+				{Allowed: &allowed, Match: dto.RouteMatch{Prefix: "/api/v1/test-service/allowed-route"}},
+				{Deny: &forbidden, Match: dto.RouteMatch{Prefix: "/api/v1/test-service"}},
+			},
+		},
+	)
+
+	internalGateway.VerifyGatewayRequest(assert, http.StatusNotFound, "/api/v1/test-service/default-route", "/api/v1/test-service/default-route")
+	internalGateway.VerifyGatewayRequest(assert, http.StatusNotFound, "/api/v1/test-service/allowed-route", "/api/v1/test-service/allowed-route")
+	internalGateway.VerifyGatewayRequest(assert, http.StatusNotFound, "/api/v1/test-service", "/api/v1/test-service")
+
+	internalGateway.CleanupGatewayRoutes(assert, "v1",
+		"/api/v1/test-service/default-route",
+		"/api/v1/test-service/allowed-route",
+		"/api/v1/test-service/")
+}
+
 func Test_IT_RouteRegistration_AllowedV2(t *testing.T) {
 	skipTestIfDockerDisabled(t)
 	assert := asrt.New(t)

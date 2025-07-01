@@ -89,7 +89,7 @@ func (proc V1RequestProcessor) ProcessRequestV1(ctx context.Context, nodeGroupNa
 		if isAllowed {
 			routeEntry.ConfigureAllowedRoute(route)
 		} else {
-			routeEntry.ConfigureProhibitedRoute(route)
+			routeEntry.ConfigureProhibitedRoute(route, false)
 		}
 		virtualHost.Routes = append(virtualHost.Routes, route)
 	}
