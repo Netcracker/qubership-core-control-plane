@@ -218,6 +218,7 @@ func TestHttpFilterController_HandleGetHttpFilters(t *testing.T) {
 	assert.Nil(t, json.Unmarshal(bodeBytes, &actual))
 
 	assert.Equal(t, 2, len(actual.WasmFilters))
+	assert.Equal(t, 1, len(actual.LuaFilters))
 	assert.Equal(t, dto.ExtAuthz{
 		Name:              "testExtAuthz",
 		Destination:       dto.RouteDestination{Cluster: "test-cluster", Endpoint: "test-endpoint:8080"},
