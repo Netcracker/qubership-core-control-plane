@@ -30,6 +30,7 @@ type Repository interface {
 	RetryPolicyRepository
 	TlsConfigRepository
 	WasmFilterRepository
+	LuaFilterRepository
 	CompositeSatelliteRepository
 	StatefulSessionRepository
 	RateLimitRepository
@@ -71,6 +72,11 @@ type ListenerRepository interface {
 	DeleteListenerWasmFilter(relation *domain.ListenersWasmFilter) error
 	FindAllListenerWasmFilter() ([]*domain.ListenersWasmFilter, error)
 	FindListenerIdsByWasmFilterId(wasmFilterId int32) ([]int32, error)
+	HasLuaFilterWithId(listenerId, luaFilterId int32) (bool, error)
+	SaveListenerLuaFilter(relation *domain.ListenersLuaFilter) error
+	DeleteListenerLuaFilter(relation *domain.ListenersLuaFilter) error
+	FindAllListenerLuaFilter() ([]*domain.ListenersLuaFilter, error)
+	FindListenerIdsByLuaFilterId(luaFilterId int32) ([]int32, error)
 }
 
 type TlsConfigRepository interface {
@@ -90,6 +96,15 @@ type WasmFilterRepository interface {
 	FindWasmFilterByListenerId(listenerId int32) ([]*domain.WasmFilter, error)
 	DeleteWasmFilterByName(filterName string) (int32, error)
 	DeleteWasmFilterById(id int32) error
+}
+
+type LuaFilterRepository interface {
+	FindAllLuaFilters() ([]*domain.LuaFilter, error)
+	SaveLuaFilter(filter *domain.LuaFilter) error
+	FindLuaFilterByName(filterName string) (*domain.LuaFilter, error)
+	FindLuaFilterByListenerId(listenerId int32) ([]*domain.LuaFilter, error)
+	DeleteLuaFilterByName(filterName string) (int32, error)
+	DeleteLuaFilterById(id int32) error
 }
 
 type StatefulSessionRepository interface {

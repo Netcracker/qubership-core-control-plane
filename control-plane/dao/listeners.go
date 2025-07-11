@@ -79,3 +79,49 @@ func (d *InMemRepo) DeleteListenerWasmFilter(relation *domain.ListenersWasmFilte
 func (d *InMemRepo) FindAllListenerWasmFilter() ([]*domain.ListenersWasmFilter, error) {
 	return FindAll[domain.ListenersWasmFilter](d, domain.ListenersWasmFilterTable)
 }
+
+
+func (d *InMemRepo) HasLuaFilterWithId(listenerId, luaFilterId int32) (bool, error) {
+	txCtx := d.getTxCtx(false)
+	defer txCtx.closeIfLocal()
+	result, err := d.storage.FindById(txCtx.tx, domain.ListenersLuaFilterTable, listenerId, luaFilterId)
+	if err == nil {
+		if result != nil {
+			return true, nil
+		}
+		return false, nil
+	} else {
+		return false, err
+	}
+}
+
+func (d *InMemRepo) FindListenerIdsByLuaFilterId(luaFilterId int32) ([]int32, error) {
+	txCtx := d.getTxCtx(false)
+	defer txCtx.closeIfLocal()
+	result, err := d.storage.FindByIndex(txCtx.tx, domain.ListenersLuaFilterTable, "luaFilterId", luaFilterId)
+	if err == nil {
+		if result != nil {
+			listenersLuaFilters := result.([]*domain.ListenersLuaFilter)
+			listenerIds := make([]int32, len(listenersLuaFilters))
+			for i, lw := range listenersLuaFilters {
+				listenerIds[i] = lw.ListenerId
+			}
+			return listenerIds, nil
+		}
+		return nil, nil
+	} else {
+		return nil, err
+	}
+}
+
+func (d *InMemRepo) SaveListenerLuaFilter(relation *domain.ListenersLuaFilter) error {
+	return d.SaveEntity(domain.ListenersLuaFilterTable, relation)
+}
+
+func (d *InMemRepo) DeleteListenerLuaFilter(relation *domain.ListenersLuaFilter) error {
+	return d.DeleteById(domain.ListenersLuaFilterTable, relation.ListenerId, relation.LuaFilterId)
+}
+
+func (d *InMemRepo) FindAllListenerLuaFilter() ([]*domain.ListenersLuaFilter, error) {
+	return FindAll[domain.ListenersLuaFilter](d, domain.ListenersLuaFilterTable)
+}

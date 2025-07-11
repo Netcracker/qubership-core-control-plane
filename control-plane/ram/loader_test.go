@@ -74,6 +74,8 @@ func Test_StorageLoader_ClearAndLoad(t *testing.T) {
 	storage.EXPECT().FindAllCircuitBreakers().Return([]*domain.CircuitBreaker{}, nil)
 	storage.EXPECT().FindAllThresholds().Return([]*domain.Threshold{}, nil)
 	storage.EXPECT().FindAllTcpKeepalives().Return([]*domain.TcpKeepalive{}, nil)
+	storage.EXPECT().FindAllListenerLuaFilters().Return([]*domain.ListenersLuaFilter{}, nil)
+	storage.EXPECT().FindLuaFilters().Return([]*domain.LuaFilter{}, nil)
 
 	ramStorage.EXPECT().WriteTx().Return(txn)
 	txn.EXPECT().Abort()

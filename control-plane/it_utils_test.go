@@ -269,6 +269,18 @@ func (gateway GatewayContainer) ApplyConfigAndWaitWasmFiltersDisappear(assert *a
 	})
 }
 
+func (gateway GatewayContainer) ApplyConfigAndWaitLuaFiltersAppear(assert *asrt.Assertions, timeout time.Duration, config string) {
+	gateway.performAndWaitForLuaFiltersAppear(assert, timeout, func() {
+		applyConfig(assert, config)
+	})
+}
+
+func (gateway GatewayContainer) ApplyConfigAndWaitLuaFiltersDisappear(assert *asrt.Assertions, timeout time.Duration, config string) {
+	gateway.performAndWaitForLuaFiltersDisappear(assert, timeout, func() {
+		applyConfig(assert, config)
+	})
+}
+
 func applyConfig(assert *asrt.Assertions, config string) {
 
 	req, err := http.NewRequest(http.MethodPost, "http://localhost:8080/api/v3/config", bytes.NewReader([]byte(config)))
@@ -413,6 +425,32 @@ func (gateway GatewayContainer) performAndWaitForWasmFiltersDisappear(assert *as
 	assert.Fail("RouteConfig was not updated in envoy before timeout exceeded")
 }
 
+func (gateway GatewayContainer) performAndWaitForLuaFiltersAppear(assert *asrt.Assertions, timeout time.Duration, operation func()) {
+	operation()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		time.Sleep(200 * time.Millisecond)
+		if ExtractLuaFilterConfigFromJson(gateway.GetEnvoyConfigJson(assert)) != "" {
+			return
+		}
+	}
+	assert.Fail("RouteConfig was not updated in envoy before timeout exceeded")
+}
+
+func (gateway GatewayContainer) performAndWaitForLuaFiltersDisappear(assert *asrt.Assertions, timeout time.Duration, operation func()) {
+	operation()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		time.Sleep(200 * time.Millisecond)
+		if ExtractLuaFilterConfigFromJson(gateway.GetEnvoyConfigJson(assert)) == "" {
+			return
+		}
+	}
+	assert.Fail("RouteConfig was not updated in envoy before timeout exceeded")
+}
+
 func ExtractHttpFiltersFromJson(json string) string {
 	return gjson.Get(json, listenerBasePath+".dynamic_listeners."+
 		"0.active_state.listener.filter_chains.0.filters.0.typed_config.http_filters").Raw
@@ -420,6 +458,10 @@ func ExtractHttpFiltersFromJson(json string) string {
 
 func ExtractWasmFilterConfigFromJson(json string) string {
 	return gjson.Get(ExtractHttpFiltersFromJson(json), "#[name=\"envoy.filters.http.wasm\"].typed_config.config").Raw
+}
+
+func ExtractLuaFilterConfigFromJson(json string) string {
+	return gjson.Get(ExtractHttpFiltersFromJson(json), "#[name=\"envoy.filters.http.lua\"].typed_config.config").Raw
 }
 
 func constructPrefixesFromRoutes(routes []dto.RouteEntry) []string {

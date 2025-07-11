@@ -62,6 +62,7 @@ func (p *DefaultDBProvider) GetConn(ctx context.Context) (*bun.Conn, error) {
 	}
 	db.RegisterModel((*domain.ClustersNodeGroup)(nil))
 	db.RegisterModel((*domain.ListenersWasmFilter)(nil))
+	db.RegisterModel((*domain.ListenersLuaFilter)(nil))
 	db.RegisterModel((*domain.TlsConfigsNodeGroups)(nil))
 	conn, err := db.Conn(ctx)
 	return &conn, err

@@ -45,9 +45,6 @@ func (builder *GatewayListenerBuilder) enrichConnManager(connManager *hcm.HttpCo
 	if err := addNamespaceHeaderFilter(connManager, namespaceMapping); err != nil {
 		return err
 	}
-	if err := 	addUuidHeaderFilter(connManager); err != nil {
-		return err
-	}
 
 	return addCompression(connManager, builder.properties.Compression)
 }
@@ -77,28 +74,6 @@ func addCompression(connManager *hcm.HttpConnectionManager, properties *common.C
 			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: marshalled},
 		})
 	}
-	return nil
-}
-
-func addUuidHeaderFilter(connManager *hcm.HttpConnectionManager) error {
-		luaScript := "function envoy_on_request(request_handle)\n" +
-			"  local path = request_handle:headers():get(\":path\")\n" +
-			"  local match = string.match(path, \"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\")\n" +
-			"    if match then\n" +
-			"        request_handle:headers():add(\"x-uuid\", match)\n" +
-			"  end\n" +
-			"end"
-		luaConfig := &lua.Lua{
-			InlineCode: luaScript,
-		}
-		marshalled, err := ptypes.MarshalAny(luaConfig)
-		if err != nil {
-			return err
-		}
-		connManager.HttpFilters = append(connManager.HttpFilters, &hcm.HttpFilter{
-			Name:       wellknown.Lua,
-			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: marshalled},
-		})
 	return nil
 }
 

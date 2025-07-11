@@ -56,6 +56,7 @@ func testListenerBuilding(t *testing.T, builder ListenerBuilder, checkCors bool,
 		NodeGroupId:            "test-gateway",
 		NodeGroup:              nil,
 		WasmFilters:            nil,
+		LuaFilters:             nil,
 	}
 
 	listener, err := builder.BuildListener(domainListener, "", withTls)

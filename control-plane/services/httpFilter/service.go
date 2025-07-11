@@ -60,6 +60,18 @@ func (s *Service) GetGatewayFilters(ctx context.Context, nodeGroup string) (dto.
 		}
 	}
 
+	luaFilterDtos := make([]dto.LuaFilter, 0)
+	for _, listener := range listeners {
+		luaFilters, err := s.dao.FindLuaFilterByListenerId(listener.Id)
+		if err != nil {
+			logger.ErrorC(ctx, "Failed to load %s lua filters while getting http filters:\n %v", nodeGroup, err)
+			return dto.HttpFiltersConfigRequestV3{}, err
+		}
+		for _, lua := range luaFilters {
+			luaFilterDtos = append(luaFilterDtos, dto.ConvertLuaDomainToFilter(lua))
+		}
+	}
+
 	extAuthzFilter, err := s.extAuthzService.Get(ctx, nodeGroup)
 	if err != nil {
 		logger.ErrorC(ctx, "Failed to load %s extAuthz filter while getting http filters:\n %v", nodeGroup, err)
@@ -70,6 +82,7 @@ func (s *Service) GetGatewayFilters(ctx context.Context, nodeGroup string) (dto.
 		Gateways:       []string{nodeGroup},
 		WasmFilters:    wasmFilterDtos,
 		ExtAuthzFilter: extAuthzFilter,
+		LuaFilters:     luaFilterDtos,
 	}, nil
 }
 
@@ -77,6 +90,14 @@ func (s *Service) Apply(ctx context.Context, req *dto.HttpFiltersConfigRequestV3
 	if len(req.WasmFilters) > 0 {
 		for _, nodeGroupId := range req.Gateways {
 			err := s.AddWasmFilter(ctx, nodeGroupId, req.WasmFilters)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if len(req.LuaFilters) > 0 {
+		for _, nodeGroupId := range req.Gateways {
+			err := s.AddLuaFilter(ctx, nodeGroupId, req.LuaFilters)
 			if err != nil {
 				return err
 			}
@@ -92,6 +113,14 @@ func (s *Service) Delete(ctx context.Context, req *dto.HttpFiltersDropConfigRequ
 	if len(req.WasmFilters) > 0 {
 		for _, nodeGroupId := range req.Gateways {
 			err := s.DeleteWasmFilter(ctx, nodeGroupId, asSliceByName(req.WasmFilters))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if len(req.LuaFilters) > 0 {
+		for _, nodeGroupId := range req.Gateways {
+			err := s.DeleteLuaFilter(ctx, nodeGroupId, asSliceByName(req.LuaFilters))
 			if err != nil {
 				return err
 			}
@@ -260,9 +289,146 @@ func (s *Service) DeleteWasmFilter(ctx context.Context, nodeGroupId string, filt
 	return nil
 }
 
+func (s *Service) AddLuaFilter(ctx context.Context, nodeGroupId string, filters []dto.LuaFilter) error {
+	filtersToAdd := make([]domain.LuaFilter, len(filters))
+	changes, err := s.dao.WithWTx(func(dao dao.Repository) error {
+		for i, f := range filters {
+			luaFilter := dto.ConvertLuaFilterToDomain(&f)
+			filtersToAdd[i] = *luaFilter
+			clusterName, err := luaFilter.Cluster()
+			if err != nil {
+				return err
+			}
+			foundCluster, err := dao.FindClusterByName(clusterName)
+			if err != nil {
+				logger.ErrorC(ctx, "can not check if cluster with name=%s exists, %v", clusterName, err)
+				return err
+			}
+			if foundCluster == nil {
+				clusterConfig := &dto.ClusterConfigRequestV3{Name: clusterName, Gateways: []string{nodeGroupId}}
+				clusterUrl, err := url.Parse(f.URL)
+				if err != nil {
+					return err
+				}
+				clusterConfig.Endpoints = []dto.RawEndpoint{dto.RawEndpoint(clusterUrl.Scheme + "://" + clusterUrl.Host)}
+				if clusterUrl.Scheme == "https" {
+					tlsConfigName := clusterConfig.Name + "-tls"
+					err := dao.SaveTlsConfig(&domain.TlsConfig{Name: tlsConfigName, Enabled: true})
+					if err != nil {
+						return err
+					}
+					clusterConfig.TLS = tlsConfigName
+				}
+				err = s.clusterService.AddClusterDaoProvided(ctx, dao, nodeGroupId, clusterConfig)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		listeners, err := dao.FindListenersByNodeGroupId(nodeGroupId)
+		if err != nil || len(listeners) == 0 {
+			errMsg := fmt.Sprintf("can not find listener with nodeGroupId=%s", nodeGroupId)
+			logger.ErrorC(ctx, errMsg)
+			if err == nil {
+				err = errors.New(errMsg)
+			}
+			return err
+		}
+
+		for _, listener := range listeners {
+			for _, filterToAdd := range filtersToAdd {
+				err := s.entityService.PutLuaFilter(dao, &filterToAdd)
+				if err != nil {
+					logger.ErrorC(ctx, "can not save lua filter with nodeGroupId=%s, %v", nodeGroupId, err)
+					return err
+				}
+				err = s.entityService.PutListenerLuaFilterIfAbsent(dao, &domain.ListenersLuaFilter{
+					ListenerId:   listener.Id,
+					LuaFilterId:  filterToAdd.Id,
+				})
+				if err != nil {
+					logger.ErrorC(ctx, "can not save listener to lua filter relation with nodeGroupId=%s, %v", nodeGroupId, err)
+					return err
+				}
+			}
+		}
+		err = updateRelatedVersions(ctx, nodeGroupId, dao)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		logger.Errorf("can not add Lua filter for listener with nodeGroupId=%s, %v", nodeGroupId, err)
+		return err
+	}
+
+	event := events.NewChangeEventByNodeGroup(nodeGroupId, changes)
+	err = s.bus.Publish(bus.TopicChanges, event)
+	if err != nil {
+		logger.Errorf("can not publish changes for lua filters with nodeGroupId=%s, %v", nodeGroupId, err)
+		return err
+	}
+	return nil
+}
+
+func (s *Service) DeleteLuaFilter(ctx context.Context, nodeGroupId string, filters []string) error {
+	changes, err := s.dao.WithWTx(func(dao dao.Repository) error {
+		for _, f := range filters {
+			foundFilter, err := dao.FindLuaFilterByName(f)
+			if err != nil {
+				return err
+			}
+			if foundFilter == nil {
+				return nil
+			}
+			foundListeners, err := dao.FindListenersByNodeGroupId(nodeGroupId)
+			if err != nil {
+				return err
+			}
+			for _, fl := range foundListeners {
+				err := dao.DeleteListenerLuaFilter(&domain.ListenersLuaFilter{
+					ListenerId:   fl.Id,
+					LuaFilterId: foundFilter.Id,
+				})
+				if err != nil {
+					return err
+				}
+			}
+			luaFilterRelations, err := dao.FindAllListenerLuaFilter()
+			if err != nil {
+				return err
+			}
+			if len(luaFilterRelations) == 0 { // no relations. can be deleted
+				_, err := dao.DeleteLuaFilterByName(f)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		err := updateRelatedVersions(ctx, nodeGroupId, dao)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil || len(changes) == 0 {
+		return err
+	}
+	event := events.NewChangeEventByNodeGroup(nodeGroupId, changes)
+	err = s.bus.Publish(bus.TopicChanges, event)
+	if err != nil {
+		logger.Errorf("can not publish changes for lua filters with nodeGroupId=%s, %v", nodeGroupId, err)
+		return err
+	}
+	return nil
+}
+
 func updateRelatedVersions(ctx context.Context, nodeGroupId string, dao dao.Repository) error {
 	if err := dao.SaveEnvoyConfigVersion(domain.NewEnvoyConfigVersion(nodeGroupId, domain.ListenerTable)); err != nil {
-		logger.ErrorC(ctx, "add WASM filter failed due to error in envoy config version saving for clusters: %v", err)
+		logger.ErrorC(ctx, "add http filter failed due to error in envoy config version saving for clusters: %v", err)
 		return err
 	}
 

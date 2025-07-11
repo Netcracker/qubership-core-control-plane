@@ -38,6 +38,7 @@ type HttpFiltersConfigRequestV3 struct {
 	Gateways       []string     `json:"gateways"`
 	WasmFilters    []WasmFilter `json:"wasmFilters"`
 	ExtAuthzFilter *ExtAuthz    `json:"extAuthzFilter"`
+	LuaFilters     []LuaFilter  `json:"luaFilters"`
 	Overridden     bool         `json:"overridden"`
 }
 
@@ -46,6 +47,7 @@ type HttpFiltersDropConfigRequestV3 struct {
 	Gateways       []string                 `json:"gateways"`
 	WasmFilters    []map[string]interface{} `json:"wasmFilters"`
 	ExtAuthzFilter *ExtAuthz                `json:"extAuthzFilter"`
+	LuaFilters     []map[string]interface{} `json:"luaFilters"`
 	Overridden     bool                     `json:"overridden"`
 }
 
@@ -291,6 +293,17 @@ type WasmFilter struct {
 	URL           string                   `json:"url"`
 	SHA256        string                   `json:"sha256"`
 	TlsConfigName string                   `json:"tlsConfigName"`
+	Timeout       int64                    `json:"timeout"`
+	Params        []map[string]interface{} `json:"params"`
+}
+
+type LuaFilter struct {
+	Name          string                   `json:"name"`
+	URL           string                   `json:"url"`
+	HeaderName    string                   `json:"headerName"`
+    LuaScript     string                   `json:"luaScript"`
+    IsActive      bool                     `json:"isActive"` 
+	SHA256        string                   `json:"sha256"`
 	Timeout       int64                    `json:"timeout"`
 	Params        []map[string]interface{} `json:"params"`
 }

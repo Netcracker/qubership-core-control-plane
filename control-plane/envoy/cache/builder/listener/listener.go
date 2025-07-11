@@ -18,6 +18,7 @@ import (
 	tlsV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	etype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	luaFiltersV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -100,6 +101,14 @@ func (b BaseListenerBuilder) buildHttpConnectionManager(originalListener *domain
 	if len(originalListener.WasmFilters) != 0 {
 		for _, wf := range originalListener.WasmFilters {
 			err = addWASMFilter(connManager, &wf)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if len(originalListener.LuaFilters) != 0 {
+		for _, wf := range originalListener.LuaFilters {
+			err = addLuaFilter(connManager, &wf)
 			if err != nil {
 				return nil, err
 			}
@@ -278,6 +287,21 @@ func addWASMFilter(httpConnManager *hcm.HttpConnectionManager, filterToAdd *doma
 	}
 	httpConnManager.HttpFilters = append(httpConnManager.HttpFilters, &filter)
 	return nil
+}
+
+func addLuaFilter(httpConnManager *hcm.HttpConnectionManager, filterToAdd *domain.LuaFilter) error {
+	luaConfig := &luaFiltersV3.Lua{
+		InlineCode: filterToAdd.LuaScript,
+	}
+	marshalled, err := ptypes.MarshalAny(luaConfig)
+	if err != nil {
+		return err
+	}
+	httpConnManager.HttpFilters = append(httpConnManager.HttpFilters, &hcm.HttpFilter{
+		Name:       wellknown.Lua,
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: marshalled},
+	})
+return nil
 }
 
 func addCorsFilter(httpConnManager *hcm.HttpConnectionManager) error {

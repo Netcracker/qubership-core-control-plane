@@ -4044,6 +4044,12 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "luaFilters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.LuaFilter"
+                    }
+                },
                 "name": {
                     "type": "string"
                 },
@@ -4064,6 +4070,45 @@ const docTemplate = `{
                 },
                 "withTls": {
                     "type": "boolean"
+                }
+            }
+        },
+        "domain.LuaFilter": {
+            "type": "object",
+            "properties": {
+                "headerName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "listeners": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Listener"
+                    }
+                },
+                "luaScript": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "sha256": {
+                    "type": "string"
+                },
+                "timeout": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
                 }
             }
         },
@@ -4173,6 +4218,9 @@ const docTemplate = `{
                 },
                 "clusterName": {
                     "type": "string"
+                },
+                "deny": {
+                    "type": "boolean"
                 },
                 "deploymentVersion": {
                     "$ref": "#/definitions/domain.DeploymentVersion"
@@ -4915,6 +4963,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "luaFilters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.LuaFilter"
+                    }
+                },
                 "overridden": {
                     "type": "boolean"
                 },
@@ -4936,6 +4990,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "luaFilters": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
                     }
                 },
                 "overridden": {
@@ -4972,6 +5033,39 @@ const docTemplate = `{
                     }
                 },
                 "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.LuaFilter": {
+            "type": "object",
+            "properties": {
+                "headerName": {
+                    "type": "string"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "luaScript": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "params": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                },
+                "sha256": {
+                    "type": "string"
+                },
+                "timeout": {
+                    "type": "integer"
+                },
+                "url": {
                     "type": "string"
                 }
             }
@@ -5410,6 +5504,9 @@ const docTemplate = `{
                     }
                 },
                 "allowed": {
+                    "type": "boolean"
+                },
+                "deny": {
                     "type": "boolean"
                 },
                 "hostRewrite": {

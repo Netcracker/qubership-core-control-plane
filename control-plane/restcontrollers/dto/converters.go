@@ -239,6 +239,43 @@ func ConvertWasmDomainToFilter(filter *domain.WasmFilter) WasmFilter {
 	}
 }
 
+func ConvertLuaFilterToDomain(filter *LuaFilter) *domain.LuaFilter {
+	convertedParams := make(map[string]interface{}, len(filter.Params))
+
+	for _, kv := range filter.Params {
+		firstKey, firstValue := firstKey(kv)
+		convertedParams[firstKey] = firstValue
+	}
+
+	return &domain.LuaFilter{
+		Name:          filter.Name,
+		URL:           filter.URL,
+		HeaderName:    filter.HeaderName,
+		LuaScript:     filter.LuaScript,
+		IsActive:      filter.IsActive,
+		SHA256:        filter.SHA256,
+		Timeout:       filter.Timeout,
+		Params:        convertedParams,
+	}
+}
+
+func ConvertLuaDomainToFilter(filter *domain.LuaFilter) LuaFilter {
+	convertedParams := make([]map[string]any, 0, len(filter.Params))
+	for k, v := range filter.Params {
+		convertedParams = append(convertedParams, map[string]any{k: v})
+	}
+	return LuaFilter{
+		Name:          filter.Name,
+		URL:           filter.URL,
+		SHA256:        filter.SHA256,
+		HeaderName:    filter.HeaderName,
+		LuaScript:     filter.LuaScript,
+		IsActive:      filter.IsActive,
+		Timeout:       filter.Timeout,
+		Params:        convertedParams,
+	}
+}
+
 func firstKey(m map[string]interface{}) (string, interface{}) {
 	for k, v := range m {
 		return k, v

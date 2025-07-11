@@ -41,6 +41,7 @@ type Listener struct {
 	WasmFilters            []WasmFilter    `bun:"m2m:listeners_wasm_filters,join:WasmFilter=Listener,notnull" json:"wasmFilters"`
 	WithTls                bool            `bun:"withtls" json:"withTls"`
 	ExtAuthzFilter         *ExtAuthzFilter `bun:"-" json:"extAuthzFilter"`
+	LuaFilters             []LuaFilter     `bun:"m2m:listeners_lua_filters,join:LuaFilter=Listener,notnull" json:"luaFilters"`
 }
 
 func (l Listener) EqualsTo(listener Listener) bool {
@@ -448,6 +449,34 @@ func (w WasmFilter) Cluster() (string, error) {
 		return "", err
 	}
 	return parse.Host + "-cluster", nil
+}
+
+type LuaFilter struct {
+	Id            int32                  `bun:",pk" json:"id"`
+	Name          string                 `bun:"name" json:"name"`
+	URL           string                 `bun:"url" json:"url"`
+	SHA256        string                 `bun:"sha256" json:"sha256"`
+	HeaderName    string                 `bun:"header_name" json:"headerName"`
+    LuaScript     string                 `bun:"lua_script" json:"luaScript"`
+    IsActive      bool                   `bun:"is_active" json:"isActive"`
+	Timeout       int64                  `bun:"timeout" json:"timeout"`
+	Params        map[string]interface{} `bun:"params,type:jsonb" json:"params"`
+	Listeners     []Listener             `bun:"m2m:listeners_wasm_filters,join:WasmFilter=Listener" json:"listeners"`
+}
+
+func (w LuaFilter) Cluster() (string, error) {
+	parse, err := url.Parse(w.URL)
+	if err != nil {
+		return "", err
+	}
+	return parse.Host + "-cluster", nil
+}
+
+type ListenersLuaFilter struct {
+	ListenerId   int32       `bun:"listener_id,pk"`
+	Listener     *Listener   `bun:"rel:belongs-to,join:listener_id=id"`
+	LuaFilterId  int32       `bun:"lua_filter_id,pk"`
+	LuaFilter    *LuaFilter  `bun:"rel:belongs-to,join:lua_filter_id=id"`
 }
 
 type HttpHealthCheck struct {

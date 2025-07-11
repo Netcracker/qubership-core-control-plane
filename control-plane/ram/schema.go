@@ -455,6 +455,28 @@ var (
 					&memdb.IntFieldIndex{Field: "WasmFilterId"},
 				),
 			},
+			domain.LuaFilterTable: {
+				Name: domain.LuaFilterTable,
+				Indexes: map[string]*memdb.IndexSchema{
+					"id": {
+						Name:    "id",
+						Unique:  true,
+						Indexer: &memdb.IntFieldIndex{Field: "Id"},
+					},
+					"name": {
+						Name:    "name",
+						Unique:  true,
+						Indexer: &memdb.StringFieldIndex{Field: "Name"},
+					},
+				},
+			},
+			domain.ListenersLuaFilterTable: {
+				Name: domain.ListenersLuaFilterTable,
+				Indexes: buildRelationIndex(
+					&memdb.IntFieldIndex{Field: "ListenerId"},
+					&memdb.IntFieldIndex{Field: "LuaFilterId"},
+				),
+			},
 			domain.StatefulSessionTable: {
 				Name: domain.StatefulSessionTable,
 				Indexes: map[string]*memdb.IndexSchema{

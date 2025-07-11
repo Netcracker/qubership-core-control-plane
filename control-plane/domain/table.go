@@ -24,6 +24,8 @@ const (
 	TlsConfigsNodeGroupsTable = "tls_configs_node_groups"
 	WasmFilterTable           = "wasm_filters"
 	ListenersWasmFilterTable  = "listeners_wasm_filters"
+	LuaFilterTable            = "lua_filters"
+	ListenersLuaFilterTable   = "listeners_lua_filters"
 	CompositeSatelliteTable   = "composite_satellites"
 	StatefulSessionTable      = "stateful_session"
 	RateLimitTable            = "rate_limits"
@@ -50,6 +52,8 @@ var (
 		ExtAuthzFilterTable,
 		WasmFilterTable,
 		ListenersWasmFilterTable,
+		LuaFilterTable,
+	    ListenersLuaFilterTable,
 		VirtualHostTable,
 		VirtualHostDomainTable,
 		RouteTable,
@@ -84,6 +88,8 @@ var (
 		TlsConfigsNodeGroupsTable: reflect.TypeOf((*TlsConfigsNodeGroups)(nil)),
 		WasmFilterTable:           reflect.TypeOf((*WasmFilter)(nil)),
 		ListenersWasmFilterTable:  reflect.TypeOf((*ListenersWasmFilter)(nil)),
+		LuaFilterTable:            reflect.TypeOf((*LuaFilter)(nil)),
+		ListenersLuaFilterTable:   reflect.TypeOf((*ListenersLuaFilter)(nil)),
 		CompositeSatelliteTable:   reflect.TypeOf((*CompositeSatellite)(nil)),
 		StatefulSessionTable:      reflect.TypeOf((*StatefulSession)(nil)),
 		RateLimitTable:            reflect.TypeOf((*RateLimit)(nil)),

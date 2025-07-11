@@ -320,6 +320,10 @@ definitions:
         $ref: '#/definitions/domain.ExtAuthzFilter'
       id:
         type: integer
+      luaFilters:
+        items:
+          $ref: '#/definitions/domain.LuaFilter'
+        type: array
       name:
         type: string
       nodeGroup:
@@ -334,6 +338,32 @@ definitions:
         type: array
       withTls:
         type: boolean
+    type: object
+  domain.LuaFilter:
+    properties:
+      headerName:
+        type: string
+      id:
+        type: integer
+      isActive:
+        type: boolean
+      listeners:
+        items:
+          $ref: '#/definitions/domain.Listener'
+        type: array
+      luaScript:
+        type: string
+      name:
+        type: string
+      params:
+        additionalProperties: true
+        type: object
+      sha256:
+        type: string
+      timeout:
+        type: integer
+      url:
+        type: string
     type: object
   domain.NodeGroup:
     properties:
@@ -407,6 +437,8 @@ definitions:
         type: boolean
       clusterName:
         type: string
+      deny:
+        type: boolean
       deploymentVersion:
         $ref: '#/definitions/domain.DeploymentVersion'
       deploymentVersionString:
@@ -892,6 +924,10 @@ definitions:
         items:
           type: string
         type: array
+      luaFilters:
+        items:
+          $ref: '#/definitions/dto.LuaFilter'
+        type: array
       overridden:
         type: boolean
       wasmFilters:
@@ -906,6 +942,11 @@ definitions:
       gateways:
         items:
           type: string
+        type: array
+      luaFilters:
+        items:
+          additionalProperties: true
+          type: object
         type: array
       overridden:
         type: boolean
@@ -930,6 +971,28 @@ definitions:
           $ref: '#/definitions/dto.HashPolicy'
         type: array
       version:
+        type: string
+    type: object
+  dto.LuaFilter:
+    properties:
+      headerName:
+        type: string
+      isActive:
+        type: boolean
+      luaScript:
+        type: string
+      name:
+        type: string
+      params:
+        items:
+          additionalProperties: true
+          type: object
+        type: array
+      sha256:
+        type: string
+      timeout:
+        type: integer
+      url:
         type: string
     type: object
   dto.Microservice:
@@ -1215,6 +1278,8 @@ definitions:
           $ref: '#/definitions/dto.HeaderDefinition'
         type: array
       allowed:
+        type: boolean
+      deny:
         type: boolean
       hostRewrite:
         type: string

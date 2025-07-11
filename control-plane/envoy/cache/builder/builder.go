@@ -125,6 +125,14 @@ func (ecb *EnvoyConfigBuilderImpl) BuildListener(listener *domain.Listener, name
 		for i, p := range wasmFiltersPtr {
 			listener.WasmFilters[i] = *p
 		}
+		luaFiltersPtr, err := repo.FindLuaFilterByListenerId(listener.Id)
+		if err != nil {
+			return err
+		}
+		listener.LuaFilters = make([]domain.LuaFilter, len(luaFiltersPtr))
+		for i, p := range luaFiltersPtr {
+			listener.LuaFilters[i] = *p
+		}
 		listener.ExtAuthzFilter, err = repo.FindExtAuthzFilterByNodeGroup(listener.NodeGroupId)
 		return err
 	})

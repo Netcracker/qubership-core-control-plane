@@ -123,6 +123,10 @@ func (parser *changeEventParserImpl) processChange(actions action.ActionsMap, en
 	case domain.ListenersWasmFilterTable:
 		parser.processWasmFilterChanges(actions, entityVersions, nodeGroup)
 		break
+	case domain.LuaFilterTable:
+	case domain.ListenersLuaFilterTable:
+		parser.processLuaFilterChanges(actions, entityVersions, nodeGroup)
+		break
 	case domain.StatefulSessionTable:
 		parser.processStatefulSessionChanges(actions, entityVersions, nodeGroup, changes)
 		break

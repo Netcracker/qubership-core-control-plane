@@ -214,6 +214,12 @@ func (builder *compositeUpdateBuilder) withChanges(table string, changes []memdb
 	case domain.ListenersWasmFilterTable:
 		builder.processListenersWasmFilterChanges(changes)
 		break
+	case domain.LuaFilterTable:
+		builder.processLuaFilterChanges(changes)
+		break
+	case domain.ListenersLuaFilterTable:
+		builder.processListenersLuaFilterChanges(changes)
+		break
 	case domain.StatefulSessionTable:
 		builder.processStatefulSessionCookieChanges(changes)
 		break
