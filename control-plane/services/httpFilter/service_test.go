@@ -286,7 +286,7 @@ func TestService_ApplyGetDelete(t *testing.T) {
 	extAuthzSrv.EXPECT().Get(context.Background(), "test-gw").Return(nil, nil)
 	filters, err = srv.GetGatewayFilters(context.Background(), "test-gw")
 	assert.Nil(t, err)
-	assert.Equal(t, dto.HttpFiltersConfigRequestV3{Gateways: []string{"test-gw"}, WasmFilters: []dto.WasmFilter{}}, filters)
+	assert.Equal(t, dto.HttpFiltersConfigRequestV3{Gateways: []string{"test-gw"}, WasmFilters: []dto.WasmFilter{}, LuaFilters: []dto.LuaFilter{}}, filters)
 }
 
 func TestNewListenerService_ClusterCreated(t *testing.T) {

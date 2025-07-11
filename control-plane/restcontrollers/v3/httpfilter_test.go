@@ -195,6 +195,14 @@ func TestHttpFilterController_HandleGetHttpFilters(t *testing.T) {
 			URL:    "test-url2",
 			SHA256: "test-sha2",
 		}}, nil)
+	mockDao.EXPECT().FindLuaFilterByListenerId(int32(1)).Return([]*domain.LuaFilter{
+		{
+			Id:         1,
+			Name:       "testLuaFilter",
+			URL:        "test-url",
+			LuaScript:  "test-script",
+			HeaderName: "test-header",
+		}}, nil)
 	extAuthzService.EXPECT().Get(gomock.Any(), "integration-gateway").Return(&dto.ExtAuthz{
 		Name:              "testExtAuthz",
 		Destination:       dto.RouteDestination{Cluster: "test-cluster", Endpoint: "test-endpoint:8080"},

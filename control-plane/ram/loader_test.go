@@ -84,7 +84,7 @@ func Test_StorageLoader_ClearAndLoad(t *testing.T) {
 	cluster := domain.NewCluster("test", false)
 	storage.EXPECT().FindAllClusters().Return([]*domain.Cluster{cluster}, nil)
 
-	txn.EXPECT().DeleteAll(gomock.Any(), gomock.Eq("id")).Times(27)
+	txn.EXPECT().DeleteAll(gomock.Any(), gomock.Eq("id")).Times(29)
 	txn.EXPECT().Insert(gomock.Eq(domain.ClusterTable), gomock.Eq(cluster)).Times(1)
 
 	err := loader.ClearAndLoad(ramStorage)
