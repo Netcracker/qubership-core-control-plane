@@ -106,7 +106,7 @@ func Test_StorageLoader_ClearAndLoad_ErrorOnLoad(t *testing.T) {
 	ramStorage.EXPECT().WriteTx().Return(txn)
 	txn.EXPECT().Abort()
 
-	txn.EXPECT().DeleteAll(gomock.Any(), gomock.Eq("id")).Times(27)
+	txn.EXPECT().DeleteAll(gomock.Any(), gomock.Eq("id")).Times(29)
 	txn.EXPECT().Insert(gomock.Any(), gomock.Any()).Times(0)
 	txn.EXPECT().Commit().Times(0)
 
