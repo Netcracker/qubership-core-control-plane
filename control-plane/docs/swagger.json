@@ -5022,16 +5022,6 @@
                 },
                 "name": {
                     "type": "string"
-                },
-                "params": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": true
-                    }
-                },
-                "url": {
-                    "type": "string"
                 }
             }
         },
