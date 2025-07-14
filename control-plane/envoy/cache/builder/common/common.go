@@ -100,20 +100,15 @@ func BuildStatefulSessionPerRoute(statefulSession *domain.StatefulSession) (*any
 
 
 func BuildLuaFilterPerRoute(luaFilter *domain.LuaFilter) (*any.Any, error) {
-	luaFilterConfig := &luav3.Lua{
-		InlineCode: luaFilter.LuaScript,
+	luaFilterPerRoute := &luav3.LuaPerRoute{
+		Override: &luav3.LuaPerRoute_SourceCode{
+			SourceCode: &core.DataSource{
+				Specifier: &core.DataSource_InlineString{
+					InlineString: luaFilter.LuaScript,
+				},
+			},
+		},
 	}
-
-	luaFilterPerRoute := &anypb.Any{
-		TypeUrl: "type.googleapis.com/envoy.extensions.filters.http.lua.v3.LuaPerRoute",
-		Value:   []byte{},
-	}
-
-	value, err := proto.Marshal(luaFilterConfig)
-	if err != nil {
-		logger.Errorf("Error marshaling Lua filter config: %v", err)
-	}
-	luaFilterPerRoute.Value = value
 
 	return ptypes.MarshalAny(luaFilterPerRoute)
 }
