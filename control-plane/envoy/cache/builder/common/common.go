@@ -104,7 +104,7 @@ func BuildLuaFilterPerRoute(luaFilter *domain.LuaFilter) (*any.Any, error) {
 		InlineCode: luaFilter.LuaScript,
 	}
 
-	typeURL := "type.googleapis.com/" + string(proto.MessageName(luaFilterConfig))
+/* 	typeURL := "type.googleapis.com/" + string(proto.MessageName(luaFilterConfig))
 	luaFilterPerRoute := &anypb.Any{
 		TypeUrl: typeURL,
 		Value:   []byte{},
@@ -116,5 +116,6 @@ func BuildLuaFilterPerRoute(luaFilter *domain.LuaFilter) (*any.Any, error) {
 	}
 	luaFilterPerRoute.Value = value
 
-	return ptypes.MarshalAny(luaFilterPerRoute)
+	return ptypes.MarshalAny(luaFilterPerRoute) */
+	return ptypes.MarshalAny(luaFilterConfig)
 }
