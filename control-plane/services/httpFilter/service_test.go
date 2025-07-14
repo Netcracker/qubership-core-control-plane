@@ -132,13 +132,7 @@ func TestService_OverriddenTrueAndNotApplyHttpFilterConfig(t *testing.T) {
 	}
 	luaFilter := dto.LuaFilter{
 		Name:       "test-lua",
-		URL:        "http://test-url:80",
-		HeaderName: "x-uuid",
 		LuaScript:  "test-func",
-		IsActive:   false,
-		SHA256:     "test-sha",
-		Timeout:    10000,
-		Params:     []map[string]any{{"param1": "val1"}},
 	}
 	extAuthzFilter := dto.ExtAuthz{
 		Name:        "text-extAuthz",
@@ -175,13 +169,7 @@ func TestService_OverriddenTrueAndNotApplyDropHttpFilterConfig(t *testing.T) {
 	}
 	luaFilter := dto.LuaFilter{
 		Name:       "test-lua",
-		URL:        "http://test-url:80",
-		HeaderName: "x-uuid",
 		LuaScript:  "test-func",
-		IsActive:   false,
-		SHA256:     "test-sha",
-		Timeout:    10000,
-		Params:     []map[string]any{{"param1": "val1"}},
 	}
 	extAuthzFilter := dto.ExtAuthz{
 		Name:        "text-extAuthz",
@@ -223,13 +211,7 @@ func TestService_ApplyGetDelete(t *testing.T) {
 	}
 	luaFilter := dto.LuaFilter{
 		Name:       "test-lua",
-		URL:        "http://test-url:80",
-		HeaderName: "x-uuid",
 		LuaScript:  "test-func",
-		IsActive:   false,
-		SHA256:     "test-sha",
-		Timeout:    10000,
-		Params:     []map[string]any{{"param1": "val1"}},
 	}
 	extAuthzFilter := dto.ExtAuthz{
 		Name:        "text-extAuthz",

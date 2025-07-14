@@ -104,6 +104,14 @@ func (builder *RouteBuilderImpl) loadRouteRelations(routes []*domain.Route) ([]*
 			}
 			route.RateLimit = rateLimit
 		}
+		if route.LuaFilterId != "" {
+			luaFilter, err := builder.dao.FindLuaFilterByName(route.LuaFilterId)
+			if err != nil {
+				logger.Errorf("Failed to load route %v lua filter using DAO:\n %v", route.Id, err)
+				return nil, err
+			}
+			route.LuaFilter = luaFilter
+		}
 	}
 	return routes, nil
 }
@@ -252,12 +260,22 @@ func (builder *RouteBuilderImpl) BuildRoute(route *domain.Route) (*eroute.Route,
 		if route.RateLimit != nil {
 			envoyRoute.GetRoute().RateLimits = builder.buildRateLimitAction(route.RateLimitId)
 		}
+		if route.LuaFilter != nil {
+			luaConfig, err := common.BuildLuaFilterPerRoute(route.LuaFilter)
+			if err != nil {
+				return nil, nil, err
+			}
+			envoyRoute.TypedPerFilterConfig = map[string]*any.Any{
+				"envoy.filters.http.lua": luaConfig,
+			}
+		}
 	}
 	return envoyRoute, route.RateLimit, nil
 }
 
 func (builder *RouteBuilderImpl) buildRateLimitAction(rateLimitName string) []*eroute.RateLimit {
 	return []*eroute.RateLimit{{
+		
 		Actions: []*eroute.RateLimit_Action{
 			{
 				ActionSpecifier: &eroute.RateLimit_Action_GenericKey_{

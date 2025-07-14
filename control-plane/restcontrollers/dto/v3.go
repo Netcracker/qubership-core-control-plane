@@ -161,6 +161,7 @@ type Rule struct {
 	StatefulSession *StatefulSession   `json:"statefulSession" yaml:"statefulSession"`
 	RateLimit       string             `json:"rateLimit"`
 	Deny            *bool              `json:"deny"`
+	LuaFilter       string             `json:"luaFilter"`
 }
 
 type RouteMatch struct {
@@ -299,13 +300,7 @@ type WasmFilter struct {
 
 type LuaFilter struct {
 	Name          string                   `json:"name"`
-	URL           string                   `json:"url"`
-	HeaderName    string                   `json:"headerName"`
     LuaScript     string                   `json:"luaScript"`
-    IsActive      bool                     `json:"isActive"` 
-	SHA256        string                   `json:"sha256"`
-	Timeout       int64                    `json:"timeout"`
-	Params        []map[string]interface{} `json:"params"`
 }
 
 //swagger:model StatefulSession

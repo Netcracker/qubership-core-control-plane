@@ -6,10 +6,10 @@ package mock_db
 
 import (
 	context "context"
-	db "github.com/netcracker/qubership-core-control-plane/control-plane/v2/db"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	db "github.com/netcracker/qubership-core-control-plane/control-plane/v2/db"
 	bun "github.com/uptrace/bun"
 )
 

@@ -1,7 +1,10 @@
 package common
 
 import (
+	"os"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	luav3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
 	stateful_sessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
@@ -10,7 +13,7 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"os"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 var (
@@ -92,4 +95,18 @@ func BuildStatefulSessionPerRoute(statefulSession *domain.StatefulSession) (*any
 		}
 	}
 	return ptypes.MarshalAny(statefulSessionPerRoute)
+}
+
+
+func BuildLuaFilterPerRoute(luaFilter *domain.LuaFilter) (*any.Any, error) {
+	luaFilterConfig := &luav3.Lua{
+		InlineCode: luaFilter.LuaScript,
+	}
+	luaFilterPerRoute, err := anypb.New(luaFilterConfig)
+	
+	if err != nil {
+		logger.Errorf("Error creating Lua filter Any message: %v", err)
+	}
+
+	return ptypes.MarshalAny(luaFilterPerRoute)
 }

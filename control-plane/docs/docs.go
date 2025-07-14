@@ -4076,14 +4076,8 @@ const docTemplate = `{
         "domain.LuaFilter": {
             "type": "object",
             "properties": {
-                "headerName": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "integer"
-                },
-                "isActive": {
-                    "type": "boolean"
                 },
                 "listeners": {
                     "type": "array",
@@ -4100,12 +4094,6 @@ const docTemplate = `{
                 "params": {
                     "type": "object",
                     "additionalProperties": true
-                },
-                "sha256": {
-                    "type": "string"
-                },
-                "timeout": {
-                    "type": "integer"
                 },
                 "url": {
                     "type": "string"
@@ -5040,12 +5028,6 @@ const docTemplate = `{
         "dto.LuaFilter": {
             "type": "object",
             "properties": {
-                "headerName": {
-                    "type": "string"
-                },
-                "isActive": {
-                    "type": "boolean"
-                },
                 "luaScript": {
                     "type": "string"
                 },
@@ -5058,12 +5040,6 @@ const docTemplate = `{
                         "type": "object",
                         "additionalProperties": true
                     }
-                },
-                "sha256": {
-                    "type": "string"
-                },
-                "timeout": {
-                    "type": "integer"
                 },
                 "url": {
                     "type": "string"

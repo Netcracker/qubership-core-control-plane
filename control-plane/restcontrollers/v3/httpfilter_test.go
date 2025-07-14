@@ -199,9 +199,7 @@ func TestHttpFilterController_HandleGetHttpFilters(t *testing.T) {
 		{
 			Id:         1,
 			Name:       "testLuaFilter",
-			URL:        "test-url",
 			LuaScript:  "test-script",
-			HeaderName: "test-header",
 		}}, nil)
 	extAuthzService.EXPECT().Get(gomock.Any(), "integration-gateway").Return(&dto.ExtAuthz{
 		Name:              "testExtAuthz",

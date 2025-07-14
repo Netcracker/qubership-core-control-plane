@@ -265,6 +265,8 @@ type Route struct {
 	StatefulSessionId        int32              `bun:"statefulsessionid,nullzero,notnull" json:"statefulSessionId"`
 	StatefulSession          *StatefulSession   `bun:"rel:belongs-to,join:statefulsessionid=id" json:"statefulSession"`
 	Deny                     bool               `bun:"deny" json:"deny"`
+	LuaFilterId              string             `bun:"lua_filter_id,nullzero,notnull" json:"luaFilterId"`
+	LuaFilter                *LuaFilter         `bun:"rel:belongs-to,join:lua_filter_id=name" json:"luaFilter"`
 }
 
 // RouteAction is used for route transformation business logic. RouteAction structures are not persisted.
@@ -454,22 +456,13 @@ func (w WasmFilter) Cluster() (string, error) {
 type LuaFilter struct {
 	Id            int32                  `bun:",pk" json:"id"`
 	Name          string                 `bun:"name" json:"name"`
-	URL           string                 `bun:"url" json:"url"`
-	SHA256        string                 `bun:"sha256" json:"sha256"`
-	HeaderName    string                 `bun:"header_name" json:"headerName"`
     LuaScript     string                 `bun:"lua_script" json:"luaScript"`
-    IsActive      bool                   `bun:"is_active" json:"isActive"`
-	Timeout       int64                  `bun:"timeout" json:"timeout"`
-	Params        map[string]interface{} `bun:"params,type:jsonb" json:"params"`
-	Listeners     []Listener             `bun:"m2m:listeners_wasm_filters,join:WasmFilter=Listener" json:"listeners"`
+	Listeners     []Listener             `bun:"m2m:listeners_lua_filters,join:LuaFilter=Listener" json:"listeners"`
 }
 
-func (w LuaFilter) Cluster() (string, error) {
-	parse, err := url.Parse(w.URL)
-	if err != nil {
-		return "", err
-	}
-	return parse.Host + "-cluster", nil
+func (lf LuaFilter) Clone() *LuaFilter {
+	lfCopy := lf
+	return &lfCopy
 }
 
 type ListenersLuaFilter struct {

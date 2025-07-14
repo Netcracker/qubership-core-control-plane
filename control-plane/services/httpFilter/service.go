@@ -295,35 +295,6 @@ func (s *Service) AddLuaFilter(ctx context.Context, nodeGroupId string, filters 
 		for i, f := range filters {
 			luaFilter := dto.ConvertLuaFilterToDomain(&f)
 			filtersToAdd[i] = *luaFilter
-			clusterName, err := luaFilter.Cluster()
-			if err != nil {
-				return err
-			}
-			foundCluster, err := dao.FindClusterByName(clusterName)
-			if err != nil {
-				logger.ErrorC(ctx, "can not check if cluster with name=%s exists, %v", clusterName, err)
-				return err
-			}
-			if foundCluster == nil {
-				clusterConfig := &dto.ClusterConfigRequestV3{Name: clusterName, Gateways: []string{nodeGroupId}}
-				clusterUrl, err := url.Parse(f.URL)
-				if err != nil {
-					return err
-				}
-				clusterConfig.Endpoints = []dto.RawEndpoint{dto.RawEndpoint(clusterUrl.Scheme + "://" + clusterUrl.Host)}
-				if clusterUrl.Scheme == "https" {
-					tlsConfigName := clusterConfig.Name + "-tls"
-					err := dao.SaveTlsConfig(&domain.TlsConfig{Name: tlsConfigName, Enabled: true})
-					if err != nil {
-						return err
-					}
-					clusterConfig.TLS = tlsConfigName
-				}
-				err = s.clusterService.AddClusterDaoProvided(ctx, dao, nodeGroupId, clusterConfig)
-				if err != nil {
-					return err
-				}
-			}
 		}
 
 		listeners, err := dao.FindListenersByNodeGroupId(nodeGroupId)

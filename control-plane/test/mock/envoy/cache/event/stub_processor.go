@@ -5,10 +5,10 @@
 package mock_event
 
 import (
-	action "github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/action"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	action "github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/action"
 )
 
 // MockActionsByNodeGroup is a mock of ActionsByNodeGroup interface.

@@ -341,12 +341,8 @@ definitions:
     type: object
   domain.LuaFilter:
     properties:
-      headerName:
-        type: string
       id:
         type: integer
-      isActive:
-        type: boolean
       listeners:
         items:
           $ref: '#/definitions/domain.Listener'
@@ -358,10 +354,6 @@ definitions:
       params:
         additionalProperties: true
         type: object
-      sha256:
-        type: string
-      timeout:
-        type: integer
       url:
         type: string
     type: object
@@ -975,10 +967,6 @@ definitions:
     type: object
   dto.LuaFilter:
     properties:
-      headerName:
-        type: string
-      isActive:
-        type: boolean
       luaScript:
         type: string
       name:
@@ -988,10 +976,6 @@ definitions:
           additionalProperties: true
           type: object
         type: array
-      sha256:
-        type: string
-      timeout:
-        type: integer
       url:
         type: string
     type: object

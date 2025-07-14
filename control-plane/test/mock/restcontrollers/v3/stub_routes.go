@@ -6,11 +6,11 @@ package mock_v3
 
 import (
 	context "context"
-	domain "github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
-	dto "github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	domain "github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
+	dto "github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
 	errors "github.com/pkg/errors"
 )
 

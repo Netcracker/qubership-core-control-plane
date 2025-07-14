@@ -5,10 +5,10 @@
 package mock_provider
 
 import (
-	domain "github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	domain "github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 )
 
 // MockTlsService is a mock of TlsService interface.
