@@ -2,6 +2,9 @@ package routeconfig
 
 import (
 	"errors"
+	"sort"
+	"time"
+
 	eroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -14,9 +17,8 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/builder/common"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"sort"
-	"time"
 )
 
 var logger logging.Logger
@@ -265,7 +267,7 @@ func (builder *RouteBuilderImpl) BuildRoute(route *domain.Route) (*eroute.Route,
 			if err != nil {
 				return nil, nil, err
 			}
-			envoyRoute.TypedPerFilterConfig = map[string]*any.Any{
+			envoyRoute.TypedPerFilterConfig = map[string]*anypb.Any{
 				"envoy.filters.http.lua": luaConfig,
 			}
 		}
