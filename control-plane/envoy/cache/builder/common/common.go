@@ -13,6 +13,7 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -102,11 +103,18 @@ func BuildLuaFilterPerRoute(luaFilter *domain.LuaFilter) (*any.Any, error) {
 	luaFilterConfig := &luav3.Lua{
 		InlineCode: luaFilter.LuaScript,
 	}
-	luaFilterPerRoute, err := anypb.New(luaFilterConfig)
-	
-	if err != nil {
-		logger.Errorf("Error creating Lua filter Any message: %v", err)
+
+	typeURL := "type.googleapis.com/" + string(proto.MessageName(luaFilterConfig))
+	luaFilterPerRoute := &anypb.Any{
+		TypeUrl: typeURL,
+		Value:   []byte{},
 	}
+
+	value, err := proto.Marshal(luaFilterConfig)
+	if err != nil {
+		logger.Errorf("Error marshaling Lua filter config: %v", err)
+	}
+	luaFilterPerRoute.Value = value
 
 	return ptypes.MarshalAny(luaFilterPerRoute)
 }
