@@ -462,7 +462,7 @@ func ExtractWasmFilterConfigFromJson(json string) string {
 
 func ExtractLuaFilterConfigFromJson(json string) string {
 	log.Info("Http filters form internal-gateway config dump: \n %v", ExtractHttpFiltersFromJson(json))
-	return gjson.Get(ExtractHttpFiltersFromJson(json), "#[name=\"envoy.filters.http.lua\"].typed_config.config").Raw
+	return gjson.Get(ExtractHttpFiltersFromJson(json), "#[name=\"envoy.filters.http.lua\"].typed_config.inline_code").Raw
 }
 
 func constructPrefixesFromRoutes(routes []dto.RouteEntry) []string {
