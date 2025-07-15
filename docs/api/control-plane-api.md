@@ -3537,6 +3537,7 @@ GET /api/v3/control-plane/debug/config-validation
 |:----------------------------------|:------------------------------------------------------------|:--------------------------------------------------|
 | **match**                         | **Example** : `"[RouteMatcher](#routematcher)"`             | [RouteMatcher](#routematcher)                     |
 | **allowed**  <br>*optional*       | **Example** : `true`                                        | boolean                                           |
+| **deny**  <br>*optional*          | if true then all routes matched by provided prefix will be forbidden <br>**Example** : `true`                                        | boolean                                           |
 | **prefixRewrite**  <br>*optional* | **Example** : `"http://test-cluster:8080"`                  | string                                            |
 | **hostRewrite**  <br>*optional*   | **Example** : `"my-custom-host"`                            | string                                            |
 | **addHeaders**  <br>*optional*    | **Example** : `[ "[HeaderDefinition](#headerdefinition)" ]` | < [HeaderDefinition](#headerdefinition) > array   |

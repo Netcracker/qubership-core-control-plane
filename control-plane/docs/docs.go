@@ -4174,6 +4174,9 @@ const docTemplate = `{
                 "clusterName": {
                     "type": "string"
                 },
+                "deny": {
+                    "type": "boolean"
+                },
                 "deploymentVersion": {
                     "$ref": "#/definitions/domain.DeploymentVersion"
                 },
@@ -5410,6 +5413,9 @@ const docTemplate = `{
                     }
                 },
                 "allowed": {
+                    "type": "boolean"
+                },
+                "deny": {
                     "type": "boolean"
                 },
                 "hostRewrite": {

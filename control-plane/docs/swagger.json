@@ -4163,6 +4163,9 @@
                 "clusterName": {
                     "type": "string"
                 },
+                "deny": {
+                    "type": "boolean"
+                },
                 "deploymentVersion": {
                     "$ref": "#/definitions/domain.DeploymentVersion"
                 },
@@ -5399,6 +5402,9 @@
                     }
                 },
                 "allowed": {
+                    "type": "boolean"
+                },
+                "deny": {
                     "type": "boolean"
                 },
                 "hostRewrite": {

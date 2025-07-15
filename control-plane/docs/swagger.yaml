@@ -407,6 +407,8 @@ definitions:
         type: boolean
       clusterName:
         type: string
+      deny:
+        type: boolean
       deploymentVersion:
         $ref: '#/definitions/domain.DeploymentVersion'
       deploymentVersionString:
@@ -1215,6 +1217,8 @@ definitions:
           $ref: '#/definitions/dto.HeaderDefinition'
         type: array
       allowed:
+        type: boolean
+      deny:
         type: boolean
       hostRewrite:
         type: string
