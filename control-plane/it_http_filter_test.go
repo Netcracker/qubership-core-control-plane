@@ -28,11 +28,14 @@ spec:
     - name: test-lua-filter
       luaScript: "
 		function envoy_on_request(request_handle)\n
+		    request_handle:headers():add(\"Test-Header-Before\", \"Begining of script\")\n
 			local path = request_handle:headers():get(\":path\")\n
 			local match = string.match(path, \"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\")\n
+			request_handle:headers():add(\"Test-Header-After-Match\", \"Middle part of script\")\n
 			if match then\n
 				request_handle:headers():add(\"x-uuid\", match)\n
 			end\n
+			request_handle:headers():add(\"Test-Header-End\", \"End of script\")\n
 		end"
 `
 	
@@ -55,7 +58,7 @@ spec:
 	headers := make(http.Header)
 	headers.Set("Test-header", "Test header must be traced in response")
 
-/* 	resp, statusCode := GetFromTraceServiceWithHeaders(assert, internalGateway.Url+prefix, headers)
+ 	resp, statusCode := GetFromTraceServiceWithHeaders(assert, internalGateway.Url+prefix, headers)
 	assert.Equal(http.StatusOK, statusCode)
 	if resp == nil {
 		log.InfoC(ctx, "Didn't receive TraceResponse; status code: %d", statusCode)
@@ -64,7 +67,7 @@ spec:
 		assert.Equal(prefix, resp.Path)
 		// verify request header x-uuid 
 		assert.Equal("a1b2c3d4-e5f6-7890-1234-567890abcdef", resp.Headers.Get("x-uuid"))
-	} */
+	}
 
 	// cleanup routes
 	internalGateway.DeleteRoutesAndWait(assert, 60*time.Second, dto.RouteDeleteRequestV3{
