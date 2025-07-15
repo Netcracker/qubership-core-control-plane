@@ -33,6 +33,9 @@ spec:
 			if match then\n
 				request_handle:headers():add(\"x-uuid\", match)\n
 			end\n
+			request_handle:logInfo(\"URL is: \"..request_handle:headers():get(\":x-original-url\"))
+            request_handle:logInfo(\"Path is: \"..request_handle:headers():get(\":path\"))
+			request_handle:logInfo(\"x-uuid is: \"..request_handle:headers():get(\":x-uuid\"))
 		end"
 `
 	
@@ -48,12 +51,14 @@ spec:
 			},
 		},
 	)
-	
 
 	envoyConfigDump := internalGateway.GetEnvoyConfigJson(assert)
     log.Info("Internal-gateway config dump: \n %v", envoyConfigDump)
 
-	resp, statusCode := GetFromTraceService(assert, internalGateway.Url+prefix)
+	headers := make(http.Header)
+	headers.Set("Test-header", "Test header must be traced in response")
+
+	resp, statusCode := GetFromTraceServiceWithHeaders(assert, internalGateway.Url+prefix, headers)
 		assert.Equal(http.StatusOK, statusCode)
 		if resp == nil {
 			log.InfoC(ctx, "Didn't receive TraceResponse; status code: %d", statusCode)
