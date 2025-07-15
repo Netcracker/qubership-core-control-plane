@@ -36,7 +36,7 @@ spec:
 		end"
 `
 	
-	internalGateway.ApplyConfigAndWait(assert, 60*time.Second, filterConfig)
+	internalGateway.ApplyConfigAndWaitLuaFiltersAppear(assert, 60*time.Second, filterConfig)
 	internalGateway.RegisterRoutesAndWait(
 		assert,
 		60*time.Second,
