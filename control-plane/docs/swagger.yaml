@@ -351,11 +351,6 @@ definitions:
         type: string
       name:
         type: string
-      params:
-        additionalProperties: true
-        type: object
-      url:
-        type: string
     type: object
   domain.NodeGroup:
     properties:
@@ -458,6 +453,10 @@ definitions:
       idleTimeout:
         type: integer
       initialDeploymentVersion:
+        type: string
+      luaFilter:
+        $ref: '#/definitions/domain.LuaFilter'
+      luaFilterId:
         type: string
       path:
         type: string
@@ -971,13 +970,6 @@ definitions:
         type: string
       name:
         type: string
-      params:
-        items:
-          additionalProperties: true
-          type: object
-        type: array
-      url:
-        type: string
     type: object
   dto.Microservice:
     properties:
@@ -1269,6 +1261,8 @@ definitions:
         type: string
       idleTimeout:
         type: integer
+      luaFilter:
+        type: string
       match:
         $ref: '#/definitions/dto.RouteMatch'
       prefixRewrite:

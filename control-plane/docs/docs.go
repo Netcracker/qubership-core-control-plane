@@ -4090,13 +4090,6 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
-                },
-                "params": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "url": {
-                    "type": "string"
                 }
             }
         },
@@ -4250,6 +4243,12 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "initialDeploymentVersion": {
+                    "type": "string"
+                },
+                "luaFilter": {
+                    "$ref": "#/definitions/domain.LuaFilter"
+                },
+                "luaFilterId": {
                     "type": "string"
                 },
                 "path": {
@@ -5033,16 +5032,6 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
-                },
-                "params": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": true
-                    }
-                },
-                "url": {
-                    "type": "string"
                 }
             }
         },
@@ -5490,6 +5479,9 @@ const docTemplate = `{
                 },
                 "idleTimeout": {
                     "type": "integer"
+                },
+                "luaFilter": {
+                    "type": "string"
                 },
                 "match": {
                     "$ref": "#/definitions/dto.RouteMatch"
