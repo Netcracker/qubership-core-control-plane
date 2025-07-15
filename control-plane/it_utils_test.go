@@ -435,7 +435,7 @@ func (gateway GatewayContainer) performAndWaitForLuaFiltersAppear(assert *asrt.A
 			return
 		}
 	}
-	assert.Fail("RouteConfig was not updated in envoy before timeout exceeded")
+	assert.Fail("Lua Filter Config was not updated in envoy before timeout exceeded")
 }
 
 func (gateway GatewayContainer) performAndWaitForLuaFiltersDisappear(assert *asrt.Assertions, timeout time.Duration, operation func()) {
@@ -448,7 +448,7 @@ func (gateway GatewayContainer) performAndWaitForLuaFiltersDisappear(assert *asr
 			return
 		}
 	}
-	assert.Fail("RouteConfig was not updated in envoy before timeout exceeded")
+	assert.Fail("Lua Filter Config was not updated in envoy before timeout exceeded")
 }
 
 func ExtractHttpFiltersFromJson(json string) string {
@@ -461,6 +461,7 @@ func ExtractWasmFilterConfigFromJson(json string) string {
 }
 
 func ExtractLuaFilterConfigFromJson(json string) string {
+	log.Info("Http filters form internal-gateway config dump: \n %v", ExtractHttpFiltersFromJson(json))
 	return gjson.Get(ExtractHttpFiltersFromJson(json), "#[name=\"envoy.filters.http.lua\"].typed_config.config").Raw
 }
 

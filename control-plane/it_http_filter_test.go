@@ -49,8 +49,8 @@ spec:
 		},
 	)
 
-	envoyConfigDump := internalGateway.GetEnvoyConfigJson(assert)
-    log.Info("Internal-gateway config dump: \n %v", envoyConfigDump)
+	//envoyConfigDump := internalGateway.GetEnvoyConfigJson(assert)
+   // log.Info("Internal-gateway config dump: \n %v", envoyConfigDump)
 
 	headers := make(http.Header)
 	headers.Set("Test-header", "Test header must be traced in response")
