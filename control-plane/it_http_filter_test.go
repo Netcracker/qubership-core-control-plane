@@ -27,16 +27,16 @@ spec:
   luaFilters:
     - name: test-lua-filter
       luaScript: |
-        function envoy_on_request(request_handle)\n
-            request_handle:headers():add("Test-Header-Before", "Begining of script")\n
-            local path = request_handle:headers():get(":path")\n
-            request_handle:logInfo("Request path: " .. path)\n
-            local match = string.match(path, "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})")\n
-            request_handle:headers():add("Test-Header-After-Match", "Middle part of script")\n
-            if match then\n
-                request_handle:headers():add("X-Uuid", match)\n
-            end\n
-            request_handle:headers():add("Test-Header-End", "End of script")\n
+        function envoy_on_request(request_handle)
+            request_handle:headers():add("Test-Header-Before", "Begining of script")
+            local path = request_handle:headers():get(":path")
+            request_handle:logInfo("Request path: " .. path)
+            local match = string.match(path, "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})")
+            request_handle:headers():add("Test-Header-After-Match", "Middle part of script")
+            if match then
+                request_handle:headers():add("X-Uuid", match)
+            end
+            request_handle:headers():add("Test-Header-End", "End of script")
         end
 `
 	
