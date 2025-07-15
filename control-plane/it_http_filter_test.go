@@ -33,9 +33,6 @@ spec:
 			if match then\n
 				request_handle:headers():add(\"x-uuid\", match)\n
 			end\n
-			request_handle:logInfo(\"URL is: \"..request_handle:headers():get(\":x-original-url\"))
-            request_handle:logInfo(\"Path is: \"..request_handle:headers():get(\":path\"))
-			request_handle:logInfo(\"x-uuid is: \"..request_handle:headers():get(\":x-uuid\"))
 		end"
 `
 	
