@@ -28,15 +28,15 @@ spec:
     - name: test-lua-filter
       luaScript: |
         function envoy_on_request(request_handle)
-            request_handle:headers():add("Test-Header-Before", "Begining of script")
             local path = request_handle:headers():get(":path")
-            request_handle:logInfo("Request path: " .. path)
-            local match = string.match(path, "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})")
-            request_handle:headers():add("Test-Header-After-Match", "Middle part of script")
-            if match then
-                request_handle:headers():add("X-Uuid", match)
+            request_handle:logInfo("Path: " .. path)
+            local uuid = string.match(path, ".*/([a-z0-9-]+)$")
+            if uuid then
+                request_handle:logInfo("UUID: " .. uuid)
+                request_handle:headers():add("x-uuid", uuid)
+            else
+                request_handle:logInfo("no uuid found")
             end
-            request_handle:headers():add("Test-Header-End", "End of script")
         end
 `
 	
@@ -48,18 +48,12 @@ spec:
 		dto.RouteV3{
 			Destination: dto.RouteDestination{Cluster: TestCluster, Endpoint: TestEndpointV1},
 			Rules: []dto.Rule{
-				{Match: dto.RouteMatch{Prefix: "/"}, LuaFilter: "test-lua-filter"},
+				{Match: dto.RouteMatch{Prefix: prefix}, LuaFilter: "test-lua-filter"},
 			},
 		},
 	)
 
-	//envoyConfigDump := internalGateway.GetEnvoyConfigJson(assert)
-   // log.Info("Internal-gateway config dump: \n %v", envoyConfigDump)
-
-	headers := make(http.Header)
-	headers.Set("Test-header", "Test header must be traced in response")
-
- 	resp, statusCode := GetFromTraceServiceWithHeaders(assert, internalGateway.Url+prefix, headers)
+ 	resp, statusCode := GetFromTraceService(assert, internalGateway.Url+prefix)
 	assert.Equal(http.StatusOK, statusCode)
 	if resp == nil {
 		log.InfoC(ctx, "Didn't receive TraceResponse; status code: %d", statusCode)
@@ -79,4 +73,5 @@ spec:
 			Version: "v1",
 		},
 	}) 
+	time.Sleep(120 *time.Second)
 }
