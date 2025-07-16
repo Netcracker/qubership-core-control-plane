@@ -53,6 +53,10 @@ spec:
 		},
 	)
 
+	envoyConfigDump := internalGateway.GetEnvoyConfigJson(assert)
+    log.Info("Internal-gateway config dump: \n %v", envoyConfigDump)
+
+
  	resp, statusCode := GetFromTraceService(assert, internalGateway.Url+prefix)
 	assert.Equal(http.StatusOK, statusCode)
 	if resp == nil {
