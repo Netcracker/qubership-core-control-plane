@@ -13,7 +13,7 @@ func Test_IT_ResponseTest_ResponseContainsUUIDHeader(t *testing.T) {
 	skipTestIfDockerDisabled(t)
 	assert := asrt.New(t)
 
-	const cluster = "test-service"
+	const cluster = "test-service-lua"
 	traceSrvContainer1 := createTraceServiceContainer(cluster, "v1", true)
 	defer traceSrvContainer1.Purge()
 
@@ -46,16 +46,12 @@ spec:
 		60*time.Second,
 		"v1",
 		dto.RouteV3{
-			Destination: dto.RouteDestination{Cluster: TestCluster, Endpoint: TestEndpointV1},
+			Destination: dto.RouteDestination{Cluster: cluster+"-v1", Endpoint: cluster+"-v1:8080"},
 			Rules: []dto.Rule{
 				{Match: dto.RouteMatch{Prefix: prefix}, LuaFilter: "test-lua-filter"},
 			},
 		},
 	)
-
-	envoyConfigDump := internalGateway.GetEnvoyConfigJson(assert)
-    log.Info("Internal-gateway config dump: \n %v", envoyConfigDump)
-
 
  	resp, statusCode := GetFromTraceService(assert, internalGateway.Url+prefix)
 	assert.Equal(http.StatusOK, statusCode)
