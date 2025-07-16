@@ -33,7 +33,7 @@ spec:
             local uuid = string.match(path, ".*/([a-z0-9-]+)$")
             if uuid then
                 request_handle:logInfo("UUID: " .. uuid)
-                request_handle:headers():add("x-uuid", uuid)
+                request_handle:headers():add("X-Uuid", uuid)
             else
                 request_handle:logInfo("no uuid found")
             end
@@ -61,7 +61,7 @@ spec:
 		log.InfoC(ctx, "Trace service response: %v", resp)
 		assert.Equal(prefix, resp.Path)
 		// verify request header x-uuid 
-		assert.Equal("a1b2c3d4-e5f6-7890-1234-567890abcdef", resp.Headers.Get("x-uuid"))
+		assert.Equal("a1b2c3d4-e5f6-7890-1234-567890abcdef", resp.Headers.Get("X-Uuid"))
 	}
 
 	// cleanup routes
@@ -73,5 +73,4 @@ spec:
 			Version: "v1",
 		},
 	}) 
-	time.Sleep(120 *time.Second)
 }
