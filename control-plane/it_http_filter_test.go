@@ -48,7 +48,7 @@ spec:
 		dto.RouteV3{
 			Destination: dto.RouteDestination{Cluster: TestCluster, Endpoint: TestEndpointV1},
 			Rules: []dto.Rule{
-				{Match: dto.RouteMatch{Prefix: prefix}, LuaFilter: "test-lua-filter"},
+				{Match: dto.RouteMatch{Prefix: "/"}, LuaFilter: "test-lua-filter"},
 			},
 		},
 	)
