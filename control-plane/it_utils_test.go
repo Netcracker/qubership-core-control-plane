@@ -352,11 +352,11 @@ func (gateway GatewayContainer) performAndWaitForCondition(assert *asrt.Assertio
 
 func (gateway GatewayContainer) performAndWaitForRouteConfigUpdate(assert *asrt.Assertions, timeout time.Duration, operation func()) {
 	versionBeforeOperation := strconv.FormatInt(time.Now().UnixNano(), 10)
-	log.InfoC(ctx, "Envoy config versionBeforeOperation %d", versionBeforeOperation)
 	routeConfig := gateway.GetEnvoyRouteConfig(assert)
+	log.InfoC(ctx, "Envoy route config %v", routeConfig)
 	if routeConfig != nil && routeConfig.VersionInfo != "" {
 		versionBeforeOperation = routeConfig.VersionInfo
-		log.InfoC(ctx, "Envoy config versionBeforeOperation changed to %d", versionBeforeOperation)
+		log.InfoC(ctx, "Envoy config versionBeforeOperation changed to %s", versionBeforeOperation)
 	}
 
 	operation()
@@ -365,12 +365,12 @@ func (gateway GatewayContainer) performAndWaitForRouteConfigUpdate(assert *asrt.
 	for time.Now().Before(deadline) {
 		time.Sleep(200 * time.Millisecond)
 		routeConfig := gateway.GetEnvoyRouteConfig(assert)
-		log.InfoC(ctx, "Envoy config routeConfig.VersionInfo check,  %d", routeConfig.VersionInfo)
 		if routeConfig != nil && routeConfig.VersionInfo != "" && versionBeforeOperation != routeConfig.VersionInfo {
 			log.DebugC(ctx, "Envoy config after route operation %v", *routeConfig)
 			return
 		}
 	}
+	log.InfoC(ctx, "Envoy route config after time is out %v", routeConfig)
 	assert.Fail("RouteConfig was not updated in envoy before timeout exceeded")
 }
 
