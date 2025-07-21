@@ -31,6 +31,13 @@ spec:
             end
         end
 `	
+dropFilterConfig = `apiVersion: nc.core.mesh/v3
+kind: HttpFiltersDrop
+spec:
+  gateways:
+    - internal-gateway-service
+  luaFilters:
+    - name: test-lua-filter`
 )
 
 func Test_IT_HHTP_Filter_ResponseContainsUUIDHeader(t *testing.T) {
@@ -67,6 +74,8 @@ func Test_IT_HHTP_Filter_ResponseContainsUUIDHeader(t *testing.T) {
 		// verify request header x-uuid 
 		assert.Equal("a1b2c3d4-e5f6-7890-1234-567890abcdef", resp.Headers.Get("X-Uuid"))
 	}
+    // cleanup filters
+	internalGateway.ApplyConfigAndWaitLuaFiltersDisappear(assert, 60*time.Second, dropFilterConfig)
 
 	// cleanup routes
 	internalGateway.DeleteRoutesAndWait(assert, 60*time.Second, dto.RouteDeleteRequestV3{
@@ -124,6 +133,9 @@ spec:
 		assert.Equal("abcd1234-e5f6-7890-1234-567890abcdef", resp.Headers.Get("X-Uuid"))
 	}
 
+	// cleanup filters
+	internalGateway.ApplyConfigAndWaitLuaFiltersDisappear(assert, 60*time.Second, dropFilterConfig)
+	
 	// cleanup routes
 	internalGateway.DeleteRoutesAndWait(assert, 60*time.Second, dto.RouteDeleteRequestV3{
 		Gateways:       []string{"internal-gateway-service"},

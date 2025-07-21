@@ -332,6 +332,7 @@ func (s *Service) DeleteLuaFilter(ctx context.Context, nodeGroupId string, filte
 			}
 			for _, route := range foundRoutes {
 				route.LuaFilterName = ""
+				route.LuaFilter = nil
 				err := dao.SaveRoute(route)
 				if err != nil {
 					return err
