@@ -130,10 +130,6 @@ func TestService_OverriddenTrueAndNotApplyHttpFilterConfig(t *testing.T) {
 		Timeout: 10000,
 		Params:  []map[string]any{{"param1": "val1"}},
 	}
-	luaFilter := dto.LuaFilter{
-		Name:       "test-lua",
-		LuaScript:  "test-func",
-	}
 	extAuthzFilter := dto.ExtAuthz{
 		Name:        "text-extAuthz",
 		Destination: dto.RouteDestination{Cluster: "test-srv", Endpoint: "grpc://test-srv:8080"},
@@ -141,7 +137,6 @@ func TestService_OverriddenTrueAndNotApplyHttpFilterConfig(t *testing.T) {
 	req := &dto.HttpFiltersConfigRequestV3{
 		Gateways:       []string{"test-gw"},
 		WasmFilters:    []dto.WasmFilter{wasmFilter},
-		LuaFilters:     []dto.LuaFilter{luaFilter},
 		ExtAuthzFilter: &extAuthzFilter,
 		Overridden:     true,
 	}
@@ -167,10 +162,6 @@ func TestService_OverriddenTrueAndNotApplyDropHttpFilterConfig(t *testing.T) {
 		Timeout: 10000,
 		Params:  []map[string]any{{"param1": "val1"}},
 	}
-	luaFilter := dto.LuaFilter{
-		Name:       "test-lua",
-		LuaScript:  "test-func",
-	}
 	extAuthzFilter := dto.ExtAuthz{
 		Name:        "text-extAuthz",
 		Destination: dto.RouteDestination{Cluster: "test-srv", Endpoint: "grpc://test-srv:8080"},
@@ -178,7 +169,6 @@ func TestService_OverriddenTrueAndNotApplyDropHttpFilterConfig(t *testing.T) {
 	req := &dto.HttpFiltersDropConfigRequestV3{
 		Gateways:       []string{"test-gw"},
 		WasmFilters:    []map[string]any{{"name": wasmFilter.Name}},
-		LuaFilters:     []map[string]any{{"name": luaFilter.Name}},
 		ExtAuthzFilter: &extAuthzFilter,
 		Overridden:     true,
 	}
@@ -209,10 +199,6 @@ func TestService_ApplyGetDelete(t *testing.T) {
 		Timeout: 10000,
 		Params:  []map[string]any{{"param1": "val1"}},
 	}
-	luaFilter := dto.LuaFilter{
-		Name:       "test-lua",
-		LuaScript:  "test-func",
-	}
 	extAuthzFilter := dto.ExtAuthz{
 		Name:        "text-extAuthz",
 		Destination: dto.RouteDestination{Cluster: "test-srv", Endpoint: "grpc://test-srv:8080"},
@@ -220,7 +206,6 @@ func TestService_ApplyGetDelete(t *testing.T) {
 	req := &dto.HttpFiltersConfigRequestV3{
 		Gateways:       []string{"test-gw"},
 		WasmFilters:    []dto.WasmFilter{wasmFilter},
-		LuaFilters:     []dto.LuaFilter{luaFilter},
 		ExtAuthzFilter: &extAuthzFilter,
 	}
 
@@ -250,7 +235,6 @@ func TestService_ApplyGetDelete(t *testing.T) {
 	err = srv.Delete(context.Background(), &dto.HttpFiltersDropConfigRequestV3{
 		Gateways:       []string{"test-gw"},
 		WasmFilters:    []map[string]any{{"name": wasmFilter.Name}},
-		LuaFilters:     []map[string]any{{"name": luaFilter.Name}},
 		ExtAuthzFilter: &extAuthzFilter,
 	})
 	assert.NotNil(t, err)
@@ -260,7 +244,6 @@ func TestService_ApplyGetDelete(t *testing.T) {
 	err = srv.Delete(context.Background(), &dto.HttpFiltersDropConfigRequestV3{
 		Gateways:       []string{"test-gw"},
 		WasmFilters:    []map[string]any{{"name": wasmFilter.Name}},
-		LuaFilters:     []map[string]any{{"name": luaFilter.Name}},
 		ExtAuthzFilter: &extAuthzFilter,
 	})
 	assert.Nil(t, err)
@@ -268,7 +251,7 @@ func TestService_ApplyGetDelete(t *testing.T) {
 	extAuthzSrv.EXPECT().Get(context.Background(), "test-gw").Return(nil, nil)
 	filters, err = srv.GetGatewayFilters(context.Background(), "test-gw")
 	assert.Nil(t, err)
-	assert.Equal(t, dto.HttpFiltersConfigRequestV3{Gateways: []string{"test-gw"}, WasmFilters: []dto.WasmFilter{}, LuaFilters: []dto.LuaFilter{}}, filters)
+	assert.Equal(t, dto.HttpFiltersConfigRequestV3{Gateways: []string{"test-gw"}, WasmFilters: []dto.WasmFilter{}}, filters)
 }
 
 func TestNewListenerService_ClusterCreated(t *testing.T) {

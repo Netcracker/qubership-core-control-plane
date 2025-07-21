@@ -65,8 +65,8 @@ func TestCompositeUpdateBuilder_processLuaFilterChanges(t *testing.T) {
 		},
 	}
 
-	mockDao.EXPECT().FindRoutesByLuaFilter("test-lua-filter1").Return(routes[0], nil)
-	mockDao.EXPECT().FindRoutesByLuaFilter("test-lua-filter2").Return(routes[1], nil)
+	mockDao.EXPECT().FindRoutesByLuaFilter("test-lua-filter1").Return([]*domain.Route{routes[0]}, nil)
+	mockDao.EXPECT().FindRoutesByLuaFilter("test-lua-filter2").Return([]*domain.Route{routes[1]}, nil)
 
 	compositeUpdateBuilder.processLuaFilterChanges(changes)
 }
@@ -88,25 +88,29 @@ func TestChangeEventParser_processLuaFilterChanges(t *testing.T) {
 
 	changes := []memdb.Change{
 		{
-			After: &domain.Route{
-				Id:            int32(1),
-				VirtualHostId: int32(1),
-			},
-		},
-		{
-			Before: &domain.Route{
-				Id:            int32(2),
-				VirtualHostId: int32(2),
+			After: &domain.LuaFilter{
+				Id:   int32(2),
+				Name: "test-lua-filter",
 			},
 		},
 	}
-	virtualHosts := getAndExpectVirtualHostWithRouteConfigurationId(mockDao, changes[0].After.(*domain.Route).VirtualHostId, changes[1].Before.(*domain.Route).VirtualHostId)
-	routeConfigurations := getAndExpectRouteConfigurationWithNodeGroupId(mockDao, virtualHosts[0].RouteConfigurationId, virtualHosts[1].RouteConfigurationId)
+	routes := []*domain.Route{
+		{
+			Id:                int32(1),
+			VirtualHostId:     1,
+			RouteKey:          "/api/v1/test",
+			DeploymentVersion: "v1",
+			ClusterName:       "clusterName1",
+			LuaFilterName:     "test-lua-filter",
+		},
+	}
 
+	routeConfig := &domain.RouteConfiguration{Id: int32(1), NodeGroupId: "nodeGroup"}
+	mockDao.EXPECT().FindRoutesByLuaFilter("test-lua-filter").Return(routes, nil)
+	mockDao.EXPECT().FindVirtualHostById(int32(1)).Return(&domain.VirtualHost{Id: int32(1), RouteConfigurationId: int32(1)}, nil)
+	mockDao.EXPECT().FindRouteConfigById(int32(1)).Return(routeConfig, nil)
 	granularUpdate := action.GranularEntityUpdate{}
-	mockUpdateAction.EXPECT().RouteConfigUpdate(nodeGroup, "test", routeConfigurations[0]).Return(granularUpdate)
-	mockUpdateAction.EXPECT().RouteConfigUpdate(nodeGroup, "test", routeConfigurations[1]).Return(granularUpdate)
-
+	mockUpdateAction.EXPECT().RouteConfigUpdate(nodeGroup, entityVersions[domain.RouteConfigurationTable], routeConfig).Times(1).Return(granularUpdate)
 
 	changeEventParser.processLuaFilterChanges(actions, entityVersions, nodeGroup, changes)
 }
