@@ -44,14 +44,12 @@ func Test_IT_HHTP_Filter_ResponseContainsUUIDHeader(t *testing.T) {
 	skipTestIfDockerDisabled(t)
 	assert := asrt.New(t)
 
-	
 	traceSrvContainer1 := createTraceServiceContainer(clusterForLua, "v1", true)
 	defer traceSrvContainer1.Purge()
 
 	prefix := "/api/v1/test-header/a1b2c3d4-e5f6-7890-1234-567890abcdef"
 
-
-    applyConfig(assert, filterConfig)
+	applyConfig(assert, filterConfig)
 	internalGateway.RegisterRoutesAndWait(
 		assert,
 		60*time.Second,
@@ -119,7 +117,7 @@ spec:
            prefix: /api/v1/test-header/
          luaFilter: test-lua-filter`
 
-    internalGateway.ApplyConfigAndWait(assert, 60*time.Second, routeConfig)
+	internalGateway.ApplyConfigAndWait(assert, 60*time.Second, routeConfig)
 	internalGateway.ApplyConfigAndWaitLuaFiltersAppear(assert, 60*time.Second, filterConfig)
 
  	resp, statusCode := GetFromTraceService(assert, internalGateway.Url+requestPath)
@@ -135,7 +133,7 @@ spec:
 
 	// cleanup filters
 	internalGateway.ApplyConfigAndWaitLuaFiltersDisappear(assert, 60*time.Second, dropFilterConfig)
-	
+
 	// cleanup routes
 	internalGateway.DeleteRoutesAndWait(assert, 60*time.Second, dto.RouteDeleteRequestV3{
 		Gateways:       []string{"internal-gateway-service"},
@@ -145,6 +143,4 @@ spec:
 			Version: "v1",
 		},
 	}) 
-
-
 }

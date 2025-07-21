@@ -455,7 +455,7 @@ func (w WasmFilter) Cluster() (string, error) {
 type LuaFilter struct {
 	Id            int32                  `bun:",pk" json:"id"`
 	Name          string                 `bun:"name" json:"name"`
-    LuaScript     string                 `bun:"lua_script" json:"luaScript"`
+	LuaScript     string                 `bun:"lua_script" json:"luaScript"`
 }
 
 func (lf LuaFilter) Clone() *LuaFilter {

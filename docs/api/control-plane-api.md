@@ -3682,7 +3682,7 @@ GET /api/v3/control-plane/debug/config-validation
 |:-----------------------------------|:------------------------------------------------------------------------------|:--------------------------------------------------|
 | **gateways**                       | Names of the gateways to which these filters configuration should be applied. | < string > array                                  |
 | **wasmFilters**  <br>*optional*    | WASM filters configurations.                                                  | < [WasmFilter](#WasmFilter) > array |
-| **luaFilters**  <br>*optional*     | Luafilters configurations.                                                  | < [LuaFilter](#LuaFilter) > array |
+| **luaFilters**  <br>*optional*     | Lua filters configurations.                                                  | < [LuaFilter](#LuaFilter) > array |
 | **extAuthzFilter**  <br>*optional* | ExtAuthz filter configuration.                                                | [ClusterInRegistry](#ClusterInRegistry)           |
 
 ## HttpFiltersDropConfigRequestV3
@@ -3691,6 +3691,7 @@ GET /api/v3/control-plane/debug/config-validation
 |:-----------------------------------|:------------------------------------------------------------------------------|:------------------------------------|
 | **gateways**                       | Names of the gateways to which these filters configuration should be applied. | < string > array                    |
 | **wasmFilters**  <br>*optional*    | Names of the WASM filters to drop.                                            | < [FilterDrop](#FilterDrop) > array |
+| **luaFilters**  <br>*optional*     | Names of the Lua filters to drop.                                            | < [FilterDrop](#FilterDrop) > array |
 | **extAuthzFilter**  <br>*optional* | ExtAuthz filter to drop.                                                      | [FilterDrop](#FilterDrop)           |
 
 
