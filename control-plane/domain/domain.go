@@ -41,7 +41,6 @@ type Listener struct {
 	WasmFilters            []WasmFilter    `bun:"m2m:listeners_wasm_filters,join:WasmFilter=Listener,notnull" json:"wasmFilters"`
 	WithTls                bool            `bun:"withtls" json:"withTls"`
 	ExtAuthzFilter         *ExtAuthzFilter `bun:"-" json:"extAuthzFilter"`
-	LuaFilters             []LuaFilter     `bun:"m2m:listeners_lua_filters,join:LuaFilter=Listener,notnull" json:"luaFilters"`
 }
 
 func (l Listener) EqualsTo(listener Listener) bool {
@@ -265,8 +264,8 @@ type Route struct {
 	StatefulSessionId        int32              `bun:"statefulsessionid,nullzero,notnull" json:"statefulSessionId"`
 	StatefulSession          *StatefulSession   `bun:"rel:belongs-to,join:statefulsessionid=id" json:"statefulSession"`
 	Deny                     bool               `bun:"deny" json:"deny"`
-	LuaFilterId              string             `bun:"lua_filter_id,nullzero,notnull" json:"luaFilterId"`
-	LuaFilter                *LuaFilter         `bun:"rel:belongs-to,join:lua_filter_id=name" json:"luaFilter"`
+	LuaFilterName            string             `bun:"lua_filter_name,nullzero,notnull" json:"luaFilterName"`
+	LuaFilter                *LuaFilter         `bun:"rel:belongs-to,join:lua_filter_name=name" json:"luaFilter"`
 }
 
 // RouteAction is used for route transformation business logic. RouteAction structures are not persisted.
@@ -457,19 +456,11 @@ type LuaFilter struct {
 	Id            int32                  `bun:",pk" json:"id"`
 	Name          string                 `bun:"name" json:"name"`
     LuaScript     string                 `bun:"lua_script" json:"luaScript"`
-	Listeners     []Listener             `bun:"m2m:listeners_lua_filters,join:LuaFilter=Listener" json:"listeners"`
 }
 
 func (lf LuaFilter) Clone() *LuaFilter {
 	lfCopy := lf
 	return &lfCopy
-}
-
-type ListenersLuaFilter struct {
-	ListenerId   int32       `bun:"listener_id,pk"`
-	Listener     *Listener   `bun:"rel:belongs-to,join:listener_id=id"`
-	LuaFilterId  int32       `bun:"lua_filter_id,pk"`
-	LuaFilter    *LuaFilter  `bun:"rel:belongs-to,join:lua_filter_id=id"`
 }
 
 type HttpHealthCheck struct {
@@ -647,6 +638,9 @@ func (r Route) Clone() *Route {
 	}
 	if r.RateLimit != nil {
 		routeCopy.RateLimit = r.RateLimit.Clone()
+	}
+	if r.LuaFilter != nil {
+		routeCopy.LuaFilter = r.LuaFilter.Clone()
 	}
 	return &routeCopy
 }

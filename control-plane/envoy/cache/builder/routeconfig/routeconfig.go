@@ -106,8 +106,8 @@ func (builder *RouteBuilderImpl) loadRouteRelations(routes []*domain.Route) ([]*
 			}
 			route.RateLimit = rateLimit
 		}
-		if route.LuaFilterId != "" {
-			luaFilter, err := builder.dao.FindLuaFilterByName(route.LuaFilterId)
+		if route.LuaFilterName != "" {
+			luaFilter, err := builder.dao.FindLuaFilterByName(route.LuaFilterName)
 			if err != nil {
 				logger.Errorf("Failed to load route %v lua filter using DAO:\n %v", route.Id, err)
 				return nil, err

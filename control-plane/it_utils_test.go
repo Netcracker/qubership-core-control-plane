@@ -270,13 +270,13 @@ func (gateway GatewayContainer) ApplyConfigAndWaitWasmFiltersDisappear(assert *a
 }
 
 func (gateway GatewayContainer) ApplyConfigAndWaitLuaFiltersAppear(assert *asrt.Assertions, timeout time.Duration, config string) {
-	gateway.performAndWaitForLuaFiltersAppear(assert, timeout, func() {
+	gateway.performAndWaitForRouteConfigUpdate(assert, timeout, func() {
 		applyConfig(assert, config)
 	})
 }
 
 func (gateway GatewayContainer) ApplyConfigAndWaitLuaFiltersDisappear(assert *asrt.Assertions, timeout time.Duration, config string) {
-	gateway.performAndWaitForLuaFiltersDisappear(assert, timeout, func() {
+	gateway.performAndWaitForRouteConfigUpdate(assert, timeout, func() {
 		applyConfig(assert, config)
 	})
 }

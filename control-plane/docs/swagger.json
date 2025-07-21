@@ -4033,12 +4033,6 @@
                 "id": {
                     "type": "integer"
                 },
-                "luaFilters": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.LuaFilter"
-                    }
-                },
                 "name": {
                     "type": "string"
                 },
@@ -4067,12 +4061,6 @@
             "properties": {
                 "id": {
                     "type": "integer"
-                },
-                "listeners": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.Listener"
-                    }
                 },
                 "luaScript": {
                     "type": "string"
@@ -4237,7 +4225,7 @@
                 "luaFilter": {
                     "$ref": "#/definitions/domain.LuaFilter"
                 },
-                "luaFilterId": {
+                "luaFilterName": {
                     "type": "string"
                 },
                 "path": {

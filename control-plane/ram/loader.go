@@ -120,10 +120,6 @@ var (
 			luaFilters, err := db.FindLuaFilters()
 			return util.ToSlice(luaFilters), err
 		},
-		domain.ListenersLuaFilterTable: func(db constancy.Storage) ([]interface{}, error) {
-			listenerLuaFilters, err := db.FindAllListenerLuaFilters()
-			return util.ToSlice(listenerLuaFilters), err
-		},
 	}
 )
 

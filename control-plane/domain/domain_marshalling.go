@@ -14,7 +14,6 @@ func (ng *NodeGroup) MarshalPrepare() error {
 func (l *Listener) MarshalPrepare() error {
 	l.NodeGroup = nil
 	l.WasmFilters = nil
-	l.LuaFilters =nil
 	l.ExtAuthzFilter = nil
 	return nil
 }
@@ -159,12 +158,5 @@ func (_ *TcpKeepalive) MarshalPrepare() error {
 }
 
 func (w *LuaFilter) MarshalPrepare() error {
-	w.Listeners = nil
-	return nil
-}
-
-func (llf *ListenersLuaFilter) MarshalPrepare() error {
-	llf.Listener = nil
-	llf.LuaFilter = nil
 	return nil
 }

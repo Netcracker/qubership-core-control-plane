@@ -4044,12 +4044,6 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
-                "luaFilters": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.LuaFilter"
-                    }
-                },
                 "name": {
                     "type": "string"
                 },
@@ -4078,12 +4072,6 @@ const docTemplate = `{
             "properties": {
                 "id": {
                     "type": "integer"
-                },
-                "listeners": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.Listener"
-                    }
                 },
                 "luaScript": {
                     "type": "string"
@@ -4248,7 +4236,7 @@ const docTemplate = `{
                 "luaFilter": {
                     "$ref": "#/definitions/domain.LuaFilter"
                 },
-                "luaFilterId": {
+                "luaFilterName": {
                     "type": "string"
                 },
                 "path": {

@@ -320,10 +320,6 @@ definitions:
         $ref: '#/definitions/domain.ExtAuthzFilter'
       id:
         type: integer
-      luaFilters:
-        items:
-          $ref: '#/definitions/domain.LuaFilter'
-        type: array
       name:
         type: string
       nodeGroup:
@@ -343,10 +339,6 @@ definitions:
     properties:
       id:
         type: integer
-      listeners:
-        items:
-          $ref: '#/definitions/domain.Listener'
-        type: array
       luaScript:
         type: string
       name:
@@ -456,7 +448,7 @@ definitions:
         type: string
       luaFilter:
         $ref: '#/definitions/domain.LuaFilter'
-      luaFilterId:
+      luaFilterName:
         type: string
       path:
         type: string

@@ -12,25 +12,6 @@ func (d *InMemRepo) FindLuaFilterByName(filterName string) (*domain.LuaFilter, e
 	return FindFirstByIndex[domain.LuaFilter](d, domain.LuaFilterTable, "name", filterName)
 }
 
-func (d *InMemRepo) FindLuaFilterByListenerId(listenerId int32) ([]*domain.LuaFilter, error) {
-	txCtx := d.getTxCtx(false)
-	defer txCtx.closeIfLocal()
-	if found, err := d.storage.FindByIndex(txCtx.tx, domain.ListenersLuaFilterTable, "listenerId", listenerId); err == nil {
-		listenerToLuaFilters := found.([]*domain.ListenersLuaFilter)
-		luaFilters := make([]*domain.LuaFilter, len(listenerToLuaFilters))
-		for i, listenerToLuaFilter := range listenerToLuaFilters {
-			if wf, err := d.storage.FindById(txCtx.tx, domain.LuaFilterTable, listenerToLuaFilter.LuaFilterId); err == nil {
-				luaFilters[i] = wf.(*domain.LuaFilter)
-			} else {
-				return nil, err
-			}
-		}
-		return luaFilters, nil
-	} else {
-		return nil, err
-	}
-}
-
 func (d *InMemRepo) SaveLuaFilter(luaFilter *domain.LuaFilter) error {
 	return d.SaveUnique(domain.LuaFilterTable, luaFilter)
 }

@@ -42,7 +42,6 @@ func init() {
 	gob.Register(domain.TcpKeepalive{})
 	gob.Register(domain.MicroserviceVersion{})
 	gob.Register(domain.LuaFilter{})
-	gob.Register(domain.ListenersLuaFilter{})
 }
 
 //

@@ -31,7 +31,6 @@ type Snapshot struct {
 	WasmFilters            []domain.WasmFilter           `json:"wasmFilters"`
 	ListenerWasmFilters    []domain.ListenersWasmFilter  `json:"listenerWasmFilters"`
 	LuaFilters             []domain.LuaFilter            `json:"luaFilters"`
-	ListenerLuaFilters     []domain.ListenersLuaFilter   `json:"listenerLuaFilters"`
 	CompositeSatellites    []domain.CompositeSatellite   `json:"compositeSatellites"`
 	StatefulSessionConfigs []domain.StatefulSession      `json:"statefulSessionConfigs"`
 	RateLimits             []domain.RateLimit            `json:"rateLimits"`

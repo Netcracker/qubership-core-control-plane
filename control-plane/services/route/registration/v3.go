@@ -328,7 +328,7 @@ func (p V3RequestProcessor) processGateway(gw, namespace, activeVersion string, 
 						route.StatefulSession = rule.StatefulSession.ToRouteStatefulSession(gw)
 					}
 					route.RateLimitId = rule.RateLimit
-					route.LuaFilterId = rule.LuaFilter
+					route.LuaFilterName = rule.LuaFilter
 				} else {
 					routeEntry.ConfigureProhibitedRoute(route, isDenied)
 				}

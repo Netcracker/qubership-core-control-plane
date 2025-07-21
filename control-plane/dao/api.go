@@ -72,11 +72,6 @@ type ListenerRepository interface {
 	DeleteListenerWasmFilter(relation *domain.ListenersWasmFilter) error
 	FindAllListenerWasmFilter() ([]*domain.ListenersWasmFilter, error)
 	FindListenerIdsByWasmFilterId(wasmFilterId int32) ([]int32, error)
-	HasLuaFilterWithId(listenerId, luaFilterId int32) (bool, error)
-	SaveListenerLuaFilter(relation *domain.ListenersLuaFilter) error
-	DeleteListenerLuaFilter(relation *domain.ListenersLuaFilter) error
-	FindAllListenerLuaFilter() ([]*domain.ListenersLuaFilter, error)
-	FindListenerIdsByLuaFilterId(luaFilterId int32) ([]int32, error)
 }
 
 type TlsConfigRepository interface {
@@ -102,7 +97,6 @@ type LuaFilterRepository interface {
 	FindAllLuaFilters() ([]*domain.LuaFilter, error)
 	SaveLuaFilter(filter *domain.LuaFilter) error
 	FindLuaFilterByName(filterName string) (*domain.LuaFilter, error)
-	FindLuaFilterByListenerId(listenerId int32) ([]*domain.LuaFilter, error)
 	DeleteLuaFilterByName(filterName string) (int32, error)
 	DeleteLuaFilterById(id int32) error
 }
@@ -186,6 +180,7 @@ type RouteRepository interface {
 	DeleteHeaderMatcher(headerMatcher *domain.HeaderMatcher) error
 	FindAllRoutes() ([]*domain.Route, error)
 	FindRoutesByRateLimit(rateLimitId string) ([]*domain.Route, error)
+	FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error)
 }
 
 type DeploymentVersionRepository interface {

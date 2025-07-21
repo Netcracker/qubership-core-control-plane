@@ -19,10 +19,6 @@ func TestListenerMarshal_Success(t *testing.T) {
 	wf := WasmFilter{}
 	wf.Listeners = []Listener{listener}
 	listener.WasmFilters = []WasmFilter{wf}
-
-	lf := LuaFilter{}
-	lf.Listeners = []Listener{listener}
-	listener.LuaFilters = []LuaFilter{lf}
 	AssertMarshalSuccessful(t, &listener)
 }
 
@@ -201,17 +197,5 @@ func AssertMarshalSuccessful(t *testing.T, preparer MarshalPreparer) {
 
 func TestLuaFilterMarshal_Success(t *testing.T) {
 	lf := LuaFilter{}
-	l := Listener{}
-	l.LuaFilters = []LuaFilter{lf}
-	lf.Listeners = []Listener{l}
 	AssertMarshalSuccessful(t, &lf)
-}
-
-func TestListenersLuaFilter(t *testing.T) {
-	llf := ListenersLuaFilter{}
-	llf.Listener = &Listener{}
-	llf.LuaFilter = &LuaFilter{}
-	assert.Nil(t, llf.MarshalPrepare())
-	assert.Nil(t, llf.Listener)
-	assert.Nil(t, llf.LuaFilter)
 }

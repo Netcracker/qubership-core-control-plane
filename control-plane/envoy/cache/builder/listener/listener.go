@@ -106,14 +106,11 @@ func (b BaseListenerBuilder) buildHttpConnectionManager(originalListener *domain
 			}
 		}
 	}
-	if len(originalListener.LuaFilters) != 0 {
-		for _, wf := range originalListener.LuaFilters {
-			err = addLuaFilter(connManager, &wf)
-			if err != nil {
-				return nil, err
-			}
-		}
+
+	if err := addDisabledLuaFilter(connManager); err != nil {
+		return nil, err
 	}
+
 	if err := addStatefulSessionFilter(connManager); err != nil {
 		return nil, err
 	}
@@ -473,5 +470,22 @@ func addExtAuthzFilter(connManager *hcm.HttpConnectionManager, filterSpec *domai
 		Name:       wellknown.HTTPExternalAuthorization,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: marshalledExtAuthz},
 	})
+	return nil
+}
+
+func addDisabledLuaFilter(httpConnManager *hcm.HttpConnectionManager) error {
+	defaultLuaFilter := &luaFiltersV3.Lua{
+		StatPrefix: httpConnManager.StatPrefix + "lua",
+	}
+	marshalledFilter, err := ptypes.MarshalAny(defaultLuaFilter)
+	if err != nil {
+		logger.Errorf("routeconfig: failed to marshal DefaultLuaFilter config to protobuf Any")
+		return err
+	}
+	filter := hcm.HttpFilter{
+		Name:       "envoy.filters.http.lua",
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: marshalledFilter},
+	}
+	httpConnManager.HttpFilters = append(httpConnManager.HttpFilters, &filter)
 	return nil
 }

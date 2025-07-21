@@ -102,7 +102,6 @@ type Storage interface {
 	FindAllNamespaces() ([]*domain.Namespace, error)
 	SaveNamespace(namespace *domain.Namespace) error
 	UpdateNamespaceByOldNamespace(namespace *domain.Namespace, oldNamespace string) error
-	FindAllListenerLuaFilters() ([]*domain.ListenersLuaFilter, error)
 	FindLuaFilters() ([]*domain.LuaFilter, error)
 	FindLuaFilterById(id int32) (*domain.LuaFilter, error)
 }
@@ -905,17 +904,6 @@ func replaceNamespaceInDomain(domain string, namespace string) (newDomain string
 	domainFromDbArrayWithoutPort[1] = namespace
 	domainFromDbArray[0] = strings.Join(domainFromDbArrayWithoutPort, ".")
 	return strings.Join(domainFromDbArray, ":"), true
-}
-
-func (s *StorageImpl) FindAllListenerLuaFilters() ([]*domain.ListenersLuaFilter, error) {
-	var result []*domain.ListenersLuaFilter
-	if err := s.WithTx(func(conn *bun.Conn) error {
-		return conn.NewSelect().Model(&result).Scan(ctx)
-	}); err != nil {
-		log.ErrorC(ctx, "Select all ListenerLuaFilter caused error: %v", err)
-		return nil, err
-	}
-	return result, nil
 }
 
 func (s *StorageImpl) FindLuaFilters() ([]*domain.LuaFilter, error) {

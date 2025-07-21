@@ -20,7 +20,7 @@ import (
 var logger logging.Logger
 
 func init() {
-	logger = logging.GetLogger("listener-service")
+	logger = logging.GetLogger("http-filter")
 }
 
 type Service struct {
@@ -60,18 +60,6 @@ func (s *Service) GetGatewayFilters(ctx context.Context, nodeGroup string) (dto.
 		}
 	}
 
-	luaFilterDtos := make([]dto.LuaFilter, 0)
-	for _, listener := range listeners {
-		luaFilters, err := s.dao.FindLuaFilterByListenerId(listener.Id)
-		if err != nil {
-			logger.ErrorC(ctx, "Failed to load %s lua filters while getting http filters:\n %v", nodeGroup, err)
-			return dto.HttpFiltersConfigRequestV3{}, err
-		}
-		for _, lua := range luaFilters {
-			luaFilterDtos = append(luaFilterDtos, dto.ConvertLuaDomainToFilter(lua))
-		}
-	}
-
 	extAuthzFilter, err := s.extAuthzService.Get(ctx, nodeGroup)
 	if err != nil {
 		logger.ErrorC(ctx, "Failed to load %s extAuthz filter while getting http filters:\n %v", nodeGroup, err)
@@ -82,7 +70,6 @@ func (s *Service) GetGatewayFilters(ctx context.Context, nodeGroup string) (dto.
 		Gateways:       []string{nodeGroup},
 		WasmFilters:    wasmFilterDtos,
 		ExtAuthzFilter: extAuthzFilter,
-		LuaFilters:     luaFilterDtos,
 	}, nil
 }
 
@@ -290,48 +277,32 @@ func (s *Service) DeleteWasmFilter(ctx context.Context, nodeGroupId string, filt
 }
 
 func (s *Service) AddLuaFilter(ctx context.Context, nodeGroupId string, filters []dto.LuaFilter) error {
-	filtersToAdd := make([]domain.LuaFilter, len(filters))
 	changes, err := s.dao.WithWTx(func(dao dao.Repository) error {
-		for i, f := range filters {
+		for _, f := range filters {
 			luaFilter := dto.ConvertLuaFilterToDomain(&f)
-			filtersToAdd[i] = *luaFilter
-		}
 
-		listeners, err := dao.FindListenersByNodeGroupId(nodeGroupId)
-		if err != nil || len(listeners) == 0 {
-			errMsg := fmt.Sprintf("can not find listener with nodeGroupId=%s", nodeGroupId)
-			logger.ErrorC(ctx, errMsg)
-			if err == nil {
-				err = errors.New(errMsg)
+			err := s.entityService.PutLuaFilter(dao, luaFilter)
+			if err != nil {
+				logger.ErrorC(ctx, "can not save lua filter with nodeGroupId=%s, %v", nodeGroupId, err)
+				return err
 			}
-			return err
-		}
 
-		for _, listener := range listeners {
-			for _, filterToAdd := range filtersToAdd {
-				err := s.entityService.PutLuaFilter(dao, &filterToAdd)
+			routes, err := dao.FindRoutesByLuaFilter(luaFilter.Name)
+			if err == nil && len(routes) != 0 {
+				err := s.updateLuaRelatedVersions(ctx, dao, routes)
 				if err != nil {
-					logger.ErrorC(ctx, "can not save lua filter with nodeGroupId=%s, %v", nodeGroupId, err)
 					return err
 				}
-				err = s.entityService.PutListenerLuaFilterIfAbsent(dao, &domain.ListenersLuaFilter{
-					ListenerId:   listener.Id,
-					LuaFilterId:  filterToAdd.Id,
-				})
-				if err != nil {
-					logger.ErrorC(ctx, "can not save listener to lua filter relation with nodeGroupId=%s, %v", nodeGroupId, err)
-					return err
-				}
+			} else if err != nil {
+				logger.ErrorC(ctx, "can not get routes for lua filter, %v", err)
+			} else {
+				logger.ErrorC(ctx, "routes len v2: %d", len(routes))
 			}
-		}
-		err = updateRelatedVersions(ctx, nodeGroupId, dao)
-		if err != nil {
-			return err
 		}
 		return nil
 	})
 	if err != nil {
-		logger.Errorf("can not add Lua filter for listener with nodeGroupId=%s, %v", nodeGroupId, err)
+		logger.Errorf("can not add Lua filter with nodeGroupId=%s, %v", nodeGroupId, err)
 		return err
 	}
 
@@ -345,6 +316,7 @@ func (s *Service) AddLuaFilter(ctx context.Context, nodeGroupId string, filters 
 }
 
 func (s *Service) DeleteLuaFilter(ctx context.Context, nodeGroupId string, filters []string) error {
+	var routesFound []*domain.Route
 	changes, err := s.dao.WithWTx(func(dao dao.Repository) error {
 		for _, f := range filters {
 			foundFilter, err := dao.FindLuaFilterByName(f)
@@ -354,35 +326,31 @@ func (s *Service) DeleteLuaFilter(ctx context.Context, nodeGroupId string, filte
 			if foundFilter == nil {
 				return nil
 			}
-			foundListeners, err := dao.FindListenersByNodeGroupId(nodeGroupId)
+			foundRoutes, err := dao.FindRoutesByLuaFilter(foundFilter.Name)
 			if err != nil {
 				return err
 			}
-			for _, fl := range foundListeners {
-				err := dao.DeleteListenerLuaFilter(&domain.ListenersLuaFilter{
-					ListenerId:   fl.Id,
-					LuaFilterId: foundFilter.Id,
-				})
+			for _, route := range foundRoutes {
+				route.LuaFilterName = ""
+				err := dao.SaveRoute(route)
 				if err != nil {
 					return err
 				}
+				routesFound = append(routesFound, route)
 			}
-			luaFilterRelations, err := dao.FindAllListenerLuaFilter()
-			if err != nil {
-				return err
-			}
-			if len(luaFilterRelations) == 0 { // no relations. can be deleted
-				_, err := dao.DeleteLuaFilterByName(f)
-				if err != nil {
-					return err
-				}
+
+			_, errDel := dao.DeleteLuaFilterByName(f)
+			if errDel != nil {
+				return errDel
 			}
 		}
 
-		err := updateRelatedVersions(ctx, nodeGroupId, dao)
-		if err != nil {
-			return err
-		}
+		if len(routesFound) != 0 {
+			err := s.updateLuaRelatedVersions(ctx, dao, routesFound)
+			if err != nil {
+				return err
+			}
+	    }
 		return nil
 	})
 	if err != nil || len(changes) == 0 {
@@ -412,4 +380,28 @@ func (s *Service) GetHttpFiltersResourceAdd() cfgres.Resource {
 
 func (s *Service) GetHttpFiltersResourceDrop() cfgres.Resource {
 	return &httpFiltersDropResourceDrop{service: s}
+}
+
+func (s *Service) updateLuaRelatedVersions(ctx context.Context, repo dao.Repository, routes []*domain.Route) error {
+	logger.DebugC(ctx, "Updating node groups with routes have lua filter in configuration")
+
+	vHostsToUpdate := make(map[int32]bool)
+
+	for _, route := range routes {
+		vHostsToUpdate[route.VirtualHostId] = true
+	}
+
+	for vHostId := range vHostsToUpdate {
+		routeConfig, err := s.entityService.FindRouteConfigurationByVirtualHostId(repo, vHostId)
+		if err != nil {
+			logger.ErrorC(ctx, "Failed to load route config connected to lua filter config using DAO:\n %v", err)
+			return err
+		}
+		if err := repo.SaveEnvoyConfigVersion(domain.NewEnvoyConfigVersion(routeConfig.NodeGroupId, domain.RouteConfigurationTable)); err != nil {
+			logger.ErrorC(ctx, "Failed to update route config connected to lua filter config using DAO:\n %v", err)
+			return err
+		}
+	}
+
+	return nil
 }

@@ -346,14 +346,6 @@ func (s *Storage) Backup() (*data.Snapshot, error) {
 				_ = luaFilters[i].MarshalPrepare()
 			}
 			snapshot.LuaFilters = luaFilters
-		case domain.ListenersLuaFilterTable:
-			listenerLuaFilterPtrs := entities.([]*domain.ListenersLuaFilter)
-			listenerLuaFilters := make([]domain.ListenersLuaFilter, len(listenerLuaFilterPtrs))
-			for i, listenerLuaFilter := range listenerLuaFilterPtrs {
-				listenerLuaFilters[i] = *listenerLuaFilter
-				_ = listenerLuaFilters[i].MarshalPrepare()
-			}
-			snapshot.ListenerLuaFilters = listenerLuaFilters
 		case domain.CompositeSatelliteTable:
 			satellitePtrs := entities.([]*domain.CompositeSatellite)
 			satellites := make([]domain.CompositeSatellite, len(satellitePtrs))
@@ -588,14 +580,6 @@ func (s *Storage) Restore(snapshot data.Snapshot) error {
 			}
 		case domain.LuaFilterTable:
 			for _, entity := range snapshot.LuaFilters {
-				e := entity
-				err := tx.Insert(tableName, &e)
-				if err != nil {
-					return err
-				}
-			}
-		case domain.ListenersLuaFilterTable:
-			for _, entity := range snapshot.ListenerLuaFilters {
 				e := entity
 				err := tx.Insert(tableName, &e)
 				if err != nil {

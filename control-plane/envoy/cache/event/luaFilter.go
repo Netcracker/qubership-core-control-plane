@@ -2,23 +2,41 @@ package event
 
 import (
 	"github.com/hashicorp/go-memdb"
+	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/action"
 )
 
-func (parser *changeEventParserImpl) processLuaFilterChanges(actions action.ActionsMap, entityVersions map[string]string, nodeGroup string) {
-	listeners, err := parser.dao.FindListenersByNodeGroupId(nodeGroup)
-	if err != nil {
-		logger.Panicf("failed to find listeners using DAO: %v", err)
-	}
-
-	for _, listener := range listeners {
-		granularUpdate := parser.updateActionFactory.ListenerUpdate(nodeGroup, entityVersions[domain.ListenerTable], listener)
-		actions.Put(action.EnvoyListener, &granularUpdate)
+func (parser *changeEventParserImpl) processLuaFilterChanges(actions action.ActionsMap, entityVersions map[string]string, nodeGroup string, changes []memdb.Change) {
+	logger.Debug("Processing lua filter multiple change event")
+	for _, change := range changes {
+		if change.Deleted() {
+			luaFilter := change.Before.(*domain.LuaFilter)
+			parser.updateLuaFilter(actions, entityVersions, nodeGroup, luaFilter)
+		} else {
+			luaFilter := change.After.(*domain.LuaFilter)
+			parser.updateLuaFilter(actions, entityVersions, nodeGroup, luaFilter)
+		}
 	}
 }
 
+func (parser *changeEventParserImpl) updateLuaFilter(actions action.ActionsMap, entityVersions map[string]string, nodeGroup string, luaFilter *domain.LuaFilter) {
+	vHostsToUpdate, err := findVirtualHostsToUpdateByLuaFilter(parser.dao, luaFilter)
+	if err != nil {
+		logger.Panicf("Could not find virtual hosts to update by Lua filter change:\n %v", err)
+	}
+	for vHostId := range vHostsToUpdate {
+		vHost, err := parser.dao.FindVirtualHostById(vHostId)
+		if err != nil {
+			logger.Panicf("Could not find virtual host by id to update with Lua filter change:\n %v", err)
+		}
+		parser.updateVirtualHost(actions, entityVersions, nodeGroup, vHost)
+	}
+	
+}
+
 func (builder *compositeUpdateBuilder) processLuaFilterChanges(changes []memdb.Change) {
+	logger.Debug("Processing lua filter multiple change event")
 	for _, change := range changes {
 		var luaFilter *domain.LuaFilter = nil
 		if change.Deleted() {
@@ -26,32 +44,31 @@ func (builder *compositeUpdateBuilder) processLuaFilterChanges(changes []memdb.C
 		} else {
 			luaFilter = change.After.(*domain.LuaFilter)
 		}
-		listenerIds, err := builder.repo.FindListenerIdsByLuaFilterId(luaFilter.Id)
-		if err != nil {
-			logger.Panicf("failed to find listeners using DAO: %v", err)
-		}
-		for _, listenerId := range listenerIds {
-			listener, err := builder.repo.FindListenerById(listenerId)
-			if err != nil {
-				logger.Panicf("failed to find listener by id using DAO: %v", err)
-			}
-			builder.addUpdateAction(listener.NodeGroupId, action.EnvoyListener, listener)
-		}
+		builder.updateLuaFilter(luaFilter)
 	}
 }
 
-func (builder *compositeUpdateBuilder) processListenersLuaFilterChanges(changes []memdb.Change) {
-	for _, change := range changes {
-		var listenersLuaFilter *domain.ListenersLuaFilter = nil
-		if change.Deleted() {
-			listenersLuaFilter = change.Before.(*domain.ListenersLuaFilter)
-		} else {
-			listenersLuaFilter = change.After.(*domain.ListenersLuaFilter)
-		}
-		listener, err := builder.repo.FindListenerById(listenersLuaFilter.ListenerId)
-		if err != nil {
-			logger.Panicf("failed to find listener by id using DAO: %v", err)
-		}
-		builder.addUpdateAction(listener.NodeGroupId, action.EnvoyListener, listener)
+func (builder *compositeUpdateBuilder) updateLuaFilter(luaFilter *domain.LuaFilter) {
+	vHostsToUpdate, err := findVirtualHostsToUpdateByLuaFilter(builder.repo, luaFilter)
+	if err != nil {
+		logger.Panicf("Could not find virtual hosts to update by lua filter change:\n %v", err)
 	}
+	for vHostId := range vHostsToUpdate {
+		builder.updateVirtualHost(vHostId)
+	}
+}
+
+func findVirtualHostsToUpdateByLuaFilter(repo dao.Repository, luaFilter *domain.LuaFilter) (map[int32]bool, error) {
+	virtualHostsToUpdate := make(map[int32]bool)
+
+	routes, err := repo.FindRoutesByLuaFilter(luaFilter.Name)
+	if err != nil {
+		logger.Errorf("Failed to find routes by Lua filter %s using DAO:\n %v", luaFilter.Name, err)
+		return nil, err
+	}
+	for _, route := range routes {
+		virtualHostsToUpdate[route.VirtualHostId] = true
+		
+	}
+	return virtualHostsToUpdate, nil
 }
