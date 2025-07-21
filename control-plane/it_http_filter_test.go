@@ -111,7 +111,7 @@ spec:
          luaFilter: test-lua-filter`
 
     internalGateway.ApplyConfigAndWait(assert, 60*time.Second, routeConfig)
-	internalGateway.ApplyConfigAndWaitLuaFiltersAppear(assert, 120*time.Second, filterConfig)
+	internalGateway.ApplyConfigAndWaitLuaFiltersAppear(assert, 60*time.Second, filterConfig)
 
  	resp, statusCode := GetFromTraceService(assert, internalGateway.Url+requestPath)
 	assert.Equal(http.StatusOK, statusCode)

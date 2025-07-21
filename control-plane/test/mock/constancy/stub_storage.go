@@ -244,21 +244,6 @@ func (mr *MockStorageMockRecorder) FindAllHealthChecks() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAllHealthChecks", reflect.TypeOf((*MockStorage)(nil).FindAllHealthChecks))
 }
 
-// FindAllListenerLuaFilters mocks base method.
-func (m *MockStorage) FindAllListenerLuaFilters() ([]*domain.ListenersLuaFilter, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindAllListenerLuaFilters")
-	ret0, _ := ret[0].([]*domain.ListenersLuaFilter)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindAllListenerLuaFilters indicates an expected call of FindAllListenerLuaFilters.
-func (mr *MockStorageMockRecorder) FindAllListenerLuaFilters() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAllListenerLuaFilters", reflect.TypeOf((*MockStorage)(nil).FindAllListenerLuaFilters))
-}
-
 // FindAllListenerWasmFilters mocks base method.
 func (m *MockStorage) FindAllListenerWasmFilters() ([]*domain.ListenersWasmFilter, error) {
 	m.ctrl.T.Helper()
