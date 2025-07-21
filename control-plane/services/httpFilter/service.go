@@ -383,7 +383,7 @@ func (s *Service) GetHttpFiltersResourceDrop() cfgres.Resource {
 }
 
 func (s *Service) updateLuaRelatedVersions(ctx context.Context, repo dao.Repository, routes []*domain.Route) error {
-	logger.DebugC(ctx, "Updating node groups with routes have lua filter in configuration")
+	logger.InfoC(ctx, "Updating node groups with routes have lua filter in configuration")
 
 	vHostsToUpdate := make(map[int32]bool)
 
