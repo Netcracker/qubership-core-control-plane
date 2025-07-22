@@ -18,6 +18,7 @@ import (
 	tlsV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	etype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	luaFiltersV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -105,6 +106,11 @@ func (b BaseListenerBuilder) buildHttpConnectionManager(originalListener *domain
 			}
 		}
 	}
+
+	if err := addDisabledLuaFilter(connManager); err != nil {
+		return nil, err
+	}
+
 	if err := addStatefulSessionFilter(connManager); err != nil {
 		return nil, err
 	}
@@ -280,6 +286,21 @@ func addWASMFilter(httpConnManager *hcm.HttpConnectionManager, filterToAdd *doma
 	return nil
 }
 
+func addLuaFilter(httpConnManager *hcm.HttpConnectionManager, filterToAdd *domain.LuaFilter) error {
+	luaConfig := &luaFiltersV3.Lua{
+		InlineCode: filterToAdd.LuaScript,
+	}
+	marshalled, err := ptypes.MarshalAny(luaConfig)
+	if err != nil {
+		return err
+	}
+	httpConnManager.HttpFilters = append(httpConnManager.HttpFilters, &hcm.HttpFilter{
+		Name:       wellknown.Lua,
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: marshalled},
+	})
+return nil
+}
+
 func addCorsFilter(httpConnManager *hcm.HttpConnectionManager) error {
 	marshalledConfig, err := ptypes.MarshalAny(&corsV3.Cors{})
 	if err != nil {
@@ -449,5 +470,22 @@ func addExtAuthzFilter(connManager *hcm.HttpConnectionManager, filterSpec *domai
 		Name:       wellknown.HTTPExternalAuthorization,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: marshalledExtAuthz},
 	})
+	return nil
+}
+
+func addDisabledLuaFilter(httpConnManager *hcm.HttpConnectionManager) error {
+	defaultLuaFilter := &luaFiltersV3.Lua{
+		StatPrefix: httpConnManager.StatPrefix + "lua",
+	}
+	marshalledFilter, err := ptypes.MarshalAny(defaultLuaFilter)
+	if err != nil {
+		logger.Errorf("routeconfig: failed to marshal DefaultLuaFilter config to protobuf Any")
+		return err
+	}
+	filter := hcm.HttpFilter{
+		Name:       "envoy.filters.http.lua",
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: marshalledFilter},
+	}
+	httpConnManager.HttpFilters = append(httpConnManager.HttpFilters, &filter)
 	return nil
 }

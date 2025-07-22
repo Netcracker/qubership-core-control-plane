@@ -192,3 +192,7 @@ func (d *InMemRepo) DeleteHeaderMatchersByRouteId(routeId int32) (int, error) {
 	defer txCtx.closeIfLocal()
 	return txCtx.tx.DeleteAll(domain.HeaderMatcherTable, "routeId", routeId)
 }
+
+func (d *InMemRepo) FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error) {
+	return FindByIndex[domain.Route](d, domain.RouteTable, "luaFilterName", luaFilterName)
+}

@@ -150,6 +150,18 @@ func (w *WasmFilter) SetId(id int32) {
 	w.Id = id
 }
 
+func (l *LuaFilter) TableName() string {
+	return LuaFilterTable
+}
+
+func (l *LuaFilter) GetId() int32 {
+	return l.Id
+}
+
+func (l *LuaFilter) SetId(id int32) {
+	l.Id = id
+}
+
 func (s *StatefulSession) TableName() string {
 	return StatefulSessionTable
 }

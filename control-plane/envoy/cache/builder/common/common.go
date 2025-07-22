@@ -1,7 +1,10 @@
 package common
 
 import (
+	"os"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	luav3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
 	stateful_sessionv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
@@ -10,7 +13,6 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"os"
 )
 
 var (
@@ -92,4 +94,19 @@ func BuildStatefulSessionPerRoute(statefulSession *domain.StatefulSession) (*any
 		}
 	}
 	return ptypes.MarshalAny(statefulSessionPerRoute)
+}
+
+
+func BuildLuaFilterPerRoute(luaFilter *domain.LuaFilter) (*any.Any, error) {
+	luaFilterPerRoute := &luav3.LuaPerRoute{
+		Override: &luav3.LuaPerRoute_SourceCode{
+			SourceCode: &core.DataSource{
+				Specifier: &core.DataSource_InlineString{
+					InlineString: luaFilter.LuaScript,
+				},
+			},
+		},
+	}
+
+	return ptypes.MarshalAny(luaFilterPerRoute)
 }

@@ -4067,6 +4067,20 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.LuaFilter": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "luaScript": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.NodeGroup": {
             "type": "object",
             "properties": {
@@ -4217,6 +4231,12 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "initialDeploymentVersion": {
+                    "type": "string"
+                },
+                "luaFilter": {
+                    "$ref": "#/definitions/domain.LuaFilter"
+                },
+                "luaFilterName": {
                     "type": "string"
                 },
                 "path": {
@@ -4918,6 +4938,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "luaFilters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.LuaFilter"
+                    }
+                },
                 "overridden": {
                     "type": "boolean"
                 },
@@ -4939,6 +4965,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "luaFilters": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
                     }
                 },
                 "overridden": {
@@ -4975,6 +5008,17 @@ const docTemplate = `{
                     }
                 },
                 "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.LuaFilter": {
+            "type": "object",
+            "properties": {
+                "luaScript": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -5423,6 +5467,9 @@ const docTemplate = `{
                 },
                 "idleTimeout": {
                     "type": "integer"
+                },
+                "luaFilter": {
+                    "type": "string"
                 },
                 "match": {
                     "$ref": "#/definitions/dto.RouteMatch"

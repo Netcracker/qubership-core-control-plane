@@ -30,6 +30,7 @@ type Snapshot struct {
 	TlsConfigsNodeGroups   []domain.TlsConfigsNodeGroups `json:"tlsConfigsNodeGroups"`
 	WasmFilters            []domain.WasmFilter           `json:"wasmFilters"`
 	ListenerWasmFilters    []domain.ListenersWasmFilter  `json:"listenerWasmFilters"`
+	LuaFilters             []domain.LuaFilter            `json:"luaFilters"`
 	CompositeSatellites    []domain.CompositeSatellite   `json:"compositeSatellites"`
 	StatefulSessionConfigs []domain.StatefulSession      `json:"statefulSessionConfigs"`
 	RateLimits             []domain.RateLimit            `json:"rateLimits"`

@@ -5,10 +5,10 @@
 package mock_action
 
 import (
-	action "github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/action"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	action "github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/action"
 )
 
 // MockUpdateActionFactory is a mock of UpdateActionFactory interface.

@@ -3537,7 +3537,7 @@ GET /api/v3/control-plane/debug/config-validation
 |:----------------------------------|:------------------------------------------------------------|:--------------------------------------------------|
 | **match**                         | **Example** : `"[RouteMatcher](#routematcher)"`             | [RouteMatcher](#routematcher)                     |
 | **allowed**  <br>*optional*       | **Example** : `true`                                        | boolean                                           |
-| **deny**  <br>*optional*          | if true then all routes matched by provided prefix will be forbidden <br>**Example** : `true`                                        | boolean                                           |
+| **deny**  <br>*optional*          | if true then all routes matched by provided prefix will be forbidden <br>**Example** : `true`    | boolean      |
 | **prefixRewrite**  <br>*optional* | **Example** : `"http://test-cluster:8080"`                  | string                                            |
 | **hostRewrite**  <br>*optional*   | **Example** : `"my-custom-host"`                            | string                                            |
 | **addHeaders**  <br>*optional*    | **Example** : `[ "[HeaderDefinition](#headerdefinition)" ]` | < [HeaderDefinition](#headerdefinition) > array   |
@@ -3682,6 +3682,7 @@ GET /api/v3/control-plane/debug/config-validation
 |:-----------------------------------|:------------------------------------------------------------------------------|:--------------------------------------------------|
 | **gateways**                       | Names of the gateways to which these filters configuration should be applied. | < string > array                                  |
 | **wasmFilters**  <br>*optional*    | WASM filters configurations.                                                  | < [WasmFilter](#WasmFilter) > array |
+| **luaFilters**  <br>*optional*     | Lua filters configurations.                                                  | < [LuaFilter](#LuaFilter) > array |
 | **extAuthzFilter**  <br>*optional* | ExtAuthz filter configuration.                                                | [ClusterInRegistry](#ClusterInRegistry)           |
 
 ## HttpFiltersDropConfigRequestV3
@@ -3690,6 +3691,7 @@ GET /api/v3/control-plane/debug/config-validation
 |:-----------------------------------|:------------------------------------------------------------------------------|:------------------------------------|
 | **gateways**                       | Names of the gateways to which these filters configuration should be applied. | < string > array                    |
 | **wasmFilters**  <br>*optional*    | Names of the WASM filters to drop.                                            | < [FilterDrop](#FilterDrop) > array |
+| **luaFilters**  <br>*optional*     | Names of the Lua filters to drop.                                            | < [FilterDrop](#FilterDrop) > array |
 | **extAuthzFilter**  <br>*optional* | ExtAuthz filter to drop.                                                      | [FilterDrop](#FilterDrop)           |
 
 
@@ -3703,6 +3705,13 @@ GET /api/v3/control-plane/debug/config-validation
 | **tlsConfigName** <br>*optional* | Name of the TlsDef to be used by this filter.  | string                          |
 | **timeout** <br>*optional*       | Timeout in seconds.                            | int64                           |
 | **params** <br>*optional*        | Params to be passed to WASM filter.            | < <string>:<object> map > array |
+
+## LuaFilter
+
+| Name                             | Description                                    | Scheme                          |
+|:---------------------------------|:-----------------------------------------------|:--------------------------------|
+| **name**                         | Unique filter name.                            | string                          |
+| **luaScript** <br>*optional*     | inline code for lua http filter.               | string                          |
 
 ## ExtAuthz
 

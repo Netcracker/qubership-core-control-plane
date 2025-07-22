@@ -126,6 +126,14 @@ var mappers = map[string]mapper{
 			}, nil
 		},
 	},
+	domain.LuaFilterTable: {
+		deleteFunc: func(event map[string]interface{}, repo dao.Repository) error {
+			return repo.DeleteLuaFilterById(int32(event["id"].(float64)))
+		},
+		loadFromDBFunc: func(event map[string]interface{}, storage constancy.Storage) (interface{}, error) {
+			return storage.FindLuaFilterById(int32(event["id"].(float64)))
+		},
+	},
 	domain.NodeGroupTable: {
 		deleteFunc: func(event map[string]interface{}, repo dao.Repository) error {
 			return repo.DeleteNodeGroupByName(event["name"].(string))

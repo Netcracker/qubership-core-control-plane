@@ -335,6 +335,15 @@ definitions:
       withTls:
         type: boolean
     type: object
+  domain.LuaFilter:
+    properties:
+      id:
+        type: integer
+      luaScript:
+        type: string
+      name:
+        type: string
+    type: object
   domain.NodeGroup:
     properties:
       forbidVirtualHosts:
@@ -436,6 +445,10 @@ definitions:
       idleTimeout:
         type: integer
       initialDeploymentVersion:
+        type: string
+      luaFilter:
+        $ref: '#/definitions/domain.LuaFilter'
+      luaFilterName:
         type: string
       path:
         type: string
@@ -894,6 +907,10 @@ definitions:
         items:
           type: string
         type: array
+      luaFilters:
+        items:
+          $ref: '#/definitions/dto.LuaFilter'
+        type: array
       overridden:
         type: boolean
       wasmFilters:
@@ -908,6 +925,11 @@ definitions:
       gateways:
         items:
           type: string
+        type: array
+      luaFilters:
+        items:
+          additionalProperties: true
+          type: object
         type: array
       overridden:
         type: boolean
@@ -932,6 +954,13 @@ definitions:
           $ref: '#/definitions/dto.HashPolicy'
         type: array
       version:
+        type: string
+    type: object
+  dto.LuaFilter:
+    properties:
+      luaScript:
+        type: string
+      name:
         type: string
     type: object
   dto.Microservice:
@@ -1224,6 +1253,8 @@ definitions:
         type: string
       idleTimeout:
         type: integer
+      luaFilter:
+        type: string
       match:
         $ref: '#/definitions/dto.RouteMatch'
       prefixRewrite:

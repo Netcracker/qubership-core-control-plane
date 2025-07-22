@@ -239,6 +239,20 @@ func ConvertWasmDomainToFilter(filter *domain.WasmFilter) WasmFilter {
 	}
 }
 
+func ConvertLuaFilterToDomain(filter *LuaFilter) *domain.LuaFilter {
+	return &domain.LuaFilter{
+		Name:          filter.Name,
+		LuaScript:     filter.LuaScript,
+	}
+}
+
+func ConvertLuaDomainToFilter(filter *domain.LuaFilter) LuaFilter {
+	return LuaFilter{
+		Name:          filter.Name,
+		LuaScript:     filter.LuaScript,
+	}
+}
+
 func firstKey(m map[string]interface{}) (string, interface{}) {
 	for k, v := range m {
 		return k, v

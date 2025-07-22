@@ -77,6 +77,10 @@ func (s *StorageImpl) FindWasmFilterById(id int32) (*domain.WasmFilter, error) {
 	return find[domain.WasmFilter](s, "id", id)
 }
 
+func (s *StorageImpl) FindLuaFilterById(id int32) (*domain.LuaFilter, error) {
+	return find[domain.LuaFilter](s, "id", id)
+}
+
 func (s *StorageImpl) FindStatefulSessionById(id int32) (*domain.StatefulSession, error) {
 	return find[domain.StatefulSession](s, "id", id)
 }

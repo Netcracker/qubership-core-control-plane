@@ -6,11 +6,11 @@ package mock_constancy
 
 import (
 	context "context"
-	clustering "github.com/netcracker/qubership-core-control-plane/control-plane/v2/clustering"
-	domain "github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	clustering "github.com/netcracker/qubership-core-control-plane/control-plane/v2/clustering"
+	domain "github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	bun "github.com/uptrace/bun"
 	migrate "github.com/uptrace/bun/migrate"
 )
@@ -662,6 +662,36 @@ func (m *MockStorage) FindListenerById(id int32) (*domain.Listener, error) {
 func (mr *MockStorageMockRecorder) FindListenerById(id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindListenerById", reflect.TypeOf((*MockStorage)(nil).FindListenerById), id)
+}
+
+// FindLuaFilterById mocks base method.
+func (m *MockStorage) FindLuaFilterById(id int32) (*domain.LuaFilter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindLuaFilterById", id)
+	ret0, _ := ret[0].(*domain.LuaFilter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindLuaFilterById indicates an expected call of FindLuaFilterById.
+func (mr *MockStorageMockRecorder) FindLuaFilterById(id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindLuaFilterById", reflect.TypeOf((*MockStorage)(nil).FindLuaFilterById), id)
+}
+
+// FindLuaFilters mocks base method.
+func (m *MockStorage) FindLuaFilters() ([]*domain.LuaFilter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindLuaFilters")
+	ret0, _ := ret[0].([]*domain.LuaFilter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindLuaFilters indicates an expected call of FindLuaFilters.
+func (mr *MockStorageMockRecorder) FindLuaFilters() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindLuaFilters", reflect.TypeOf((*MockStorage)(nil).FindLuaFilters))
 }
 
 // FindNodeGroupByName mocks base method.

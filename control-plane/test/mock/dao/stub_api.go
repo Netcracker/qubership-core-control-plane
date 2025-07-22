@@ -5,13 +5,13 @@
 package mock_dao
 
 import (
-	dao "github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
-	domain "github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
-	msaddr "github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
 	memdb "github.com/hashicorp/go-memdb"
+	dao "github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
+	domain "github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
+	msaddr "github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
 )
 
 // MockDao is a mock of Dao interface.
@@ -334,6 +334,35 @@ func (m *MockDao) DeleteListenerWasmFilter(relation *domain.ListenersWasmFilter)
 func (mr *MockDaoMockRecorder) DeleteListenerWasmFilter(relation interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteListenerWasmFilter", reflect.TypeOf((*MockDao)(nil).DeleteListenerWasmFilter), relation)
+}
+
+// DeleteLuaFilterById mocks base method.
+func (m *MockDao) DeleteLuaFilterById(id int32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteLuaFilterById", id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteLuaFilterById indicates an expected call of DeleteLuaFilterById.
+func (mr *MockDaoMockRecorder) DeleteLuaFilterById(id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLuaFilterById", reflect.TypeOf((*MockDao)(nil).DeleteLuaFilterById), id)
+}
+
+// DeleteLuaFilterByName mocks base method.
+func (m *MockDao) DeleteLuaFilterByName(filterName string) (int32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteLuaFilterByName", filterName)
+	ret0, _ := ret[0].(int32)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteLuaFilterByName indicates an expected call of DeleteLuaFilterByName.
+func (mr *MockDaoMockRecorder) DeleteLuaFilterByName(filterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLuaFilterByName", reflect.TypeOf((*MockDao)(nil).DeleteLuaFilterByName), filterName)
 }
 
 // DeleteMicroserviceVersion mocks base method.
@@ -723,6 +752,21 @@ func (m *MockDao) FindAllListeners() ([]*domain.Listener, error) {
 func (mr *MockDaoMockRecorder) FindAllListeners() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAllListeners", reflect.TypeOf((*MockDao)(nil).FindAllListeners))
+}
+
+// FindAllLuaFilters mocks base method.
+func (m *MockDao) FindAllLuaFilters() ([]*domain.LuaFilter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindAllLuaFilters")
+	ret0, _ := ret[0].([]*domain.LuaFilter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindAllLuaFilters indicates an expected call of FindAllLuaFilters.
+func (mr *MockDaoMockRecorder) FindAllLuaFilters() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAllLuaFilters", reflect.TypeOf((*MockDao)(nil).FindAllLuaFilters))
 }
 
 // FindAllMicroserviceVersions mocks base method.
@@ -1375,6 +1419,21 @@ func (mr *MockDaoMockRecorder) FindListenerByNodeGroupIdAndName(nodeGroupId, nam
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindListenerByNodeGroupIdAndName", reflect.TypeOf((*MockDao)(nil).FindListenerByNodeGroupIdAndName), nodeGroupId, name)
 }
 
+// FindRoutesByLuaFilter mocks base method.
+func (m *MockDao) FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindRoutesByLuaFilter", luaFilterName)
+	ret0, _ := ret[0].([]*domain.Route)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindRoutesByLuaFilter indicates an expected call of FindRoutesByLuaFilter.
+func (mr *MockDaoMockRecorder) FindRoutesByLuaFilter(luaFilterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByLuaFilter", reflect.TypeOf((*MockDao)(nil).FindRoutesByLuaFilter), luaFilterName)
+}
+
 // FindListenerIdsByWasmFilterId mocks base method.
 func (m *MockDao) FindListenerIdsByWasmFilterId(wasmFilterId int32) ([]int32, error) {
 	m.ctrl.T.Helper()
@@ -1403,6 +1462,21 @@ func (m *MockDao) FindListenersByNodeGroupId(nodeGroupId string) ([]*domain.List
 func (mr *MockDaoMockRecorder) FindListenersByNodeGroupId(nodeGroupId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindListenersByNodeGroupId", reflect.TypeOf((*MockDao)(nil).FindListenersByNodeGroupId), nodeGroupId)
+}
+
+// FindLuaFilterByName mocks base method.
+func (m *MockDao) FindLuaFilterByName(filterName string) (*domain.LuaFilter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindLuaFilterByName", filterName)
+	ret0, _ := ret[0].(*domain.LuaFilter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindLuaFilterByName indicates an expected call of FindLuaFilterByName.
+func (mr *MockDaoMockRecorder) FindLuaFilterByName(filterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindLuaFilterByName", reflect.TypeOf((*MockDao)(nil).FindLuaFilterByName), filterName)
 }
 
 // FindMicroserviceVersionByNameAndInitialVersion mocks base method.
@@ -2303,6 +2377,20 @@ func (mr *MockDaoMockRecorder) SaveListenerWasmFilter(relation interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveListenerWasmFilter", reflect.TypeOf((*MockDao)(nil).SaveListenerWasmFilter), relation)
 }
 
+// SaveLuaFilter mocks base method.
+func (m *MockDao) SaveLuaFilter(filter *domain.LuaFilter) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveLuaFilter", filter)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveLuaFilter indicates an expected call of SaveLuaFilter.
+func (mr *MockDaoMockRecorder) SaveLuaFilter(filter interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveLuaFilter", reflect.TypeOf((*MockDao)(nil).SaveLuaFilter), filter)
+}
+
 // SaveMicroserviceVersion mocks base method.
 func (m *MockDao) SaveMicroserviceVersion(msVersion *domain.MicroserviceVersion) error {
 	m.ctrl.T.Helper()
@@ -2867,6 +2955,35 @@ func (mr *MockRepositoryMockRecorder) DeleteListenerWasmFilter(relation interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteListenerWasmFilter", reflect.TypeOf((*MockRepository)(nil).DeleteListenerWasmFilter), relation)
 }
 
+// DeleteLuaFilterById mocks base method.
+func (m *MockRepository) DeleteLuaFilterById(id int32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteLuaFilterById", id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteLuaFilterById indicates an expected call of DeleteLuaFilterById.
+func (mr *MockRepositoryMockRecorder) DeleteLuaFilterById(id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLuaFilterById", reflect.TypeOf((*MockRepository)(nil).DeleteLuaFilterById), id)
+}
+
+// DeleteLuaFilterByName mocks base method.
+func (m *MockRepository) DeleteLuaFilterByName(filterName string) (int32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteLuaFilterByName", filterName)
+	ret0, _ := ret[0].(int32)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteLuaFilterByName indicates an expected call of DeleteLuaFilterByName.
+func (mr *MockRepositoryMockRecorder) DeleteLuaFilterByName(filterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLuaFilterByName", reflect.TypeOf((*MockRepository)(nil).DeleteLuaFilterByName), filterName)
+}
+
 // DeleteMicroserviceVersion mocks base method.
 func (m *MockRepository) DeleteMicroserviceVersion(name string, namespace msaddr.Namespace, initialVersion string) error {
 	m.ctrl.T.Helper()
@@ -3254,6 +3371,21 @@ func (m *MockRepository) FindAllListeners() ([]*domain.Listener, error) {
 func (mr *MockRepositoryMockRecorder) FindAllListeners() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAllListeners", reflect.TypeOf((*MockRepository)(nil).FindAllListeners))
+}
+
+// FindAllLuaFilters mocks base method.
+func (m *MockRepository) FindAllLuaFilters() ([]*domain.LuaFilter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindAllLuaFilters")
+	ret0, _ := ret[0].([]*domain.LuaFilter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindAllLuaFilters indicates an expected call of FindAllLuaFilters.
+func (mr *MockRepositoryMockRecorder) FindAllLuaFilters() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAllLuaFilters", reflect.TypeOf((*MockRepository)(nil).FindAllLuaFilters))
 }
 
 // FindAllMicroserviceVersions mocks base method.
@@ -3906,6 +4038,21 @@ func (mr *MockRepositoryMockRecorder) FindListenerByNodeGroupIdAndName(nodeGroup
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindListenerByNodeGroupIdAndName", reflect.TypeOf((*MockRepository)(nil).FindListenerByNodeGroupIdAndName), nodeGroupId, name)
 }
 
+// FindRoutesByLuaFilter mocks base method.
+func (m *MockRepository) FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindRoutesByLuaFilter", luaFilterName)
+	ret0, _ := ret[0].([]*domain.Route)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindRoutesByLuaFilter indicates an expected call of FindRoutesByLuaFilter.
+func (mr *MockRepositoryMockRecorder) FindRoutesByLuaFilter(luaFilterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByLuaFilter", reflect.TypeOf((*MockRepository)(nil).FindRoutesByLuaFilter), luaFilterName)
+}
+
 // FindListenerIdsByWasmFilterId mocks base method.
 func (m *MockRepository) FindListenerIdsByWasmFilterId(wasmFilterId int32) ([]int32, error) {
 	m.ctrl.T.Helper()
@@ -3934,6 +4081,21 @@ func (m *MockRepository) FindListenersByNodeGroupId(nodeGroupId string) ([]*doma
 func (mr *MockRepositoryMockRecorder) FindListenersByNodeGroupId(nodeGroupId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindListenersByNodeGroupId", reflect.TypeOf((*MockRepository)(nil).FindListenersByNodeGroupId), nodeGroupId)
+}
+
+// FindLuaFilterByName mocks base method.
+func (m *MockRepository) FindLuaFilterByName(filterName string) (*domain.LuaFilter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindLuaFilterByName", filterName)
+	ret0, _ := ret[0].(*domain.LuaFilter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindLuaFilterByName indicates an expected call of FindLuaFilterByName.
+func (mr *MockRepositoryMockRecorder) FindLuaFilterByName(filterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindLuaFilterByName", reflect.TypeOf((*MockRepository)(nil).FindLuaFilterByName), filterName)
 }
 
 // FindMicroserviceVersionByNameAndInitialVersion mocks base method.
@@ -4834,6 +4996,20 @@ func (mr *MockRepositoryMockRecorder) SaveListenerWasmFilter(relation interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveListenerWasmFilter", reflect.TypeOf((*MockRepository)(nil).SaveListenerWasmFilter), relation)
 }
 
+// SaveLuaFilter mocks base method.
+func (m *MockRepository) SaveLuaFilter(filter *domain.LuaFilter) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveLuaFilter", filter)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveLuaFilter indicates an expected call of SaveLuaFilter.
+func (mr *MockRepositoryMockRecorder) SaveLuaFilter(filter interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveLuaFilter", reflect.TypeOf((*MockRepository)(nil).SaveLuaFilter), filter)
+}
+
 // SaveMicroserviceVersion mocks base method.
 func (m *MockRepository) SaveMicroserviceVersion(msVersion *domain.MicroserviceVersion) error {
 	m.ctrl.T.Helper()
@@ -5348,6 +5524,21 @@ func (mr *MockListenerRepositoryMockRecorder) FindListenerByNodeGroupIdAndName(n
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindListenerByNodeGroupIdAndName", reflect.TypeOf((*MockListenerRepository)(nil).FindListenerByNodeGroupIdAndName), nodeGroupId, name)
 }
 
+// FindRoutesByLuaFilter mocks base method.
+func (m *MockListenerRepository) FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindRoutesByLuaFilter", luaFilterName)
+	ret0, _ := ret[0].([]*domain.Route)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindRoutesByLuaFilter indicates an expected call of FindRoutesByLuaFilter.
+func (mr *MockListenerRepositoryMockRecorder) FindRoutesByLuaFilter(luaFilterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByLuaFilter", reflect.TypeOf((*MockListenerRepository)(nil).FindRoutesByLuaFilter), luaFilterName)
+}
+
 // FindListenerIdsByWasmFilterId mocks base method.
 func (m *MockListenerRepository) FindListenerIdsByWasmFilterId(wasmFilterId int32) ([]int32, error) {
 	m.ctrl.T.Helper()
@@ -5655,6 +5846,102 @@ func (m *MockWasmFilterRepository) SaveWasmFilter(filter *domain.WasmFilter) err
 func (mr *MockWasmFilterRepositoryMockRecorder) SaveWasmFilter(filter interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveWasmFilter", reflect.TypeOf((*MockWasmFilterRepository)(nil).SaveWasmFilter), filter)
+}
+
+// MockLuaFilterRepository is a mock of LuaFilterRepository interface.
+type MockLuaFilterRepository struct {
+	ctrl     *gomock.Controller
+	recorder *MockLuaFilterRepositoryMockRecorder
+}
+
+// MockLuaFilterRepositoryMockRecorder is the mock recorder for MockLuaFilterRepository.
+type MockLuaFilterRepositoryMockRecorder struct {
+	mock *MockLuaFilterRepository
+}
+
+// NewMockLuaFilterRepository creates a new mock instance.
+func NewMockLuaFilterRepository(ctrl *gomock.Controller) *MockLuaFilterRepository {
+	mock := &MockLuaFilterRepository{ctrl: ctrl}
+	mock.recorder = &MockLuaFilterRepositoryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockLuaFilterRepository) EXPECT() *MockLuaFilterRepositoryMockRecorder {
+	return m.recorder
+}
+
+// DeleteLuaFilterById mocks base method.
+func (m *MockLuaFilterRepository) DeleteLuaFilterById(id int32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteLuaFilterById", id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteLuaFilterById indicates an expected call of DeleteLuaFilterById.
+func (mr *MockLuaFilterRepositoryMockRecorder) DeleteLuaFilterById(id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLuaFilterById", reflect.TypeOf((*MockLuaFilterRepository)(nil).DeleteLuaFilterById), id)
+}
+
+// DeleteLuaFilterByName mocks base method.
+func (m *MockLuaFilterRepository) DeleteLuaFilterByName(filterName string) (int32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteLuaFilterByName", filterName)
+	ret0, _ := ret[0].(int32)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteLuaFilterByName indicates an expected call of DeleteLuaFilterByName.
+func (mr *MockLuaFilterRepositoryMockRecorder) DeleteLuaFilterByName(filterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLuaFilterByName", reflect.TypeOf((*MockLuaFilterRepository)(nil).DeleteLuaFilterByName), filterName)
+}
+
+// FindAllLuaFilters mocks base method.
+func (m *MockLuaFilterRepository) FindAllLuaFilters() ([]*domain.LuaFilter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindAllLuaFilters")
+	ret0, _ := ret[0].([]*domain.LuaFilter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindAllLuaFilters indicates an expected call of FindAllLuaFilters.
+func (mr *MockLuaFilterRepositoryMockRecorder) FindAllLuaFilters() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAllLuaFilters", reflect.TypeOf((*MockLuaFilterRepository)(nil).FindAllLuaFilters))
+}
+
+// FindLuaFilterByName mocks base method.
+func (m *MockLuaFilterRepository) FindLuaFilterByName(filterName string) (*domain.LuaFilter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindLuaFilterByName", filterName)
+	ret0, _ := ret[0].(*domain.LuaFilter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindLuaFilterByName indicates an expected call of FindLuaFilterByName.
+func (mr *MockLuaFilterRepositoryMockRecorder) FindLuaFilterByName(filterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindLuaFilterByName", reflect.TypeOf((*MockLuaFilterRepository)(nil).FindLuaFilterByName), filterName)
+}
+
+// SaveLuaFilter mocks base method.
+func (m *MockLuaFilterRepository) SaveLuaFilter(filter *domain.LuaFilter) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveLuaFilter", filter)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveLuaFilter indicates an expected call of SaveLuaFilter.
+func (mr *MockLuaFilterRepositoryMockRecorder) SaveLuaFilter(filter interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveLuaFilter", reflect.TypeOf((*MockLuaFilterRepository)(nil).SaveLuaFilter), filter)
 }
 
 // MockStatefulSessionRepository is a mock of StatefulSessionRepository interface.

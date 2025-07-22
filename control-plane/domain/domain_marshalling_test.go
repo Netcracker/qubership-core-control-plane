@@ -194,3 +194,8 @@ func AssertMarshalSuccessful(t *testing.T, preparer MarshalPreparer) {
 	assert.Nil(t, err)
 	assert.True(t, len(buf.Bytes()) > 0)
 }
+
+func TestLuaFilterMarshal_Success(t *testing.T) {
+	lf := LuaFilter{}
+	AssertMarshalSuccessful(t, &lf)
+}

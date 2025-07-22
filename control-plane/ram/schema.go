@@ -312,6 +312,12 @@ var (
 						AllowMissing: true,
 						Indexer:      &memdb.StringFieldIndex{Field: "RateLimitId"},
 					},
+					"luaFilterName": {
+						Name:         "luaFilterName",
+						Unique:       true,
+						AllowMissing: true,
+						Indexer:      &memdb.StringFieldIndex{Field: "LuaFilterName"},
+					},
 				},
 			},
 			domain.HeaderMatcherTable: {
@@ -454,6 +460,21 @@ var (
 					&memdb.IntFieldIndex{Field: "ListenerId"},
 					&memdb.IntFieldIndex{Field: "WasmFilterId"},
 				),
+			},
+			domain.LuaFilterTable: {
+				Name: domain.LuaFilterTable,
+				Indexes: map[string]*memdb.IndexSchema{
+					"id": {
+						Name:    "id",
+						Unique:  true,
+						Indexer: &memdb.IntFieldIndex{Field: "Id"},
+					},
+					"name": {
+						Name:    "name",
+						Unique:  true,
+						Indexer: &memdb.StringFieldIndex{Field: "Name"},
+					},
+				},
 			},
 			domain.StatefulSessionTable: {
 				Name: domain.StatefulSessionTable,

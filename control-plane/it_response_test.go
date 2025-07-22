@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+const (
+	cluster = "test-service"
+)
+
 func Test_IT_ResponseTest_ResponseDoesNotContainServerHeader(t *testing.T) {
 	skipTestIfDockerDisabled(t)
 	assert := asrt.New(t)
@@ -18,7 +22,7 @@ func Test_IT_ResponseTest_ResponseDoesNotContainServerHeader(t *testing.T) {
 	traceSrvContainer1 := createTraceServiceContainer(cluster, "v1", true)
 	defer traceSrvContainer1.Purge()
 
-	const prefix = "/api/v1/test-server-header"
+	prefix := "/api/v1/test-server-header"
 
 	internalGateway.RegisterRoutingConfigAndWait(assert, 60*time.Second, &dto.RoutingConfigRequestV3{
 		Namespace: "",

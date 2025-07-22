@@ -168,6 +168,14 @@ spec:
             prefix: /api/v3/tenant-manager/tenant/{tenantId}/routes
           allowed: true
           prefixRewrite: /api/v3/tenant/{tenantId}/routes
+      - destination:
+          cluster: some-cluster
+          endpoint: http://some-cluster-v1:8080
+        rules:
+        - match:
+            prefix: /api/v1/
+          deny: true
+          
   - name: ...
 ```
 

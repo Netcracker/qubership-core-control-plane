@@ -45,6 +45,7 @@ func (builder *GatewayListenerBuilder) enrichConnManager(connManager *hcm.HttpCo
 	if err := addNamespaceHeaderFilter(connManager, namespaceMapping); err != nil {
 		return err
 	}
+
 	return addCompression(connManager, builder.properties.Compression)
 }
 

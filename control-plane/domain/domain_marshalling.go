@@ -156,3 +156,7 @@ func (_ *Threshold) MarshalPrepare() error {
 func (_ *TcpKeepalive) MarshalPrepare() error {
 	return nil
 }
+
+func (w *LuaFilter) MarshalPrepare() error {
+	return nil
+}

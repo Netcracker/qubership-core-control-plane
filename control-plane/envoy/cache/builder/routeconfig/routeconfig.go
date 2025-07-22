@@ -2,6 +2,9 @@ package routeconfig
 
 import (
 	"errors"
+	"sort"
+	"time"
+
 	eroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -14,9 +17,8 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/builder/common"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"sort"
-	"time"
 )
 
 var logger logging.Logger
@@ -103,6 +105,14 @@ func (builder *RouteBuilderImpl) loadRouteRelations(routes []*domain.Route) ([]*
 				return nil, err
 			}
 			route.RateLimit = rateLimit
+		}
+		if route.LuaFilterName != "" {
+			luaFilter, err := builder.dao.FindLuaFilterByName(route.LuaFilterName)
+			if err != nil {
+				logger.Errorf("Failed to load route %v lua filter using DAO:\n %v", route.Id, err)
+				return nil, err
+			}
+			route.LuaFilter = luaFilter
 		}
 	}
 	return routes, nil
@@ -252,12 +262,22 @@ func (builder *RouteBuilderImpl) BuildRoute(route *domain.Route) (*eroute.Route,
 		if route.RateLimit != nil {
 			envoyRoute.GetRoute().RateLimits = builder.buildRateLimitAction(route.RateLimitId)
 		}
+		if route.LuaFilter != nil {
+			luaConfig, err := common.BuildLuaFilterPerRoute(route.LuaFilter)
+			if err != nil {
+				return nil, nil, err
+			}
+			envoyRoute.TypedPerFilterConfig = map[string]*anypb.Any{
+				"envoy.filters.http.lua": luaConfig,
+			}
+		}
 	}
 	return envoyRoute, route.RateLimit, nil
 }
 
 func (builder *RouteBuilderImpl) buildRateLimitAction(rateLimitName string) []*eroute.RateLimit {
 	return []*eroute.RateLimit{{
+		
 		Actions: []*eroute.RateLimit_Action{
 			{
 				ActionSpecifier: &eroute.RateLimit_Action_GenericKey_{

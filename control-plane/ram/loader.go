@@ -116,6 +116,10 @@ var (
 			entities, err := db.FindAllTcpKeepalives()
 			return util.ToSlice(entities), err
 		},
+		domain.LuaFilterTable: func(db constancy.Storage) ([]interface{}, error) {
+			luaFilters, err := db.FindLuaFilters()
+			return util.ToSlice(luaFilters), err
+		},
 	}
 )
 

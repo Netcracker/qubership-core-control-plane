@@ -4056,6 +4056,20 @@
                 }
             }
         },
+        "domain.LuaFilter": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "luaScript": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.NodeGroup": {
             "type": "object",
             "properties": {
@@ -4206,6 +4220,12 @@
                     "type": "integer"
                 },
                 "initialDeploymentVersion": {
+                    "type": "string"
+                },
+                "luaFilter": {
+                    "$ref": "#/definitions/domain.LuaFilter"
+                },
+                "luaFilterName": {
                     "type": "string"
                 },
                 "path": {
@@ -4907,6 +4927,12 @@
                         "type": "string"
                     }
                 },
+                "luaFilters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.LuaFilter"
+                    }
+                },
                 "overridden": {
                     "type": "boolean"
                 },
@@ -4928,6 +4954,13 @@
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "luaFilters": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
                     }
                 },
                 "overridden": {
@@ -4964,6 +4997,17 @@
                     }
                 },
                 "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.LuaFilter": {
+            "type": "object",
+            "properties": {
+                "luaScript": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -5412,6 +5456,9 @@
                 },
                 "idleTimeout": {
                     "type": "integer"
+                },
+                "luaFilter": {
+                    "type": "string"
                 },
                 "match": {
                     "$ref": "#/definitions/dto.RouteMatch"

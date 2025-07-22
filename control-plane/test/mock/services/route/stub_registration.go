@@ -6,11 +6,11 @@ package mock_route
 
 import (
 	context "context"
-	dao "github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
-	domain "github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	dao "github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
+	domain "github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 )
 
 // MockClusterRegistrationService is a mock of ClusterRegistrationService interface.

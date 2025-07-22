@@ -74,6 +74,7 @@ func Test_StorageLoader_ClearAndLoad(t *testing.T) {
 	storage.EXPECT().FindAllCircuitBreakers().Return([]*domain.CircuitBreaker{}, nil)
 	storage.EXPECT().FindAllThresholds().Return([]*domain.Threshold{}, nil)
 	storage.EXPECT().FindAllTcpKeepalives().Return([]*domain.TcpKeepalive{}, nil)
+	storage.EXPECT().FindLuaFilters().Return([]*domain.LuaFilter{}, nil)
 
 	ramStorage.EXPECT().WriteTx().Return(txn)
 	txn.EXPECT().Abort()
@@ -82,7 +83,7 @@ func Test_StorageLoader_ClearAndLoad(t *testing.T) {
 	cluster := domain.NewCluster("test", false)
 	storage.EXPECT().FindAllClusters().Return([]*domain.Cluster{cluster}, nil)
 
-	txn.EXPECT().DeleteAll(gomock.Any(), gomock.Eq("id")).Times(27)
+	txn.EXPECT().DeleteAll(gomock.Any(), gomock.Eq("id")).Times(28)
 	txn.EXPECT().Insert(gomock.Eq(domain.ClusterTable), gomock.Eq(cluster)).Times(1)
 
 	err := loader.ClearAndLoad(ramStorage)
@@ -104,7 +105,7 @@ func Test_StorageLoader_ClearAndLoad_ErrorOnLoad(t *testing.T) {
 	ramStorage.EXPECT().WriteTx().Return(txn)
 	txn.EXPECT().Abort()
 
-	txn.EXPECT().DeleteAll(gomock.Any(), gomock.Eq("id")).Times(27)
+	txn.EXPECT().DeleteAll(gomock.Any(), gomock.Eq("id")).Times(28)
 	txn.EXPECT().Insert(gomock.Any(), gomock.Any()).Times(0)
 	txn.EXPECT().Commit().Times(0)
 

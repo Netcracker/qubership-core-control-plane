@@ -38,6 +38,7 @@ type HttpFiltersConfigRequestV3 struct {
 	Gateways       []string     `json:"gateways"`
 	WasmFilters    []WasmFilter `json:"wasmFilters"`
 	ExtAuthzFilter *ExtAuthz    `json:"extAuthzFilter"`
+	LuaFilters     []LuaFilter  `json:"luaFilters"`
 	Overridden     bool         `json:"overridden"`
 }
 
@@ -46,6 +47,7 @@ type HttpFiltersDropConfigRequestV3 struct {
 	Gateways       []string                 `json:"gateways"`
 	WasmFilters    []map[string]interface{} `json:"wasmFilters"`
 	ExtAuthzFilter *ExtAuthz                `json:"extAuthzFilter"`
+	LuaFilters     []map[string]interface{} `json:"luaFilters"`
 	Overridden     bool                     `json:"overridden"`
 }
 
@@ -159,6 +161,7 @@ type Rule struct {
 	StatefulSession *StatefulSession   `json:"statefulSession" yaml:"statefulSession"`
 	RateLimit       string             `json:"rateLimit"`
 	Deny            *bool              `json:"deny"`
+	LuaFilter       string             `json:"luaFilter"`
 }
 
 type RouteMatch struct {
@@ -293,6 +296,11 @@ type WasmFilter struct {
 	TlsConfigName string                   `json:"tlsConfigName"`
 	Timeout       int64                    `json:"timeout"`
 	Params        []map[string]interface{} `json:"params"`
+}
+
+type LuaFilter struct {
+	Name          string                   `json:"name"`
+    LuaScript     string                   `json:"luaScript"`
 }
 
 //swagger:model StatefulSession

@@ -10,6 +10,20 @@ import (
 	"testing"
 )
 
+
+func TestFindLuaFilterById(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	expectedResult := &domain.LuaFilter{}
+	storage := getAndMockStorage(ctrl, &domain.LuaFilter{}, expectedResult)
+
+	id := int32(1)
+	cluster, err := storage.FindLuaFilterById(id)
+	assert.Nil(t, err)
+	assert.NotNil(t, cluster)
+	assert.Equal(t, expectedResult, cluster)
+}
 func TestFindWasmFilterById(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

@@ -75,6 +75,7 @@ type ServiceInterface interface {
 	FindListenersByRouteConfiguration(dao dao.Repository, routeConfig *domain.RouteConfiguration) ([]*domain.Listener, error)
 	GenerateEnvoyEntityVersions(ctx context.Context, repo dao.Repository, gateway string, entities ...string) error
 	DeleteCircuitBreakerCascadeById(dao dao.Repository, id int32) error
+	PutLuaFilter(dao dao.Repository, filter *domain.LuaFilter) error
 }
 
 type Service struct {

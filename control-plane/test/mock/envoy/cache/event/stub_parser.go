@@ -5,11 +5,11 @@
 package mock_event
 
 import (
-	action "github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/action"
-	events "github.com/netcracker/qubership-core-control-plane/control-plane/v2/event/events"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	action "github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/action"
+	events "github.com/netcracker/qubership-core-control-plane/control-plane/v2/event/events"
 )
 
 // MockChangeEventParser is a mock of ChangeEventParser interface.

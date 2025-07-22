@@ -20,7 +20,7 @@ import (
 var logger logging.Logger
 
 func init() {
-	logger = logging.GetLogger("listener-service")
+	logger = logging.GetLogger("http-filter")
 }
 
 type Service struct {
@@ -82,6 +82,14 @@ func (s *Service) Apply(ctx context.Context, req *dto.HttpFiltersConfigRequestV3
 			}
 		}
 	}
+	if len(req.LuaFilters) > 0 {
+		for _, nodeGroupId := range req.Gateways {
+			err := s.AddLuaFilter(ctx, nodeGroupId, req.LuaFilters)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	if req.ExtAuthzFilter != nil {
 		return s.extAuthzService.Apply(ctx, *req.ExtAuthzFilter, req.Gateways...)
 	}
@@ -92,6 +100,14 @@ func (s *Service) Delete(ctx context.Context, req *dto.HttpFiltersDropConfigRequ
 	if len(req.WasmFilters) > 0 {
 		for _, nodeGroupId := range req.Gateways {
 			err := s.DeleteWasmFilter(ctx, nodeGroupId, asSliceByName(req.WasmFilters))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if len(req.LuaFilters) > 0 {
+		for _, nodeGroupId := range req.Gateways {
+			err := s.DeleteLuaFilter(ctx, nodeGroupId, asSliceByName(req.LuaFilters))
 			if err != nil {
 				return err
 			}
@@ -260,9 +276,99 @@ func (s *Service) DeleteWasmFilter(ctx context.Context, nodeGroupId string, filt
 	return nil
 }
 
+func (s *Service) AddLuaFilter(ctx context.Context, nodeGroupId string, filters []dto.LuaFilter) error {
+	changes, err := s.dao.WithWTx(func(dao dao.Repository) error {
+		for _, f := range filters {
+			luaFilter := dto.ConvertLuaFilterToDomain(&f)
+
+			err := s.entityService.PutLuaFilter(dao, luaFilter)
+			if err != nil {
+				logger.ErrorC(ctx, "can not save lua filter with nodeGroupId=%s, %v", nodeGroupId, err)
+				return err
+			}
+
+			routes, err := dao.FindRoutesByLuaFilter(luaFilter.Name)
+			if err == nil && len(routes) != 0 {
+				err := s.updateLuaRelatedVersions(ctx, dao, routes)
+				if err != nil {
+					return err
+				}
+			} else if err != nil {
+				logger.ErrorC(ctx, "can not get routes for lua filter, %v", err)
+			} else {
+				logger.ErrorC(ctx, "routes len v2: %d", len(routes))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		logger.Errorf("can not add Lua filter with nodeGroupId=%s, %v", nodeGroupId, err)
+		return err
+	}
+
+	event := events.NewChangeEventByNodeGroup(nodeGroupId, changes)
+	err = s.bus.Publish(bus.TopicChanges, event)
+	if err != nil {
+		logger.Errorf("can not publish changes for lua filters with nodeGroupId=%s, %v", nodeGroupId, err)
+		return err
+	}
+	return nil
+}
+
+func (s *Service) DeleteLuaFilter(ctx context.Context, nodeGroupId string, filters []string) error {
+	var routesFound []*domain.Route
+	changes, err := s.dao.WithWTx(func(dao dao.Repository) error {
+		for _, f := range filters {
+			foundFilter, err := dao.FindLuaFilterByName(f)
+			if err != nil {
+				return err
+			}
+			if foundFilter == nil {
+				return nil
+			}
+			foundRoutes, err := dao.FindRoutesByLuaFilter(foundFilter.Name)
+			if err != nil {
+				return err
+			}
+			for _, route := range foundRoutes {
+				route.LuaFilterName = ""
+				route.LuaFilter = nil
+				err := dao.SaveRoute(route)
+				if err != nil {
+					return err
+				}
+				routesFound = append(routesFound, route)
+			}
+
+			_, errDel := dao.DeleteLuaFilterByName(f)
+			if errDel != nil {
+				return errDel
+			}
+		}
+
+		if len(routesFound) != 0 {
+			err := s.updateLuaRelatedVersions(ctx, dao, routesFound)
+			if err != nil {
+				return err
+			}
+	    }
+		return nil
+	})
+	if err != nil || len(changes) == 0 {
+		return err
+	}
+	event := events.NewChangeEventByNodeGroup(nodeGroupId, changes)
+	err = s.bus.Publish(bus.TopicChanges, event)
+	if err != nil {
+		logger.Errorf("can not publish changes for lua filters with nodeGroupId=%s, %v", nodeGroupId, err)
+		return err
+	}
+	return nil
+}
+
 func updateRelatedVersions(ctx context.Context, nodeGroupId string, dao dao.Repository) error {
 	if err := dao.SaveEnvoyConfigVersion(domain.NewEnvoyConfigVersion(nodeGroupId, domain.ListenerTable)); err != nil {
-		logger.ErrorC(ctx, "add WASM filter failed due to error in envoy config version saving for clusters: %v", err)
+		logger.ErrorC(ctx, "add http filter failed due to error in envoy config version saving for clusters: %v", err)
 		return err
 	}
 
@@ -275,4 +381,28 @@ func (s *Service) GetHttpFiltersResourceAdd() cfgres.Resource {
 
 func (s *Service) GetHttpFiltersResourceDrop() cfgres.Resource {
 	return &httpFiltersDropResourceDrop{service: s}
+}
+
+func (s *Service) updateLuaRelatedVersions(ctx context.Context, repo dao.Repository, routes []*domain.Route) error {
+	logger.InfoC(ctx, "Updating node groups with routes have lua filter in configuration")
+
+	vHostsToUpdate := make(map[int32]bool)
+
+	for _, route := range routes {
+		vHostsToUpdate[route.VirtualHostId] = true
+	}
+
+	for vHostId := range vHostsToUpdate {
+		routeConfig, err := s.entityService.FindRouteConfigurationByVirtualHostId(repo, vHostId)
+		if err != nil {
+			logger.ErrorC(ctx, "Failed to load route config connected to lua filter config using DAO:\n %v", err)
+			return err
+		}
+		if err := repo.SaveEnvoyConfigVersion(domain.NewEnvoyConfigVersion(routeConfig.NodeGroupId, domain.RouteConfigurationTable)); err != nil {
+			logger.ErrorC(ctx, "Failed to update route config connected to lua filter config using DAO:\n %v", err)
+			return err
+		}
+	}
+
+	return nil
 }

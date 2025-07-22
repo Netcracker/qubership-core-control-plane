@@ -30,6 +30,7 @@ type Repository interface {
 	RetryPolicyRepository
 	TlsConfigRepository
 	WasmFilterRepository
+	LuaFilterRepository
 	CompositeSatelliteRepository
 	StatefulSessionRepository
 	RateLimitRepository
@@ -90,6 +91,14 @@ type WasmFilterRepository interface {
 	FindWasmFilterByListenerId(listenerId int32) ([]*domain.WasmFilter, error)
 	DeleteWasmFilterByName(filterName string) (int32, error)
 	DeleteWasmFilterById(id int32) error
+}
+
+type LuaFilterRepository interface {
+	FindAllLuaFilters() ([]*domain.LuaFilter, error)
+	SaveLuaFilter(filter *domain.LuaFilter) error
+	FindLuaFilterByName(filterName string) (*domain.LuaFilter, error)
+	DeleteLuaFilterByName(filterName string) (int32, error)
+	DeleteLuaFilterById(id int32) error
 }
 
 type StatefulSessionRepository interface {
@@ -171,6 +180,7 @@ type RouteRepository interface {
 	DeleteHeaderMatcher(headerMatcher *domain.HeaderMatcher) error
 	FindAllRoutes() ([]*domain.Route, error)
 	FindRoutesByRateLimit(rateLimitId string) ([]*domain.Route, error)
+	FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error)
 }
 
 type DeploymentVersionRepository interface {

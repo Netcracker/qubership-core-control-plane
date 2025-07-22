@@ -264,6 +264,8 @@ type Route struct {
 	StatefulSessionId        int32              `bun:"statefulsessionid,nullzero,notnull" json:"statefulSessionId"`
 	StatefulSession          *StatefulSession   `bun:"rel:belongs-to,join:statefulsessionid=id" json:"statefulSession"`
 	Deny                     bool               `bun:"deny" json:"deny"`
+	LuaFilterName            string             `bun:"lua_filter_name,nullzero,notnull" json:"luaFilterName"`
+	LuaFilter                *LuaFilter         `bun:"rel:belongs-to,join:lua_filter_name=name" json:"luaFilter"`
 }
 
 // RouteAction is used for route transformation business logic. RouteAction structures are not persisted.
@@ -450,6 +452,17 @@ func (w WasmFilter) Cluster() (string, error) {
 	return parse.Host + "-cluster", nil
 }
 
+type LuaFilter struct {
+	Id            int32                  `bun:",pk" json:"id"`
+	Name          string                 `bun:"name" json:"name"`
+	LuaScript     string                 `bun:"lua_script" json:"luaScript"`
+}
+
+func (lf LuaFilter) Clone() *LuaFilter {
+	lfCopy := lf
+	return &lfCopy
+}
+
 type HttpHealthCheck struct {
 	Id                     int32        `bun:",pk"`
 	Host                   string       `bun:"host"`
@@ -625,6 +638,9 @@ func (r Route) Clone() *Route {
 	}
 	if r.RateLimit != nil {
 		routeCopy.RateLimit = r.RateLimit.Clone()
+	}
+	if r.LuaFilter != nil {
+		routeCopy.LuaFilter = r.LuaFilter.Clone()
 	}
 	return &routeCopy
 }
