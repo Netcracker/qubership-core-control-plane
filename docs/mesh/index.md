@@ -31,6 +31,8 @@ The following articles and sources describe Service Mesh and it's usage in BlueG
     * [Rate Limiting in Gateways](./rate-limiting.md)
     * [Connections Limiting in Gateways](./max-connections-limit.md)
     * [TCP keepalive for gateway upstream connections](./upstream-connection-tcp-keepalive.md)
+    * [Lua Filters](./lua-filtering.md)
+    * [Forbid Routes on Public or Private Gateway](./forbid-routes-on-pgw.md)
     * [Custom Ingress Gateways](./ingress-gateways.md)
     * [How to set gateway CORS parameters](TODO OS)
     * [Sample configurations](./development-guide.md#sample-configurations)

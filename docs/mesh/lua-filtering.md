@@ -65,7 +65,7 @@ spec:
         - match:
             prefix: /api/{version}/service/catalogManagement
           prefixRewrite: /api/{version}/catalogManagement
-          luaFilter: test-lua-filter`
+          luaFilter: test-lua-filter
         - match:
             prefix: /api/{version}/service/catalogExport
           prefixRewrite: /api/{version}/catalogExport
