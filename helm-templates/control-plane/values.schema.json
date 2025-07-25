@@ -410,16 +410,6 @@
       ],
       "title": "Disable IP route registration"
     },
-    "INTERNAL_TLS_ENABLED": {
-      "$id": "#/properties/INTERNAL_TLS_ENABLED",
-      "$ref": "#/definitions/booleanOrString",
-      "description": "Is TLS enabled",
-      "examples": [
-        false
-      ],
-      "internal": true,
-      "title": "The INTERNAL_TLS_ENABLED schema"
-    },
     "SNI_PROPAGATION_ENABLED": {
       "$id": "#/properties/SNI_PROPAGATION_ENABLED",
       "$ref": "#/definitions/booleanOrString",
@@ -520,9 +510,9 @@
       "title": "The DBAAS_DB_EDITOR_CREDENTIALS_PASSWORD schema",
       "description": "DBAAS account password with DB Editor role.",
       "examples": [
-        "9eRm_Q55fe"
+        "password"
       ],
-      "default": "9eRm_Q55fe",
+      "default": "password",
       "internal": true
     },
     "DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME": {
