@@ -1,6 +1,12 @@
 {
   "exclusions" : [ {
+    "t-hash" : "e9cee71ab932fde863338d08be4de9dfe39ea049bdafb342ce659ec5450b69ae",
+    "f-hash" : "3748dd8c6dc5d6795b2525ca7ca009299299ae22ff75abc1af982f8bbe1d6991"
+  }, {
     "t-hash" : "57c7895383fc498b10a0c7cd973e998d598ef58a2f136433e4edcf6ce1693fbe",
+    "f-hash" : "759e84e83bf63d586c57197e206830ed5a1a1dc6287852ec3e1d3e25eaec81d7"
+  }, {
+    "t-hash" : "f2cb29c726b80e711ea1955a55a778ec2475036b3afabf26e1387f89235d4745",
     "f-hash" : "759e84e83bf63d586c57197e206830ed5a1a1dc6287852ec3e1d3e25eaec81d7"
   } ]
 }

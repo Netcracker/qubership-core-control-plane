@@ -297,7 +297,7 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "{container=\"control-plane\", endpoint=\"https-metrics\", id=\"/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod3e2818fe_e838_11ea_ae62_fa163eb63dc0.slice/docker-eaae03038996d81c4e147636625bf02b24f6e34c4772b32558d020fac8df5e4a.scope\", image=\"artifactory.qubership.org:17004/cloud-core/control-plane-assembly-master@sha256:299c60627de6ba6f29bbd7783ad81c87f134c9d40b8831ca56b68f779b070099\", instance=\"192.168.234.13:10250\", job=\"kubelet\", name=\"k8s_control-plane_control-plane-1-tbx59_cloud-core-dmos0218_3e2818fe-e838-11ea-ae62-fa163eb63dc0_0\", namespace=\"cloud-core-dmos0218\", node=\"dr311dev-node-left-3\", pod=\"control-plane-1-tbx59\", service=\"kubelet\"}",
+      "tableColumn": "{container=\"control-plane\", endpoint=\"https-metrics\", id=\"/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod3e2818fe_e838_11ea_ae62_fa163eb63dc0.slice/docker-eaae03038996d81c4e147636625bf02b24f6e34c4772b32558d020fac8df5e4a.scope\", image=\"artifactory.qubership.org:17004/cloud-core/control-plane-assembly-master@sha256:299c60627de6ba6f29bbd7783ad81c87f134c9d40b8831ca56b68f779b070099\", instance=\"192.168.234.13:10250\", job=\"kubelet\", name=\"k8s_control-plane_control-plane-1-tbx59_cloud-core-user_3e2818fe-e838-11ea-ae62-fa163eb63dc0_0\", namespace=\"cloud-core-user\", node=\"dr311dev-node-left-3\", pod=\"control-plane-1-tbx59\", service=\"kubelet\"}",
       "targets": [
       {
         "expr": "time() - container_start_time_seconds{namespace=\"$namespace\", container=\"$service_name\", pod=\"$pod_name\", exported_pod!~\".*-deploy\"}",
@@ -431,7 +431,7 @@
         "lineColor": "rgb(31, 120, 193)",
         "show": false
       },
-      "tableColumn": "go_goroutines{container=\"control-plane\", endpoint=\"web\", instance=\"10.131.6.244:8080\", job=\"cloud-core-dmos0218/control-plane-pod-monitor\", namespace=\"cloud-core-dmos0218\", pod=\"control-plane-1-tbx59\"}",
+      "tableColumn": "go_goroutines{container=\"control-plane\", endpoint=\"web\", instance=\"10.131.6.244:8080\", job=\"cloud-core-user/control-plane-pod-monitor\", namespace=\"cloud-core-user\", pod=\"control-plane-1-tbx59\"}",
       "targets": [
       {
         "expr": "go_goroutines{namespace=\"$namespace\", pod=\"$pod_name\", container=\"$service_name\"}",
@@ -562,7 +562,7 @@
         "lineColor": "rgb(31, 120, 193)",
         "show": false
       },
-      "tableColumn": "process_open_fds{container=\"control-plane\", endpoint=\"web\", instance=\"10.131.6.244:8080\", job=\"cloud-core-dmos0218/control-plane-pod-monitor\", namespace=\"cloud-core-dmos0218\", pod=\"control-plane-1-tbx59\"}",
+      "tableColumn": "process_open_fds{container=\"control-plane\", endpoint=\"web\", instance=\"10.131.6.244:8080\", job=\"cloud-core-user/control-plane-pod-monitor\", namespace=\"cloud-core-user\", pod=\"control-plane-1-tbx59\"}",
       "targets": [
       {
         "expr": "process_open_fds{namespace=\"$namespace\", pod=\"$pod_name\", container=\"$service_name\"}",
@@ -2672,8 +2672,8 @@
         "allValue": null,
         "current": {
           "selected": false,
-          "text": "cloud-core-dmos0218",
-          "value": "cloud-core-dmos0218"
+          "text": "cloud-core-user",
+          "value": "cloud-core-user"
         },
         "datasource": "$datasource",
         "definition": "label_values(namespace)",

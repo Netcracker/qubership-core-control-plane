@@ -7841,8 +7841,8 @@
         "allValue": ".*",
         "current": {
           "selected": false,
-          "text": "cloud-core-dmos0218",
-          "value": "cloud-core-dmos0218"
+          "text": "cloud-core-user",
+          "value": "cloud-core-user"
         },
         "datasource": "$datasource",
         "definition": "label_values(envoy_server_state{}, namespace)",
