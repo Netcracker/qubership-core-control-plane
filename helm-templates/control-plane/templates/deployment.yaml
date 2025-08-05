@@ -178,10 +178,6 @@ spec:
                     value: '{{ .Values.PUBLIC_GATEWAY_ROUTE_HOST }}'
                 -   name: PRIVATE_GATEWAY_ROUTE_HOST
                     value: '{{ .Values.PRIVATE_GATEWAY_ROUTE_HOST }}'
-                -   name: VAULT_INTEGRATION
-                    value: '{{ .Values.VAULT_INTEGRATION }}'
-                -   name: VAULT_ADDR
-                    value: '{{ .Values.VAULT_ADDR }}'
                 -   name: CLOUD_PUBLIC_HOST
                     value: '{{ .Values.CLOUD_PUBLIC_HOST }}'
                 -   name: BASELINE_PROJ

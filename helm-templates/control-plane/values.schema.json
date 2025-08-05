@@ -44,8 +44,6 @@
       "CLOUD_PRIVATE_HOST": "ocp311.openshift.sdntest.qubership.org:8443",
       "PUBLIC_GATEWAY_ROUTE_HOST": "",
       "PRIVATE_GATEWAY_ROUTE_HOST": "",
-      "VAULT_ADDR": "",
-      "VAULT_INTEGRATION": false,
       "BASELINE_PROJ": "",
       "EXECUTION_MODE": "active",
       "DISABLE_IP_ROUTE_REGISTRATION": true,
@@ -449,13 +447,6 @@
       "description": "Name of a service.",
       "internal": true
     },
-    "VAULT_INTEGRATION": {
-      "$id": "#/properties/VAULT_INTEGRATION",
-      "$ref": "#/definitions/booleanOrString",
-      "description": "Enable integration with Vault.",
-      "internal": true,
-      "title": "The VAULT_INTEGRATION schema"
-    },
     "CLOUD_PRIVATE_HOST": {
       "$id": "#/properties/CLOUD_PRIVATE_HOST",
       "type": "string",
@@ -474,13 +465,6 @@
       "examples": [
         "ocp311.openshift.sdntest.qubership.org"
       ],
-      "internal": true
-    },
-    "VAULT_ADDR": {
-      "$id": "#/properties/VAULT_ADDR",
-      "type": "string",
-      "title": "The VAULT_ADDR schema",
-      "description": "Vault address",
       "internal": true
     },
     "DEPLOYMENT_RESOURCE_NAME": {
