@@ -60,6 +60,8 @@ definitions:
         type: integer
       lbPolicy:
         type: string
+      maxRequestsPerConnection:
+        type: integer
       name:
         type: string
       nodeGroups:

@@ -3649,6 +3649,9 @@ const docTemplate = `{
                 "lbPolicy": {
                     "type": "string"
                 },
+                "maxRequestsPerConnection": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },

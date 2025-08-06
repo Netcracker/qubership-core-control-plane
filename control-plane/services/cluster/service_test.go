@@ -336,6 +336,7 @@ func getDtoCluster(overridden bool) *dto.ClusterConfigRequestV3 {
 		CircuitBreaker: circuitBreaker,
 		TLS:            TLS_CONFIG_NAME,
 		Overridden:     overridden,
+		MaxRequestsPerConnection:  100,
 	}
 }
 
