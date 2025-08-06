@@ -13,18 +13,4 @@ metadata:
 spec:
   name: envoy-dashboard.json
   json: {{ .Files.Get  "dashboards/envoy.json" | toJson }}
----
-apiVersion: integreatly.org/v1alpha1
-kind: GrafanaDashboard
-metadata:
-  name: go-process-dashboard
-  labels:
-    app: grafana
-    app.kubernetes.io/part-of: 'Cloud-Core'
-    app.kubernetes.io/managed-by: 'saasDeployer'
-    app.kubernetes.io/processed-by-operator: 'grafana-operator'
-    deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
-spec:
-  name: go-process-dashboard.json
-  json: {{ .Files.Get  "dashboards/go-process.json" | toJson }}
 {{ end }}
