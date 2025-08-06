@@ -83,6 +83,21 @@ func run10Requests(assert *asrt.Assertions, requestsByPod map[string]int, cookie
 	}
 }
 
+func runRequestsConnectionTest(assert *asrt.Assertions, requestsByPod map[string]int, attempts int) {
+	for i := 0; i < attempts; i++ {
+		req, err := http.NewRequest(http.MethodGet, internalGateway.Url+"/api/v1/test-service/lb-test", nil)
+		assert.Nil(err)
+		respFromService, statusCode := SendToTraceSrvWithRetry503(assert, req)
+		log.Infof("Got status %d and pod id: %v", statusCode, respFromService.PodID)
+		assert.Equal(200, statusCode)
+		assert.NotNil(respFromService)
+		assert.NotEmpty(respFromService.RemoteAddr)
+		requestsByPod[respFromService.RemoteAddr]++
+		log.Infof("Requests by RemoteAddr: %+v", requestsByPod)
+		log.Infof("RESPONSE: %+v", respFromService)
+	}
+}
+
 func prepareRequestWithCookieAndHeaders(assert *asrt.Assertions, cookieVal string, headers ...map[string]string) *http.Request {
 	req, err := http.NewRequest(http.MethodGet, internalGateway.Url+"/api/v1/test-service/lb-test", nil)
 	assert.Nil(err)
@@ -384,4 +399,50 @@ spec:
 	sessions, err := lib.GenericDao.FindAllStatefulSessionConfigs()
 	assert.Nil(err)
 	assert.Empty(sessions)
+}
+
+func Test_IT_LoadBalance_Max_Request_per_connection(t *testing.T) {
+	skipTestIfDockerDisabled(t)
+	assert := asrt.New(t)
+
+	srvContainer := createTraceServiceContainer("test-service", "v1", false)
+	defer srvContainer.Purge()
+
+	internalGateway.RegisterRoutesAndWait(
+		assert,
+		60*time.Second,
+		"v1",
+		dto.RouteV3{
+			Destination: dto.RouteDestination{Cluster: TestCluster, Endpoint: "test-service:8080"},
+			Rules:       []dto.Rule{{Match: dto.RouteMatch{Prefix: "/api/v1/test-service/lb-test"}}},
+		},
+	)
+	internalGateway.ApplyConfigAndWaitClusterUpdate(assert, 60*time.Second, `apiVersion: nc.core.mesh/v3
+kind: Cluster
+spec:
+  gateways:
+    - internal-gateway-service
+  name: test-service||test-service||8080
+  endpoints:
+    - http://test-service:8080
+  maxRequestsPerConnection: 2`)
+
+	requestsByPodId := make(map[string]int)
+
+	//the number of attempts must be a multiple of the maxRequestsPerConnection value
+	runRequestsConnectionTest(assert, requestsByPodId, 10)
+
+	assert.NotEqual(1, len(requestsByPodId))
+	for _, reqNum := range requestsByPodId {
+		assert.Equal(2, reqNum)
+	}
+
+	// cleanup
+	clusters, err := lib.GenericDao.FindAllClusters()
+	assert.Nil(err)
+	for _, cluster := range clusters {
+		if strings.HasPrefix(cluster.Name, "test-service||test-service||") {
+			internalGateway.DeleteClusterAndWait(assert, 60*time.Second, cluster.Id, cluster.Name)
+		}
+	}
 }
