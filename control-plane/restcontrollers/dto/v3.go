@@ -82,13 +82,14 @@ func (endpoint RawEndpoint) HostPort() (string, int, error) {
 }
 
 type ClusterConfigRequestV3 struct {
-	Gateways       []string      `json:"gateways"`
-	Name           string        `json:"name"`
-	Endpoints      []RawEndpoint `json:"endpoints"`
-	TLS            string        `json:"tls"`
-	CircuitBreaker `json:"circuitBreaker"`
-	TcpKeepalive   *TcpKeepalive `json:"tcpKeepalive"`
-	Overridden     bool          `json:"overridden"`
+	Gateways                  []string       `json:"gateways"`
+	Name                      string         `json:"name"`
+	Endpoints                 []RawEndpoint  `json:"endpoints"`
+	TLS                       string         `json:"tls"`
+	CircuitBreaker            CircuitBreaker `json:"circuitBreaker"`
+	TcpKeepalive              *TcpKeepalive  `json:"tcpKeepalive"`
+	Overridden                bool           `json:"overridden"`
+	MaxRequestsPerConnection  int            `json:"maxRequestsPerConnection"`
 }
 
 type CircuitBreaker struct {

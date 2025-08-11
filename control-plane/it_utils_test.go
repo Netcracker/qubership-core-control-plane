@@ -257,6 +257,12 @@ func (gateway GatewayContainer) ApplyConfigAndWait(assert *asrt.Assertions, time
 	})
 }
 
+func (gateway GatewayContainer) ApplyConfigAndWaitClusterUpdate(assert *asrt.Assertions, timeout time.Duration, config string) {
+	gateway.performAndWaitForClusterUpdate(assert, timeout, func() {
+		applyConfig(assert, config)
+	})
+}
+
 func (gateway GatewayContainer) ApplyConfigAndWaitWasmFiltersAppear(assert *asrt.Assertions, timeout time.Duration, config string) {
 	gateway.performAndWaitForWasmFiltersAppear(assert, timeout, func() {
 		applyConfig(assert, config)
@@ -369,6 +375,22 @@ func (gateway GatewayContainer) performAndWaitForRouteConfigUpdate(assert *asrt.
 		}
 	}
 	assert.Fail("RouteConfig was not updated in envoy before timeout exceeded")
+}
+
+func (gateway GatewayContainer) performAndWaitForClusterUpdate(assert *asrt.Assertions, timeout time.Duration, operation func()) {
+	versionBeforeOperation := gateway.getEnvoyDynamicClusterConfigVersion(assert)
+
+	operation()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		time.Sleep(200 * time.Millisecond)
+		versionAfterOperation := gateway.getEnvoyDynamicClusterConfigVersion(assert)
+		if versionBeforeOperation != versionAfterOperation {
+			return
+		}
+	}
+	assert.Fail("Cluster congiguration was not updated in envoy before timeout exceeded")
 }
 
 func (gateway GatewayContainer) waitAppearInConfig(assert *asrt.Assertions, timeout time.Duration, stringToWait string) (config string) {

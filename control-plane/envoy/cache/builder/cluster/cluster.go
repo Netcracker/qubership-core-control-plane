@@ -267,6 +267,9 @@ func (builder *BaseClusterBuilder) BuildCluster(nodeGroup string, domainCluster 
 	} else {
 		logger.Debugf("Envoy cluster %s tls configuration is nil or disabled", domainCluster.Name)
 	}
+	if domainCluster.MaxRequestsPerConnection != 0 {
+		c.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(domainCluster.MaxRequestsPerConnection)}
+	}
 	return c, nil
 }
 

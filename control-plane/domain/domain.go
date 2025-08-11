@@ -68,6 +68,7 @@ type Cluster struct {
 	CircuitBreaker   *CircuitBreaker `bun:"rel:belongs-to,join:circuit_breaker_id=id" json:"circuitBreaker"`
 	TcpKeepaliveId   int32           `bun:"tcp_keepalive_id,nullzero" json:"tcpKeepaliveId"`
 	TcpKeepalive     *TcpKeepalive   `bun:"rel:belongs-to,join:tcp_keepalive_id=id" json:"tcpKeepalive"`
+	MaxRequestsPerConnection  int32  `bun:"max_requests_per_connection,nullzero" json:"maxRequestsPerConnection"`
 }
 
 type CircuitBreaker struct {

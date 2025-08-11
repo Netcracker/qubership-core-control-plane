@@ -113,6 +113,12 @@ func (s *Service) AddClusterDaoProvided(ctx context.Context, dao dao.Repository,
 		}
 	}
 
+	if cluster.MaxRequestsPerConnection != 0 {
+		clusterToAdd.MaxRequestsPerConnection = int32(cluster.MaxRequestsPerConnection)
+	} else {
+		logger.Debug("cluster.MaxRequestsPerConnection is empty")
+	}
+
 	err = dao.SaveCluster(clusterToAdd)
 	if err != nil {
 		logger.Errorf("Error while saving cluster with name %v: %v", cluster.Name, err)
