@@ -24,7 +24,6 @@
       "NAMESPACE": "",
       "SERVICE_NAME": "control-plane",
       "REPLICAS": 1,
-      "SSL_SECRET": "defaultsslcertificate",
       "TAG": "",
       "TIMEOUT": 120000,
       "TRACING_ENABLED": false,
@@ -232,14 +231,6 @@
       "internal": true,
       "title": "The REPLICAS schema"
     },
-    "SSL_SECRET": {
-      "$id": "#/properties/SSL_SECRET",
-      "type": "string",
-      "title": "The SSL_SECRET schema",
-      "description": "SSL secret name.",
-      "examples": [
-        "defaultsslcertificate"
-      ],
       "internal": true
     },
     "TAG": {

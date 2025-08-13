@@ -98,8 +98,6 @@ spec:
                     valueFrom:
                         fieldRef:
                             fieldPath: status.podIP
-                -   name: CERTIFICATE_BUNDLE_{{ .Values.SSL_SECRET }}_MD5SUM
-                    value: '{{ .Values.CERTIFICATE_BUNDLE_MD5SUM }}'
                 -   name: MICROSERVICE_NAME
                     value: '{{ .Values.SERVICE_NAME }}'
                 -   name: MICROSERVICE_NAMESPACE
