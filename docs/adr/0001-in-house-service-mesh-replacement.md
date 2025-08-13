@@ -21,9 +21,6 @@ Accepted
 #### Related ADRs
 \-
 
-#### Notes
-Recommended to revisit migration strategy
-
 ## Context
 The current in-house service mesh implementation provides basic L4/L7 traffic management. However,
 
