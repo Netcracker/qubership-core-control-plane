@@ -49,7 +49,7 @@ require (
 	github.com/valyala/fasthttp v1.61.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250505200425-f936aa4a68b2
 	google.golang.org/grpc v1.70.0
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.8
 	sigs.k8s.io/yaml v1.4.0
 )
 
