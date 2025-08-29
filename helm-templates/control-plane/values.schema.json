@@ -11,7 +11,6 @@
   "examples": [
     {
       "PAAS_PLATFORM": "KUBERNETES",
-      "CERTIFICATE_BUNDLE_MD5SUM": "d41d8cd98f00b204e9800998ecf8427e",
       "CPU_REQUEST": "100m",
       "CPU_LIMIT": "2",
       "MEMORY_LIMIT": "100Mi",
@@ -139,15 +138,6 @@
       "description": "This parameter specify version of paas where this service is deployed.",
       "internal": true
     },
-    "CERTIFICATE_BUNDLE_MD5SUM": {
-      "$id": "#/properties/CERTIFICATE_BUNDLE_MD5SUM",
-      "type": "string",
-      "title": "The CERTIFICATE_BUNDLE_MD5SUM schema",
-      "examples": [
-        "d41d8cd98f00b204e9800998ecf8427e"
-      ],
-      "internal": true
-    },
     "CPU_REQUEST": {
       "$id": "#/properties/CPU_REQUEST",
       "$ref": "#/definitions/integerOrString",
@@ -230,8 +220,6 @@
       "envSpecific": true,
       "internal": true,
       "title": "The REPLICAS schema"
-    },
-      "internal": true
     },
     "TAG": {
       "$id": "#/properties/TAG",
