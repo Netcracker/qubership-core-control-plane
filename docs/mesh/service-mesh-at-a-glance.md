@@ -49,15 +49,15 @@ Service Mesh is a means to manage communications between microservices. In a com
 <tr>
 <td style="text-align: left;">/getOrder</td>
 <td style="text-align: left;">v1</td>
-<td style="text-align: left;"><a href="http://order-manager:8080/api/">http://order-manager:8080/api/</a> <strong>v1</strong>/getOrder</td></tr>
+<td style="text-align: left;">http:// order-manager:8080/api/ <strong>v1</strong>/getOrder</td></tr>
 <tr>
 <td style="text-align: left;"><span>/getOrder</span></td>
 <td style="text-align: left;">v2</td>
-<td style="text-align: left;"><span> <a href="http://order-manager:8080/api/">http://order-manager:8080/api/</a> <strong>v2</strong>/getOrder</span></td></tr>
+<td style="text-align: left;"><span>http:// order-manager:8080/api/ <strong>v2</strong>/getOrder</span></td></tr>
 <tr>
 <td style="text-align: left;"><span>/getOrder</span></td>
 <td style="text-align: left;">v3</td>
-<td style="text-align: left;"><a href="http://order-manager">http://order-manager</a> <strong>-new</strong>:8080/api/<strong>v3</strong>/getOrder</td></tr></tbody></table>
+<td style="text-align: left;">http:// order-manager <strong>-new</strong>:8080/api/<strong>v3</strong>/getOrder</td></tr></tbody></table>
 <p style="text-align: left;">where:</p>
 <ul style="text-align: left;">
 <li>Upstream URL is a URL on gateway itself, thus client microservice will call 'http://gateway-name:8080/&lt;upstreamURL&gt;'.</li>
