@@ -90,7 +90,7 @@ The role of routing table is to define a microservice, that will serve a particu
 Version is provided in “x-version” header.  
 Routing table has version by default - it will be used when no version is specified, or when no version is found.
 
-![routing_table](img/routing_table.png)
+![routing_table](/docs/img/routing_table.png)
 
 A very simplified representation of routing table contains the following columns:
 * **Target URL**. Route published on gateway. There could be several routes at a time, and `/` wildcard is used to register any possible route of target microservice.
@@ -194,7 +194,7 @@ Listener port field - Specifies which port the facade/composite gateway will lis
 
 Cluster - Microservice family name. Gateway could serve multiple families at a time, mostly it is common for public/private gateways and in cases when one façade gateway serves several families.
 
-Endpoint - URL of service to be called. Could be definite endpoint (as http://a-v1:8080/api/getOrder) or microservice root (http://a-v1:8080)
+Endpoint - URL of service to be called. Could be definite endpoint (as `http://a-v1:8080/api/getOrder`) or microservice root (`http://a-v1:8080`)
 
 **Route** contains **Rules** for route matching, rewriting request path prefix, headers manipulation and timeout.
 

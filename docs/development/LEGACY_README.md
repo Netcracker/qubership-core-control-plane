@@ -8,7 +8,7 @@ This documentation consists of the following topics:
     * [Routes registration](#routes-registration)
 * [REST API](#rest-api)
 * [Blue-Green](#blue-green)
-* [Service Mesh](./docs/mesh)
+* [Service Mesh](/docs/mesh)
 * [Watching versions](/docs/watch.md)
 * [Runtime processes](#runtime-processes)
 * [Tools](#tools)
@@ -30,7 +30,7 @@ The role of routing table is to define a microservice, that will serve a particu
 Version is provided in “x-version” header.  
 Routing table has version by default - it will be used when no version is specified, or when no version is found.
 
-![routing_table](img/routing_table.png)
+![routing_table](/docs/img/routing_table.png)
 
 A very simplified representation of routing table contains the following columns:
 * **Target URL**. Route published on gateway. There could be several routes at a time, and `/` wildcard is used to register any possible route of target microservice.
@@ -46,7 +46,7 @@ Control Plane contains all routing tables of all gateways and distributes change
 
 Control Plane provides REST API and CLI to register/unregister routes and to follow Blue-Green lifecycle (promote, rollback).
 The picture below shows how the Routes Registration API and routing table are related.  
-![routing_diagram](img/routing_diagram.png)
+![routing_diagram](/docs/img/routing_diagram.png)
 
 Control Plane API is provided in two flavors - REST and CLI. CLI proxies REST calls, so they are functionally identical.     
 Detailed information about Registration API is presented in the respective REST API section.  
@@ -81,13 +81,13 @@ Thus, an application has different deployment architecture when deployed in roll
 
 In the image below you can see the communication through the gateways in Blue-Green mode.
 
-![Blue-Green communication](img/bluegreen-arch.png)
+![Blue-Green communication](/docs/img/bluegreen-arch.png)
 
 See the detailed information about the Blue-Green operation in the following section: [Blue-Green](/docs/bluegreen.md).
 
 ## Runtime processes
 
-![Timeline diagram](img/time-line-diagram.png)
+![Timeline diagram](/docs/img/time-line-diagram.png)
 
 ### Load common config
 
