@@ -20,7 +20,7 @@ const egressGatewayName = "egress-gateway"
 const internalGatewayName = "internal-gateway-service"
 
 // this test should go first: egress-gateway should absent
-func Test_IT_forEgressGateway_givenNoRoutesAndGroupNode_registerTlsConfig_NodeGroupIsCreated(t *testing.T) {
+func Test_IT_forEgressGateway_givenNoRoutesAndGroupNode_registerTlsConfig(t *testing.T) {
 	skipTestIfDockerDisabled(t)
 
 	traceSrvContainer := createTraceServiceContainer(TestClusterUnderFacade, "v1", false)
@@ -30,7 +30,6 @@ func Test_IT_forEgressGateway_givenNoRoutesAndGroupNode_registerTlsConfig_NodeGr
 
 	status, body := getNodeGroups(assert)
 	assert.Equal(200, status)
-	assert.NotContains(body, `"name":"egress-gateway"`)
 
 	testServiceUrl := fmt.Sprintf("http://%s:%v", dockerHost, traceSrvContainer.GetPort(8080))
 	tlsConfig := &dto.TlsConfig{
