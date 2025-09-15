@@ -169,4 +169,5 @@ func Test_IT_ResponseTest_ResponseViaErgressDoesNotContainDefaultHeaders(t *test
 		},
 	})
 	assert.False(checkIfTestRouteWithPrefixIsPresentOnEgress(assert, cluster, prefix))
+	deleteVirtualService(assert, "egress-gateway", "egress-gateway")
 }
