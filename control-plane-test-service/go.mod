@@ -2,7 +2,7 @@ module trace-service/trace-service
 
 go 1.23
 
-toolchain go1.24.6
+toolchain go1.25.1
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
