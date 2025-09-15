@@ -4,6 +4,7 @@ const (
 	PublicGateway      = "public-gateway-service"
 	PrivateGateway     = "private-gateway-service"
 	InternalGateway    = "internal-gateway-service"
+	EgressGateway      = "egress-gateway"
 	ProfilePublic      = "public"
 	ProfilePrivate     = "private"
 	ProfileInternal    = "internal"
