@@ -345,7 +345,7 @@ func createTestStorage(dataBaseName string) constancy.StorageImpl {
 
 func createTestMigrations(fail bool) *migrate.Migrations {
 	migrations := &migrate.Migrations{}
-	migration0 := migrate.Migration{Name: "00000000000000", Comment: "first_migration", Up: func(ctx context.Context, db *bun.DB) error {
+	migration0 := migrate.Migration{Name: "00000000000000", Comment: "first_migration", Up: func(ctx context.Context, db *bun.DB, any any) error {
 		logTest.Info("first_migration")
 		err := db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 			testEntity0 := &TestEntity0{
@@ -366,9 +366,9 @@ func createTestMigrations(fail bool) *migrate.Migrations {
 			return nil
 		})
 		return err
-	}, Down: func(ctx context.Context, db *bun.DB) error { return nil }}
+	}, Down: func(ctx context.Context, db *bun.DB, any any) error { return nil }}
 	migrations.Add(migration0)
-	migration1 := migrate.Migration{Name: "00000000000001", Comment: "second_migration", Up: func(ctx context.Context, db *bun.DB) error {
+	migration1 := migrate.Migration{Name: "00000000000001", Comment: "second_migration", Up: func(ctx context.Context, db *bun.DB, any any) error {
 		logTest.Info("second_migration")
 		err := db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 			testEntity1 := &TestEntity1{
@@ -394,9 +394,9 @@ func createTestMigrations(fail bool) *migrate.Migrations {
 			return nil
 		})
 		return err
-	}, Down: func(ctx context.Context, db *bun.DB) error { return nil }}
+	}, Down: func(ctx context.Context, db *bun.DB, any any) error { return nil }}
 	migrations.Add(migration1)
-	migration2 := migrate.Migration{Name: "00000000000002", Comment: "third_migration", Up: func(ctx context.Context, db *bun.DB) error {
+	migration2 := migrate.Migration{Name: "00000000000002", Comment: "third_migration", Up: func(ctx context.Context, db *bun.DB, any any) error {
 		logTest.Info("third_migration")
 		err := db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 			testEntity2 := &TestEntity2{
@@ -419,26 +419,26 @@ func createTestMigrations(fail bool) *migrate.Migrations {
 			return nil
 		})
 		return err
-	}, Down: func(ctx context.Context, db *bun.DB) error { return nil }}
+	}, Down: func(ctx context.Context, db *bun.DB, any any) error { return nil }}
 	migrations.Add(migration2)
 
 	//It is necessary to avoid fix migration17. Otherwise, test will fail
-	migrationFix17 := migrate.Migration{Name: "00000000000017", Comment: "fix17_migration", Up: func(ctx context.Context, db *bun.DB) error {
+	migrationFix17 := migrate.Migration{Name: "00000000000017", Comment: "fix17_migration", Up: func(ctx context.Context, db *bun.DB, any any) error {
 		err := db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 			logTest.Info("fix17_migration")
 			return nil
 		})
 		return err
-	}, Down: func(ctx context.Context, db *bun.DB) error { return nil }}
+	}, Down: func(ctx context.Context, db *bun.DB, any any) error { return nil }}
 	migrations.Add(migrationFix17)
 	//It is necessary to avoid fix migration24. Otherwise, test will fail
-	migrationFix24 := migrate.Migration{Name: "00000000000024", Comment: "fix24_migration", Up: func(ctx context.Context, db *bun.DB) error {
+	migrationFix24 := migrate.Migration{Name: "00000000000024", Comment: "fix24_migration", Up: func(ctx context.Context, db *bun.DB, any any) error {
 		logTest.Info("fix24_migration")
 		err := db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 			return nil
 		})
 		return err
-	}, Down: func(ctx context.Context, db *bun.DB) error { return nil }}
+	}, Down: func(ctx context.Context, db *bun.DB, any any) error { return nil }}
 	migrations.Add(migrationFix24)
 	return migrations
 }

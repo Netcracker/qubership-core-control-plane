@@ -116,7 +116,7 @@ func (r migrationRecord) String() string {
 func applyMigration17(tx *bun.DB, migrations *migrate.Migrations, ctx context.Context) error {
 	for _, migration := range migrations.Sorted() {
 		if migration.Name == "00000000000017" {
-			if err := migration.Up(ctx, tx); err != nil {
+			if err := migration.Up(ctx, tx, nil); err != nil {
 				return gerrors.Wrap(err, 0)
 			}
 		}
