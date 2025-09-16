@@ -31,7 +31,7 @@ require (
 	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.0.0-20250505145427-766e76edee70
 	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.0.0-20250505145933-fe8e90a2dbd8
 	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.0.0-20250505150011-8af5ff8da9f2
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.0.0-20250403062747-4cb66dc1cc62
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.0.1
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.0.0-20250505150321-09ac8e0e3ac2
 	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.0.0-20250507111222-22b01ae759f8
 	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.0.0-20250410104403-5fc53287436a
