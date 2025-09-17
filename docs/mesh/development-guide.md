@@ -912,7 +912,7 @@ Since `Core 2025.4 Release` egress gateway can be configured with custom set of 
 * "Via"
 * "X-Real-IP"
 
-"server" response header is ignored for any configurations of gateway
+"server" response header is not sent by gateway in any cases
 
 ### gRPC routes
 
