@@ -290,3 +290,33 @@ func mockTestData(mockDao *mock_dao.MockDao, mockRouteBuilder *mock_routeconfig.
 
 	return initRouteConfig, virtualHostsDomain, eRoutes
 }
+
+func TestGatewayVirtualHostBuilderBuildEgressVirtualHosts(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockDao := getMockDao(ctrl)
+	mockRouteBuilder := getMockRouteBuilder(ctrl)
+	mockProvider := getMockVersionAliasesProvider(ctrl)
+	gatewayVirtualHostBuilder := NewEgressVirtualHostBuilder(mockDao, mockRouteBuilder, mockProvider)
+
+	initRouteConfig, virtualHostsDomain, eRoutes := mockTestData(mockDao, mockRouteBuilder)
+
+	mockProvider.EXPECT().GetVersionAliases().Return("testAliases").AnyTimes()
+
+	resultVirtualHosts, err := gatewayVirtualHostBuilder.BuildVirtualHosts(initRouteConfig)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(resultVirtualHosts))
+	for i, resultVirtualHost := range resultVirtualHosts {
+		assert.Equal(t, initRouteConfig.VirtualHosts[i].Name, resultVirtualHost.Name)
+		assert.Equal(t, virtualHostsDomain[i].Domain, resultVirtualHost.Domains[0])
+		assert.Equal(t, []*eroute.Route{eRoutes[i]}, resultVirtualHost.Routes)
+		assert.Equal(t, initRouteConfig.VirtualHosts[i].RequestHeadersToAdd[0].Name, resultVirtualHost.RequestHeadersToAdd[0].Header.Key)
+		assert.Equal(t, initRouteConfig.VirtualHosts[i].RequestHeadersToAdd[0].Value, resultVirtualHost.RequestHeadersToAdd[0].Header.Value)
+		assert.Equal(t, "X-Token-Signature", resultVirtualHost.RequestHeadersToRemove[0])
+		assert.Equal(t, "X-Forwarded-For", resultVirtualHost.ResponseHeadersToRemove[1])
+	}
+
+	assert.Nil(t, resultVirtualHosts[0].TypedPerFilterConfig["envoy.filters.http.local_ratelimit"])
+	assert.NotNil(t, resultVirtualHosts[1].TypedPerFilterConfig["envoy.filters.http.local_ratelimit"])
+}
