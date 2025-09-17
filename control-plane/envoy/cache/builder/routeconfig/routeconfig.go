@@ -47,7 +47,6 @@ type RouteBuilderImpl struct {
 }
 
 func NewRouteBuilder(dao dao.Repository, props *common.EnvoyProxyProperties, routePreparer RoutePreparer) *RouteBuilderImpl {
-	//responseHeadersToRemove := []string{"server"}
 	return &RouteBuilderImpl{dao: dao, props: props, routePreparer: routePreparer}
 }
 
