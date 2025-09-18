@@ -131,5 +131,7 @@ func ExtractRequestHeaders(c *fiber.Ctx) http.Header {
 
 func RespondWithJson(c *fiber.Ctx, code int, payload interface{}) error {
 	c.Set("server", "this header must not be returned")
+	c.Set("X-Forwarded-For", "this header must not be returned")
+	c.Set("Some-Other-Header", "Header-value")
 	return c.Status(code).JSON(payload)
 }

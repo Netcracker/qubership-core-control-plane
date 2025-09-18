@@ -904,6 +904,16 @@ For memory and cpu limit settings use variables:
 | EGRESS_GW_CPU_LIMIT | 100m |
 | EGRESS_GW_MEMORY_LIMIT | 64Mi |
 
+Since `Core 2025.4 Release` egress gateway can be configured with custom set of response headers to remove. To use this feature set deployment variable `EGRESS_RESPONSE_HEADERS_TO_REMOVE`. If not set the following headers will be removed from response by default:
+* "X-Forwarded-For"
+* "X-Forwarded-Proto"
+* "X-Forwarded-Host"
+* "X-Forwarded-Port"
+* "Via"
+* "X-Real-IP"
+
+"server" response header is not sent by gateway in any cases
+
 ### gRPC routes
 
   > :warning: Important: public-gateway and private-gateway ingresses (OpenShift routes) do not support gRPC traffic. You can still register gRPC routes in public and private gateway, but those routes will work properly only when communicating with gateway via kubernetes service inside the cloud. 

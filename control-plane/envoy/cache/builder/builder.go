@@ -80,6 +80,7 @@ func NewEnvoyConfigBuilder(dao dao.Dao, props *common.EnvoyProxyProperties, faca
 	builder.virtualHostBuilders[domain.PublicGateway] = gatewayVirtualHostBuilder
 	builder.virtualHostBuilders[domain.PrivateGateway] = gatewayVirtualHostBuilder
 	builder.virtualHostBuilders[domain.InternalGateway] = gatewayVirtualHostBuilder
+	builder.virtualHostBuilders[domain.EgressGateway] = egressVirtualHostBuilder
 
 	builder.clusterBuilders[domain.Egress] = cluster.NewEgressClusterBuilder(dao, props.Routes)
 	return &builder

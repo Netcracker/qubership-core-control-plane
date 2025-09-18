@@ -22,8 +22,10 @@ func NewIngressVirtualHostBuilder(dao dao.Repository, entityService entity.Servi
 		maxAge = value
 	}
 
+	responseHeadersToRemove := []string{"server"}
+
 	builder := GatewayVirtualHostBuilder{dao: dao, routeBuilder: routeBuilder,
-		allowedHeaders: allowedHeaders, maxAge: maxAge, originStringMatchers: convertOrigins(origins),
+		allowedHeaders: allowedHeaders, responseHeadersToRemove: responseHeadersToRemove, maxAge: maxAge, originStringMatchers: convertOrigins(origins),
 		builderExt: &ingressVirtualHostBuilderExt{dao: dao, entityService: entityService},
 	}
 	return &builder

@@ -21,13 +21,14 @@ type VirtualHostBuilderExt interface {
 }
 
 type GatewayVirtualHostBuilder struct {
-	dao                  dao.Repository
-	routeBuilder         RouteBuilder
-	allowedHeaders       string
-	maxAge               string
-	originStringMatchers []*envoy_type_matcher.StringMatcher
-	builderExt           VirtualHostBuilderExt
-	namespace            string
+	dao                     dao.Repository
+	routeBuilder            RouteBuilder
+	allowedHeaders          string
+	maxAge                  string
+	originStringMatchers    []*envoy_type_matcher.StringMatcher
+	builderExt              VirtualHostBuilderExt
+	namespace               string
+	responseHeadersToRemove []string
 }
 
 func NewGatewayVirtualHostBuilder(dao dao.Repository, routeBuilder RouteBuilder, provider VersionAliasesProvider) *GatewayVirtualHostBuilder {
@@ -43,12 +44,15 @@ func NewGatewayVirtualHostBuilder(dao dao.Repository, routeBuilder RouteBuilder,
 	if value, exists := os.LookupEnv("GATEWAYS_ACCESS_CONTROL_MAX_AGE"); exists {
 		maxAge = value
 	}
+
+	responseHeadersToRemove := []string{"server"}
+
 	compositePlatformEnv, exists := os.LookupEnv("COMPOSITE_PLATFORM")
 	compositePlatform := exists && strings.EqualFold(strings.TrimSpace(compositePlatformEnv), "true")
 	namespace := configloader.GetOrDefaultString("microservice.namespace", "")
 
 	return &GatewayVirtualHostBuilder{dao: dao, routeBuilder: routeBuilder, allowedHeaders: allowedHeaders,
-		maxAge: maxAge, originStringMatchers: convertOrigins(origins),
+		responseHeadersToRemove: responseHeadersToRemove, maxAge: maxAge, originStringMatchers: convertOrigins(origins),
 		builderExt: &gatewayVhBuilderExt{
 			origins:            origins,
 			allowedHeaders:     allowedHeaders,
@@ -140,13 +144,14 @@ func (vhBuilder *GatewayVirtualHostBuilder) BuildVirtualHosts(routeConfig *domai
 		}
 
 		envoyVirtualHost := &route.VirtualHost{
-			Name:                   virtualHost.Name,
-			Domains:                domainStrings,
-			Routes:                 envoyRoutes,
-			RequestHeadersToAdd:    buildHeaderOptions(virtualHost.RequestHeadersToAdd),
-			RequestHeadersToRemove: vhBuilder.builderExt.EnrichHeadersToRemove(virtualHost.RequestHeadersToRemove),
-			TypedPerFilterConfig:   typedPerFilterConfig,
-			ResponseHeadersToAdd:   responseHeadersToAdd,
+			Name:                    virtualHost.Name,
+			Domains:                 domainStrings,
+			Routes:                  envoyRoutes,
+			RequestHeadersToAdd:     buildHeaderOptions(virtualHost.RequestHeadersToAdd),
+			RequestHeadersToRemove:  vhBuilder.builderExt.EnrichHeadersToRemove(virtualHost.RequestHeadersToRemove),
+			TypedPerFilterConfig:    typedPerFilterConfig,
+			ResponseHeadersToAdd:    responseHeadersToAdd,
+			ResponseHeadersToRemove: vhBuilder.responseHeadersToRemove,
 		}
 		result = append(result, envoyVirtualHost)
 	}
@@ -154,11 +159,11 @@ func (vhBuilder *GatewayVirtualHostBuilder) BuildVirtualHosts(routeConfig *domai
 }
 
 type gatewayVhBuilderExt struct {
-	origins            string
-	allowedHeaders     string
-	maxAge             string
-	aliasProvider      VersionAliasesProvider
-	compositeSatellite bool
+	origins                 string
+	allowedHeaders          string
+	maxAge                  string
+	aliasProvider           VersionAliasesProvider
+	compositeSatellite      bool
 }
 
 func (vhBuilder *gatewayVhBuilderExt) EnrichHeadersToRemove(headersToRemove []string) []string {

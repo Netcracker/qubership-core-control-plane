@@ -60,6 +60,7 @@ func (b *MeshVirtualHostBuilder) BuildVirtualHosts(routeConfig *domain.RouteConf
 				Name:  "Access-Control-Allow-Origin",
 				Value: "%DYNAMIC_METADATA(envoy.filters.http.ext_authz:access.control.allow.origin)%",
 			}}),
+			ResponseHeadersToRemove: []string{"server"},
 			Routes: envoyRoutes,
 		}
 		result = append(result, envoyVirtualHost)
