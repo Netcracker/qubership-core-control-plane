@@ -35,20 +35,13 @@ jobs:
             ghcr.io/netcracker/cp-test-service:latest
         context: ./
         file: ./control-plane-test-service/Dockerfile
-        platforms: linux/amd64      
+        platforms: linux/amd64
 
-
-  build:
-    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@v1.0.5
+  build-go-service:
+    uses: netcracker/qubership-core-infra/.github/workflows/go-build-service.yaml@feat/do-not-duplicate-build-runs
     with:
       go-module-dir: control-plane
       actor: ${{ github.actor }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
-
-  docker-build:
-    needs: [build]
-    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.0.5
-    with:
-      dry-run: false
