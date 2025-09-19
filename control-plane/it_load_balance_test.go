@@ -1,6 +1,14 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptrace"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/event/bus"
@@ -8,10 +16,6 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/lib"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
 	asrt "github.com/stretchr/testify/assert"
-	"net/http"
-	"strings"
-	"testing"
-	"time"
 )
 
 const TestCookieName = "sticky-cookie-v1"
@@ -445,4 +449,82 @@ spec:
 			internalGateway.DeleteClusterAndWait(assert, 60*time.Second, cluster.Id, cluster.Name)
 		}
 	}
+}
+
+
+func Test_IT_LoadBalance_TCP_Connection_Idle_Timeout(t *testing.T) {
+	skipTestIfDockerDisabled(t)
+	assert := asrt.New(t)
+
+	srvContainer := createTraceServiceContainer("test-service", "v1", false)
+	defer srvContainer.Purge()
+
+	internalGateway.RegisterRoutesAndWait(
+		assert,
+		60*time.Second,
+		"v1",
+		dto.RouteV3{
+			Destination: dto.RouteDestination{Cluster: TestCluster, Endpoint: "test-service:8080"},
+			Rules:       []dto.Rule{{Match: dto.RouteMatch{Prefix: "/api/v1/test-service/lb-test"}}},
+		},
+	)
+	internalGateway.ApplyConfigAndWaitClusterUpdate(assert, 60*time.Second, `apiVersion: nc.core.mesh/v3
+kind: Cluster
+spec:
+  gateways:
+    - internal-gateway-service
+  name: test-service||test-service||8080
+  endpoints:
+    - http://test-service:8080
+  connectionIdleTimeout: 10`)
+
+	runRequestsHttpConnectionTest(assert, 15 * time.Second)
+	runRequestsHttpConnectionTest(assert, 0 * time.Second)
+
+	// cleanup
+	clusters, err := lib.GenericDao.FindAllClusters()
+	assert.Nil(err)
+	for _, cluster := range clusters {
+		if strings.HasPrefix(cluster.Name, "test-service||test-service||") {
+			internalGateway.DeleteClusterAndWait(assert, 60*time.Second, cluster.Id, cluster.Name)
+		}
+	}
+}
+
+func runRequestsHttpConnectionTest(assert *asrt.Assertions, waitDuration time.Duration) {
+    url := internalGateway.Url+"/api/v1/test-service/lb-test"
+    doRequest := func() (connectionID string, err error) {
+        var connID string
+        req, _ := http.NewRequest("GET", url, nil)
+
+        trace := &httptrace.ClientTrace{
+            GotConn: func(info httptrace.GotConnInfo) {
+                connID = fmt.Sprintf("%p", info.Conn)
+            },
+        }
+        req = req.WithContext(httptrace.WithClientTrace(context.Background(), trace))
+        resp, err := http.DefaultClient.Do(req)
+        if err != nil {
+            return "", err
+        }
+        defer resp.Body.Close()
+
+        return connID, nil
+    }
+
+    connID1, err := doRequest()
+    if err != nil {
+        log.Info("First request error:", err)
+        return
+    }
+
+    time.Sleep(waitDuration)
+
+    connID2, err := doRequest()
+    if err != nil {
+        fmt.Println("Second request error:", err)
+        return
+    }
+
+	assert.NotEqual(connID1, connID2)	
 }
