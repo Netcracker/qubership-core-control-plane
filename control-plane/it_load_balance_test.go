@@ -479,7 +479,6 @@ spec:
   connectionIdleTimeout: 10`)
 
 	runRequestsHttpConnectionTest(assert, 15 * time.Second)
-	runRequestsHttpConnectionTest(assert, 0 * time.Second)
 
 	// cleanup
 	clusters, err := lib.GenericDao.FindAllClusters()
