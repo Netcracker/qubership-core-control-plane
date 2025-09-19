@@ -401,6 +401,7 @@ func TestBuildClusterWithMtls(t *testing.T) {
 				Name:        CLUSTER_NAME,
 				HttpVersion: &httpVersion,
 				TLS:         &tlsConfig,
+				ConnectionIdleTimeout: domain.NewNullInt(10),
 			}
 
 			mockRepository.EXPECT().FindDeploymentVersionsByStage(gomock.Any()).AnyTimes().Return([]*domain.DeploymentVersion{{}}, nil)
@@ -424,6 +425,7 @@ func TestBuildClusterWithMtls(t *testing.T) {
 			assert.Equal(t, clusterV3.Cluster_AUTO, cluster.DnsLookupFamily)
 			assert.NotNil(t, cluster.TransportSocket.GetTypedConfig())
 			assert.Equal(t, strings.ReplaceAll(test.expectedTypedConfig, " ", ""), strings.ReplaceAll(actualTypedConfig, " ", ""))
+			assert.Equal(t, true, cluster.CommonHttpProtocolOptions.IdleTimeout.IsValid())
 		})
 	}
 }
