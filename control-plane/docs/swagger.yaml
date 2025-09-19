@@ -40,6 +40,8 @@ definitions:
         type: integer
       commonLbConfig:
         $ref: '#/definitions/domain.CommonLbConfig'
+      connectionIdleTimeout:
+        "type": "integer"
       dnsResolvers:
         items:
           $ref: '#/definitions/domain.DnsResolver'

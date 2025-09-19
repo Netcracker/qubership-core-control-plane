@@ -3619,6 +3619,9 @@ const docTemplate = `{
                 "commonLbConfig": {
                     "$ref": "#/definitions/domain.CommonLbConfig"
                 },
+                "connectionIdleTimeout": {
+                    "type": "integer"
+                },
                 "dnsResolvers": {
                     "type": "array",
                     "items": {
