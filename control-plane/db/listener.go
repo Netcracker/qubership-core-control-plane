@@ -77,7 +77,7 @@ func (l *postgresListener) startListening() {
 	l.connectCallback()
 	for {
 		select {
-		case notification := <-l.listener.Channel():
+		case notification := <-l.listener.CreateChannel():
 			payload := notification.Payload
 			log.Debugf("Received notification from pg on %s chan: %s", notification.Channel, payload)
 			l.notificationCallback(payload)
