@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	image2 "github.com/docker/docker/api/types/image"
-	network2 "github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"io"
@@ -83,14 +82,14 @@ func (cm *ContainerManager) RunContainerWithRetry(opts *CreateContainerOpts) {
 		}
 		log.ErrorC(ctx, "Ready check for %s failed:\n %v", opts.name, err)
 
-		logsStream, errStr := cli.ContainerLogs(ctx, cm.containers[opts.name].ID, container.LogsOptions{ShowStdout: true, ShowStderr: true })
+		logsStream, errStr := cli.ContainerLogs(ctx, cm.containers[opts.name].ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 		if errStr != nil {
 			log.InfoC(ctx, "Failed to get cont logs:\n %v", errStr)
-		
+
 		}
 		logs, _ := io.ReadAll(logsStream)
 		log.InfoC(ctx, "Container logs:\n %v", string(logs))
-		
+
 		time.Sleep(500 * time.Millisecond)
 	}
 	if err != nil {
@@ -186,7 +185,7 @@ func runDockerContainer(opts *CreateContainerOpts) (*ContainerInfo, error) {
 		&container.HostConfig{
 			PortBindings: portBindings,
 			ExtraHosts:   opts.extraHosts,
-		}, &network2.NetworkingConfig{EndpointsConfig: map[string]*network2.EndpointSettings{NetworkName: {
+		}, &network.NetworkingConfig{EndpointsConfig: map[string]*network.EndpointSettings{NetworkName: {
 			Aliases: []string{opts.name},
 			//NetworkID:           cm.networkID,
 		}}}, nil, opts.name)
@@ -207,7 +206,7 @@ func runDockerContainer(opts *CreateContainerOpts) (*ContainerInfo, error) {
 }
 
 func createNetwork(networkName string) (string, error) {
-	nt, err := cli.NetworkCreate(ctx, networkName, network2.CreateOptions{})
+	nt, err := cli.NetworkCreate(ctx, networkName, network.CreateOptions{})
 	if err != nil {
 		log.ErrorC(ctx, "client.NetworkCreate err:\n %v", err)
 		return "", err
@@ -216,7 +215,7 @@ func createNetwork(networkName string) (string, error) {
 }
 
 func deleteNetwork(networkName string) {
-	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
+	networks, err := cli.NetworkList(ctx, network.ListOptions{
 		Filters: filters.NewArgs(filters.Arg("name", networkName)),
 	})
 	if err != nil {
