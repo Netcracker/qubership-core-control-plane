@@ -11,8 +11,9 @@ maxRequestsPerConnection -> max_requests_per_connection
 (UInt32Value) Optional maximum requests for a single upstream connection. This parameter is respected by both the HTTP/1.1 and HTTP/2 connection pool implementations. If not specified, there is no limit. Setting this parameter to 1 will effectively disable keep alive.
 
 connectionIdleTimeout -> common_http_protocol_options.idle_timeout
-(Duration) The idle timeout for connections. The idle timeout is defined as the period in which there are no active requests. When the idle timeout is reached the connection will be closed. 
+(Duration, seconds) The idle timeout for connections. The idle timeout is defined as the period in which there are no active requests. When the idle timeout is reached the connection will be closed. 
 Also enable tcp_keepalive so Envoy can detect dead connections faster than possible silent drop and set route idle_timeout if you want to guard against stuck of HTTP streams
+Setting this parameter to 0 will remove it from configuration
 
 ## Mesh CR Cluster example
 

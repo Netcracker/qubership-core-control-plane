@@ -3620,6 +3620,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/domain.CommonLbConfig"
                 },
                 "connectionIdleTimeout": {
+                    "description": "interval of HTTP connection inactivity before closing, unit: seconds"
                     "type": "integer"
                 },
                 "dnsResolvers": {

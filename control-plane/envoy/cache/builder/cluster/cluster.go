@@ -274,7 +274,7 @@ func (builder *BaseClusterBuilder) BuildCluster(nodeGroup string, domainCluster 
 		c.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(domainCluster.MaxRequestsPerConnection)}
 	}
 
-	if domainCluster.ConnectionIdleTimeout.Valid && domainCluster.ConnectionIdleTimeout.Int64 >= 0 {
+	if domainCluster.ConnectionIdleTimeout.Valid && domainCluster.ConnectionIdleTimeout.Int64 > 0 {
 		c.CommonHttpProtocolOptions.IdleTimeout = durationpb.New(time.Duration(domainCluster.ConnectionIdleTimeout.Int64) * time.Millisecond)
 	}
 
