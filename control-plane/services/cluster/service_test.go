@@ -328,7 +328,7 @@ func getDtoCluster(overridden bool) *dto.ClusterConfigRequestV3 {
 			MaxConnections: 2,
 		},
 	}
-
+    connectionIdleTimeout := int64(10)
 	return &dto.ClusterConfigRequestV3{
 		Gateways:       []string{GATEWAY_NAME},
 		Name:           CLUSTER_NAME,
@@ -337,6 +337,7 @@ func getDtoCluster(overridden bool) *dto.ClusterConfigRequestV3 {
 		TLS:            TLS_CONFIG_NAME,
 		Overridden:     overridden,
 		MaxRequestsPerConnection:  100,
+		ConnectionIdleTimeout:     &connectionIdleTimeout,
 	}
 }
 

@@ -115,8 +115,10 @@ func (s *Service) AddClusterDaoProvided(ctx context.Context, dao dao.Repository,
 
 	if cluster.MaxRequestsPerConnection != 0 {
 		clusterToAdd.MaxRequestsPerConnection = int32(cluster.MaxRequestsPerConnection)
-	} else {
-		logger.Debug("cluster.MaxRequestsPerConnection is empty")
+	}
+
+	if cluster.ConnectionIdleTimeout != nil {
+		clusterToAdd.ConnectionIdleTimeout = domain.NewNullInt(*cluster.ConnectionIdleTimeout)
 	}
 
 	err = dao.SaveCluster(clusterToAdd)

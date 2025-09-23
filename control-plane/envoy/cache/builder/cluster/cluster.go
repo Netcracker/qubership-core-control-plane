@@ -1,6 +1,10 @@
 package cluster
 
 import (
+	"os"
+	"strings"
+	"time"
+
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/builder/common"
@@ -11,8 +15,6 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
 	tlsUtil "github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/tls"
-	"os"
-	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -185,6 +187,7 @@ func (builder *BaseClusterBuilder) BuildCluster(nodeGroup string, domainCluster 
 				},
 			},
 		},
+		CommonHttpProtocolOptions:      &core.HttpProtocolOptions{},
 	}
 	if c.Name != domain.ExtAuthClusterName {
 		c.LbSubsetConfig = &cluster.Cluster_LbSubsetConfig{
@@ -270,6 +273,11 @@ func (builder *BaseClusterBuilder) BuildCluster(nodeGroup string, domainCluster 
 	if domainCluster.MaxRequestsPerConnection != 0 {
 		c.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(domainCluster.MaxRequestsPerConnection)}
 	}
+
+	if domainCluster.ConnectionIdleTimeout.Valid && domainCluster.ConnectionIdleTimeout.Int64 > 0 {
+		c.CommonHttpProtocolOptions.IdleTimeout = durationpb.New(time.Duration(domainCluster.ConnectionIdleTimeout.Int64) * time.Millisecond)
+	}
+
 	return c, nil
 }
 

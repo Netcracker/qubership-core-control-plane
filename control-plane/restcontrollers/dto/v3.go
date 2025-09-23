@@ -90,6 +90,7 @@ type ClusterConfigRequestV3 struct {
 	TcpKeepalive              *TcpKeepalive  `json:"tcpKeepalive"`
 	Overridden                bool           `json:"overridden"`
 	MaxRequestsPerConnection  int            `json:"maxRequestsPerConnection"`
+	ConnectionIdleTimeout     *int64         `json:"connectionIdleTimeout"`
 }
 
 type CircuitBreaker struct {
