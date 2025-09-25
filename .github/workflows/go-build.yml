@@ -46,7 +46,7 @@ jobs:
 
   build-go-service:
     name: Build go service
-    uses: netcracker/qubership-core-infra/.github/workflows/build-go-service.yaml@v1.1.0
+    uses: netcracker/qubership-core-infra/.github/workflows/generic-build-go-service.yaml@v1.1.0
     with:
       go-module-dir: control-plane
       actor: ${{ github.actor }}
