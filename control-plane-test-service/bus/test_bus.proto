@@ -2,7 +2,7 @@ syntax = "proto3";
 
 option go_package = ".;bus";
 
-package org.qubership.mesh.v3.test.bus;
+package com.netcracker.mesh.v3.test.bus;
 
 import "google/protobuf/any.proto";
 
