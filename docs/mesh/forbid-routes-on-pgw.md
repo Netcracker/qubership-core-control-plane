@@ -8,7 +8,7 @@ You need to create CR in k8s with kind `Mesh` and subKind `RouteConfiguration`:
 
 ```yaml
 ---
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -17,7 +17,7 @@ metadata:
   labels:
     deployer.cleanup/allow: "true"
     app.kubernetes.io/managed-by: saasDeployer
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}
+    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}
     app.kubernetes.io/part-of: My-Application-Name
     app.kubernetes.io/processed-by-operator: "core-operator"
 spec:
