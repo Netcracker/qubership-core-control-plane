@@ -60,6 +60,7 @@ import (
 	"syscall"
 
 	"github.com/gofiber/fiber/v2"
+	loggerfiber "github.com/gofiber/fiber/v2/middleware/logger"
 	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
 	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/server"
 	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/consul-propertysource"
@@ -272,6 +273,13 @@ func RunServer() {
 	if err != nil {
 		logger.Error("Error while create app because: " + err.Error())
 		return
+	}
+
+	if value, exists := os.LookupEnv("LOG_LEVEL"); exists && value == "debug" {
+		app.Use(loggerfiber.New(loggerfiber.Config{
+			Format: "[${ip}]:${port} ${status} - ${method} ${path} ${latency}\n",
+			Output: os.Stdout, // Or a custom io.Writer for file logging
+		}))
 	}
 
 	apiV1 := app.Group("/api/v1", proxy.ProxyRequestsToMaster())
