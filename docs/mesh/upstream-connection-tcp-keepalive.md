@@ -25,7 +25,7 @@ This document describes how tcp keepalive can be configured for gateway upstream
 Please note, that any other configuration with empty or ommitted `tcpKeepalive` section will delete tcp keepalive settings for the cluster. 
 
 ```yaml
-apiVersion: core.netcracker.com/v1
+apiVersion: core.qubership.org/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:
@@ -66,7 +66,7 @@ Field `spec#name` must contain full cluster key.
 Cluster key can be obtained from Mesh tab in cloud-administrator UI.
 
 ```yaml
-apiVersion: core.netcracker.com/v1
+apiVersion: core.qubership.org/v1
 kind: Mesh
 subKind: Cluster
 metadata:

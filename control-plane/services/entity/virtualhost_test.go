@@ -128,7 +128,7 @@ func TestService_PutVirtualHostWithUpdateVirtualHostDomain(t *testing.T) {
 	assert.Equal(t, 1, len(actualVh))
 	assert.Contains(t, actualVh, expectedVh)
 
-	expectedVhd := &domain.VirtualHostDomain{Domain: "*.netcracker.com"}
+	expectedVhd := &domain.VirtualHostDomain{Domain: "*.qubership.org"}
 	expectedVh.Domains = []*domain.VirtualHostDomain{expectedVhd}
 	_, err = inMemDao.WithWTx(func(dao dao.Repository) error {
 		assert.Nil(t, entityService.PutVirtualHost(dao, expectedVh))

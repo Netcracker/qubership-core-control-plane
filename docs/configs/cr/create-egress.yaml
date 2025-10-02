@@ -1,4 +1,4 @@
-apiVersion: netcracker.com/v1alpha
+apiVersion: qubership.org/v1alpha
 kind: FacadeService
 metadata:
   name: egress-gateway

@@ -850,7 +850,7 @@ Egress gateway can be deployed by creating FacadeService CustomResource in your 
 ocBin=`oc311 plugin shift_plugin_caller oc_get_version --print_clientname=true`
 
 cat << EOF | ${ocBin} --namespace="${ENV_NAMESPACE}" apply -f -
-apiVersion: "netcracker.com/v1alpha"
+apiVersion: "qubership.org/v1alpha"
 kind: FacadeService
 metadata:
   name: egress-gateway
@@ -934,7 +934,7 @@ service EventBus {
 }
 ...
 ```
-full HTTP/2 request path will be `/com.netcracker.sample.event.bus.v3.EventBus/Subscribe`.
+full HTTP/2 request path will be `/org.qubership.sample.event.bus.v3.EventBus/Subscribe`.
 
 So for this case we can register HTTP/2 route in gateway:
 ```yaml
@@ -965,7 +965,7 @@ spec:
               httpVersion: 2
             rules:
               - match:
-                  prefix: /com.netcracker.sample.event.bus.v3.EventBus
+                  prefix: /org.qubership.sample.event.bus.v3.EventBus
                 allowed: true
                 timeout: 600000
 ```
@@ -1002,7 +1002,7 @@ spec:
               httpVersion: 2
             rules:
               - match:
-                  prefix: /com.netcracker.sample.event.bus.v3.EventBus
+                  prefix: /org.qubership.sample.event.bus.v3.EventBus
                 allowed: true
                 timeout: 600000
 ```
@@ -1022,7 +1022,7 @@ apiVersion: v1
 metadata:
   name: "{ENV.DEPLOYMENT_RESOURCE_NAME}"
   annotations:
-    netcracker.cloud/start.stage: '1'
+    qubership.cloud/start.stage: '1'
 spec:
   ports:
     - name: web
@@ -1196,7 +1196,7 @@ To customize `Host` header value you need to sepcify desired value in `hostRewri
 
 ```yaml
 ---
-apiVersion: core.netcracker.com/v1
+apiVersion: core.qubership.org/v1
 kind: Mesh
 subKind: RouteConfiguration
 metadata:

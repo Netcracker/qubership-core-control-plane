@@ -54,7 +54,7 @@ spec:
          httpVersion: 2
        rules:
        - match:
-           prefix: /netcracker.com.mesh.v3.test.bus`
+           prefix: /org.qubership.mesh.v3.test.bus`
 
 	const cluster1 = "test-service"
 	traceSrvContainer1 := createTraceServiceContainer(cluster1, "v1", true)
@@ -115,7 +115,7 @@ spec:
 		RouteDeleteRequest: dto.RouteDeleteRequest{
 			Routes: []dto.RouteDeleteItem{
 				{Prefix: "/api/v1/test-service"},
-				{Prefix: "/com.netcracker.mesh.v3.test.bus"},
+				{Prefix: "/org.qubership.mesh.v3.test.bus"},
 			},
 			Version: "v1",
 		},
@@ -156,7 +156,7 @@ spec:
          endpoint: test-cluster-4httpver-v1:8888
        rules:
        - match:
-           prefix: /com.netcracker.mesh.v3.test.bus`
+           prefix: /org.qubership.mesh.v3.test.bus`
 	internalGateway.ApplyConfigAndWait(assert, 60*time.Second, config)
 
 	// verify default HTTP version is 1
@@ -185,7 +185,7 @@ spec:
          httpVersion: 2
        rules:
        - match:
-           prefix: /com.netcracker.mesh.v3.test.bus.TestEventBus`
+           prefix: /org.qubership.mesh.v3.test.bus.TestEventBus`
 	internalGateway.ApplyConfigAndWait(assert, 60*time.Second, config)
 
 	// verify HTTP version is overwritten with HTTP2
@@ -213,7 +213,7 @@ spec:
          endpoint: test-cluster-4httpver-v1:8888
        rules:
        - match:
-           prefix: /com.netcracker.mesh.v3.test.bus.AnotherService`
+           prefix: /org.qubership.mesh.v3.test.bus.AnotherService`
 	internalGateway.ApplyConfigAndWait(assert, 60*time.Second, config)
 
 	// verify HTTP version did not change
@@ -263,9 +263,9 @@ spec:
 		RouteDeleteRequest: dto.RouteDeleteRequest{
 			Routes: []dto.RouteDeleteItem{
 				{Prefix: "/api/v1/test-cluster-4httpver"},
-				{Prefix: "/com.netcracker.mesh.v3.test.bus"},
-				{Prefix: "/com.netcracker.mesh.v3.test.bus.TestEventBus"},
-				{Prefix: "/com.netcracker.mesh.v3.test.bus.AnotherService"},
+				{Prefix: "/org.qubership.mesh.v3.test.bus"},
+				{Prefix: "/org.qubership.mesh.v3.test.bus.TestEventBus"},
+				{Prefix: "/org.qubership.mesh.v3.test.bus.AnotherService"},
 			},
 			Version: "v1",
 		},
@@ -569,7 +569,7 @@ type Event struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	EventType EventType  `protobuf:"varint,1,opt,name=eventType,proto3,enum=com.netcracker.mesh.v3.test.bus.EventType" json:"eventType,omitempty"`
+	EventType EventType  `protobuf:"varint,1,opt,name=eventType,proto3,enum=org.qubership.mesh.v3.test.bus.EventType" json:"eventType,omitempty"`
 	Data      *anypb.Any `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -758,20 +758,20 @@ func file_test_bus_proto_rawDescGZIP() []byte {
 var file_test_bus_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_test_bus_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_test_bus_proto_goTypes = []interface{}{
-	(EventType)(0),       // 0: com.netcracker.mesh.v3.test.bus.EventType
-	(*Topic)(nil),        // 1: com.netcracker.mesh.v3.test.bus.Topic
-	(*Event)(nil),        // 2: com.netcracker.mesh.v3.test.bus.Event
-	(*RawBytesData)(nil), // 3: com.netcracker.mesh.v3.test.bus.RawBytesData
-	(*Empty)(nil),        // 4: com.netcracker.mesh.v3.test.bus.Empty
+	(EventType)(0),       // 0: org.qubership.mesh.v3.test.bus.EventType
+	(*Topic)(nil),        // 1: org.qubership.mesh.v3.test.bus.Topic
+	(*Event)(nil),        // 2: org.qubership.mesh.v3.test.bus.Event
+	(*RawBytesData)(nil), // 3: org.qubership.mesh.v3.test.bus.RawBytesData
+	(*Empty)(nil),        // 4: org.qubership.mesh.v3.test.bus.Empty
 	(*anypb.Any)(nil),    // 5: google.protobuf.Any
 }
 var file_test_bus_proto_depIdxs = []int32{
-	0, // 0: com.netcracker.mesh.v3.test.bus.Event.eventType:type_name -> com.netcracker.mesh.v3.test.bus.EventType
-	5, // 1: com.netcracker.mesh.v3.test.bus.Event.data:type_name -> google.protobuf.Any
-	1, // 2: com.netcracker.mesh.v3.test.bus.TestEventBus.Subscribe:input_type -> com.netcracker.mesh.v3.test.bus.Topic
-	4, // 3: com.netcracker.mesh.v3.test.bus.TestEventBus.GetLastSnapshot:input_type -> com.netcracker.mesh.v3.test.bus.Empty
-	2, // 4: com.netcracker.mesh.v3.test.bus.TestEventBus.Subscribe:output_type -> com.netcracker.mesh.v3.test.bus.Event
-	2, // 5: com.netcracker.mesh.v3.test.bus.TestEventBus.GetLastSnapshot:output_type -> com.netcracker.mesh.v3.test.bus.Event
+	0, // 0: org.qubership.mesh.v3.test.bus.Event.eventType:type_name -> org.qubership.mesh.v3.test.bus.EventType
+	5, // 1: org.qubership.mesh.v3.test.bus.Event.data:type_name -> google.protobuf.Any
+	1, // 2: org.qubership.mesh.v3.test.bus.TestEventBus.Subscribe:input_type -> org.qubership.mesh.v3.test.bus.Topic
+	4, // 3: org.qubership.mesh.v3.test.bus.TestEventBus.GetLastSnapshot:input_type -> org.qubership.mesh.v3.test.bus.Empty
+	2, // 4: org.qubership.mesh.v3.test.bus.TestEventBus.Subscribe:output_type -> org.qubership.mesh.v3.test.bus.Event
+	2, // 5: org.qubership.mesh.v3.test.bus.TestEventBus.GetLastSnapshot:output_type -> org.qubership.mesh.v3.test.bus.Event
 	4, // [4:6] is the sub-list for method output_type
 	2, // [2:4] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -879,7 +879,7 @@ func NewTestEventBusClient(cc grpc.ClientConnInterface) TestEventBusClient {
 }
 
 func (c *testEventBusClient) Subscribe(ctx context.Context, in *Topic, opts ...grpc.CallOption) (TestEventBus_SubscribeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &TestEventBus_ServiceDesc.Streams[0], "/com.netcracker.mesh.v3.test.bus.TestEventBus/Subscribe", opts...)
+	stream, err := c.cc.NewStream(ctx, &TestEventBus_ServiceDesc.Streams[0], "/org.qubership.mesh.v3.test.bus.TestEventBus/Subscribe", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -912,7 +912,7 @@ func (x *testEventBusSubscribeClient) Recv() (*Event, error) {
 
 func (c *testEventBusClient) GetLastSnapshot(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Event, error) {
 	out := new(Event)
-	err := c.cc.Invoke(ctx, "/com.netcracker.mesh.v3.test.bus.TestEventBus/GetLastSnapshot", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/org.qubership.mesh.v3.test.bus.TestEventBus/GetLastSnapshot", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -982,7 +982,7 @@ func _TestEventBus_GetLastSnapshot_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/com.netcracker.mesh.v3.test.bus.TestEventBus/GetLastSnapshot",
+		FullMethod: "/org.qubership.mesh.v3.test.bus.TestEventBus/GetLastSnapshot",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(TestEventBusServer).GetLastSnapshot(ctx, req.(*Empty))
@@ -994,7 +994,7 @@ func _TestEventBus_GetLastSnapshot_Handler(srv interface{}, ctx context.Context,
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var TestEventBus_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "com.netcracker.mesh.v3.test.bus.TestEventBus",
+	ServiceName: "org.qubership.mesh.v3.test.bus.TestEventBus",
 	HandlerType: (*TestEventBusServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

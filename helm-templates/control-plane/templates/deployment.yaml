@@ -5,7 +5,7 @@ metadata:
     name: '{{ .Values.SERVICE_NAME }}'
     labels:
         name: '{{ .Values.SERVICE_NAME }}'
-        netcracker.cloud/disaster-recovery.manageable: 'true'
+        qubership.cloud/disaster-recovery.manageable: 'true'
         app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
         app.kubernetes.io/instance: '{{ cat .Values.SERVICE_NAME "-" .Values.NAMESPACE | nospace | trunc 63 | trimSuffix "-" }}'
         app.kubernetes.io/version: '{{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}'
@@ -13,9 +13,9 @@ metadata:
         app.kubernetes.io/part-of: 'Cloud-Core'
         app.kubernetes.io/managed-by: 'saasDeployer'
         app.kubernetes.io/technology: 'go'
-        deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+        deployment.qubership.org/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
     annotations:
-        netcracker.cloud/start.stage: '1'
+        qubership.cloud/start.stage: '1'
 spec:
     replicas: {{ .Values.REPLICAS | default 1 }}
     strategy:

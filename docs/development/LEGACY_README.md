@@ -126,7 +126,7 @@ The process listens to Tenant Manager microservice and catches the events which 
 
 To allow requests from any origin it should be set to `*`.
 
-Default value: `"*.netcracker.com:*, *.netcracker.cloud:*"`
+Default value: `"*.qubership.org:*, *.qubership.cloud:*"`
 
 ### Route timeout
 
