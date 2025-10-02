@@ -31,7 +31,7 @@ func NewTestEventBusClient(cc grpc.ClientConnInterface) TestEventBusClient {
 }
 
 func (c *testEventBusClient) Subscribe(ctx context.Context, in *Topic, opts ...grpc.CallOption) (TestEventBus_SubscribeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &TestEventBus_ServiceDesc.Streams[0], "/org.qubership.mesh.v3.test.bus.TestEventBus/Subscribe", opts...)
+	stream, err := c.cc.NewStream(ctx, &TestEventBus_ServiceDesc.Streams[0], "/com.netcracker.mesh.v3.test.bus.TestEventBus/Subscribe", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (x *testEventBusSubscribeClient) Recv() (*Event, error) {
 
 func (c *testEventBusClient) GetLastSnapshot(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Event, error) {
 	out := new(Event)
-	err := c.cc.Invoke(ctx, "/org.qubership.mesh.v3.test.bus.TestEventBus/GetLastSnapshot", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/com.netcracker.mesh.v3.test.bus.TestEventBus/GetLastSnapshot", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func _TestEventBus_GetLastSnapshot_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/org.qubership.mesh.v3.test.bus.TestEventBus/GetLastSnapshot",
+		FullMethod: "/com.netcracker.mesh.v3.test.bus.TestEventBus/GetLastSnapshot",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(TestEventBusServer).GetLastSnapshot(ctx, req.(*Empty))
@@ -146,7 +146,7 @@ func _TestEventBus_GetLastSnapshot_Handler(srv interface{}, ctx context.Context,
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var TestEventBus_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "org.qubership.mesh.v3.test.bus.TestEventBus",
+	ServiceName: "com.netcracker.mesh.v3.test.bus.TestEventBus",
 	HandlerType: (*TestEventBusServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

@@ -121,7 +121,7 @@ type Event struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	EventType EventType  `protobuf:"varint,1,opt,name=eventType,proto3,enum=org.qubership.mesh.v3.test.bus.EventType" json:"eventType,omitempty"`
+	EventType EventType  `protobuf:"varint,1,opt,name=eventType,proto3,enum=com.netcracker.mesh.v3.test.bus.EventType" json:"eventType,omitempty"`
 	Data      *anypb.Any `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -310,20 +310,20 @@ func file_test_bus_proto_rawDescGZIP() []byte {
 var file_test_bus_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_test_bus_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_test_bus_proto_goTypes = []interface{}{
-	(EventType)(0),       // 0: org.qubership.mesh.v3.test.bus.EventType
-	(*Topic)(nil),        // 1: org.qubership.mesh.v3.test.bus.Topic
-	(*Event)(nil),        // 2: org.qubership.mesh.v3.test.bus.Event
-	(*RawBytesData)(nil), // 3: org.qubership.mesh.v3.test.bus.RawBytesData
-	(*Empty)(nil),        // 4: org.qubership.mesh.v3.test.bus.Empty
+	(EventType)(0),       // 0: com.netcracker.mesh.v3.test.bus.EventType
+	(*Topic)(nil),        // 1: com.netcracker.mesh.v3.test.bus.Topic
+	(*Event)(nil),        // 2: com.netcracker.mesh.v3.test.bus.Event
+	(*RawBytesData)(nil), // 3: com.netcracker.mesh.v3.test.bus.RawBytesData
+	(*Empty)(nil),        // 4: com.netcracker.mesh.v3.test.bus.Empty
 	(*anypb.Any)(nil),    // 5: google.protobuf.Any
 }
 var file_test_bus_proto_depIdxs = []int32{
-	0, // 0: org.qubership.mesh.v3.test.bus.Event.eventType:type_name -> org.qubership.mesh.v3.test.bus.EventType
-	5, // 1: org.qubership.mesh.v3.test.bus.Event.data:type_name -> google.protobuf.Any
-	1, // 2: org.qubership.mesh.v3.test.bus.TestEventBus.Subscribe:input_type -> org.qubership.mesh.v3.test.bus.Topic
-	4, // 3: org.qubership.mesh.v3.test.bus.TestEventBus.GetLastSnapshot:input_type -> org.qubership.mesh.v3.test.bus.Empty
-	2, // 4: org.qubership.mesh.v3.test.bus.TestEventBus.Subscribe:output_type -> org.qubership.mesh.v3.test.bus.Event
-	2, // 5: org.qubership.mesh.v3.test.bus.TestEventBus.GetLastSnapshot:output_type -> org.qubership.mesh.v3.test.bus.Event
+	0, // 0: com.netcracker.mesh.v3.test.bus.Event.eventType:type_name -> com.netcracker.mesh.v3.test.bus.EventType
+	5, // 1: com.netcracker.mesh.v3.test.bus.Event.data:type_name -> google.protobuf.Any
+	1, // 2: com.netcracker.mesh.v3.test.bus.TestEventBus.Subscribe:input_type -> com.netcracker.mesh.v3.test.bus.Topic
+	4, // 3: com.netcracker.mesh.v3.test.bus.TestEventBus.GetLastSnapshot:input_type -> com.netcracker.mesh.v3.test.bus.Empty
+	2, // 4: com.netcracker.mesh.v3.test.bus.TestEventBus.Subscribe:output_type -> com.netcracker.mesh.v3.test.bus.Event
+	2, // 5: com.netcracker.mesh.v3.test.bus.TestEventBus.GetLastSnapshot:output_type -> com.netcracker.mesh.v3.test.bus.Event
 	4, // [4:6] is the sub-list for method output_type
 	2, // [2:4] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
