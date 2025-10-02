@@ -277,8 +277,9 @@ func RunServer() {
 
 	if value, exists := os.LookupEnv("LOG_LEVEL"); exists && value == "debug" {
 		app.Use(loggerfiber.New(loggerfiber.Config{
-			Format: "[${time}][DEBUG][loggerfiber][${ip}:${port}] ${status} - ${method} ${path} ${latency}\n",
-			Output: os.Stdout, // Or a custom io.Writer for file logging
+			Format:     "[${time}] [DEBUG] [loggerfiber] [${ip}:${port}] ${status} - ${method} ${path} ${latency}\n",
+			Output:     os.Stdout, // Or a custom io.Writer for file logging
+			TimeFormat: "2006-01-02T15:04:05.000",
 		}))
 	}
 
