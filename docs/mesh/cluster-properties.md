@@ -23,7 +23,7 @@ Field `spec#name` must contain full cluster key.
 Cluster key can be obtained from Mesh tab in cloud-administrator UI.
 
 ```yaml
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: Mesh
 subKind: Cluster
 metadata:
