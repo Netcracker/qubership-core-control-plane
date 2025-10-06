@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"fmt"
+	"github.com/gofiber/fiber/v2"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/cert"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/clustering"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/com9n"
@@ -55,14 +56,14 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/websocket"
 	"github.com/netcracker/qubership-core-lib-go-actuator-common/v2/tracing"
+	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/consul-propertysource"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/gofiber/fiber/v2"
+	loggerfiber "github.com/gofiber/fiber/v2/middleware/logger"
 	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
 	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/server"
-	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/consul-propertysource"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 
@@ -273,6 +274,12 @@ func RunServer() {
 		logger.Error("Error while create app because: " + err.Error())
 		return
 	}
+
+	app.Use(loggerfiber.New(loggerfiber.Config{
+		Format:     "[${time}] [DEBUG] [loggerfiber] [${ip}:${port}] ${status} - ${method} ${path} ${latency}\n",
+		Output:     os.Stdout, // Or a custom io.Writer for file logging
+		TimeFormat: "2006-01-02T15:04:05.000",
+	}))
 
 	apiV1 := app.Group("/api/v1", proxy.ProxyRequestsToMaster())
 	apiV1.Post("/routes/:nodeGroup", v1controller.HandlePostRoutesWithNodeGroup)
