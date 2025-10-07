@@ -11,6 +11,7 @@ import (
 	extauthz "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	h2m "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_to_metadata/v3"
 	local_ratelimitv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/local_ratelimit/v3"
+	luaFiltersV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
 	routerV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	wasmFiltersV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tlsInspectorV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
@@ -18,7 +19,6 @@ import (
 	tlsV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	etype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	luaFiltersV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -187,6 +187,8 @@ func buildBaseHttpConnectionManager(listenerRouteConfigName, defaultHost, statPr
 				RouteConfigName: listenerRouteConfigName,
 			},
 		},
+		StripMatchingHostPort: false,
+		StripPortMode:         &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: false},
 	}
 	return manager, nil
 }
@@ -298,7 +300,7 @@ func addLuaFilter(httpConnManager *hcm.HttpConnectionManager, filterToAdd *domai
 		Name:       wellknown.Lua,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: marshalled},
 	})
-return nil
+	return nil
 }
 
 func addCorsFilter(httpConnManager *hcm.HttpConnectionManager) error {
