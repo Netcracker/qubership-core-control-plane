@@ -187,8 +187,8 @@ func buildBaseHttpConnectionManager(listenerRouteConfigName, defaultHost, statPr
 				RouteConfigName: listenerRouteConfigName,
 			},
 		},
-		StripMatchingHostPort: false,
-		StripPortMode:         &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: false},
+		//StripMatchingHostPort: false,
+		StripPortMode: &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true},
 	}
 	return manager, nil
 }
