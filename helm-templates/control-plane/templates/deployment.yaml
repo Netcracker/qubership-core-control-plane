@@ -208,6 +208,10 @@ spec:
                 - name: EGRESS_RESPONSE_HEADERS_TO_REMOVE
                   value: '{{ .Values.EGRESS_RESPONSE_HEADERS_TO_REMOVE }}'
                 {{- end }}
+                {{- if .Values.EGRESS_REQUEST_HEADERS_TO_REMOVE }}
+                - name: EGRESS_REQUEST_HEADERS_TO_REMOVE
+                  value: '{{ .Values.EGRESS_REQUEST_HEADERS_TO_REMOVE }}'
+                {{- end }}
                 resources:
                     requests:
                         cpu: '{{ .Values.CPU_REQUEST }}'

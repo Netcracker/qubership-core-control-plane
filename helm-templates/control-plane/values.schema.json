@@ -47,7 +47,8 @@
       "DISABLE_IP_ROUTE_REGISTRATION": true,
       "DNS_LOOKUP_FAMILY": "V6_PREFERRED",
       "K8S_SERVICE_TYPE": "CLUSTER_IP",
-      "EGRESS_RESPONSE_HEADERS_TO_REMOVE": "X-Forwarded-For"
+      "EGRESS_RESPONSE_HEADERS_TO_REMOVE": "X-Forwarded-For",
+      "EGRESS_REQUEST_HEADERS_TO_REMOVE": "X-Forwarded-For"
     }
   ],
   "definitions": {
@@ -189,6 +190,13 @@
       "type": "string",
       "title": "The EGRESS_RESPONSE_HEADERS_TO_REMOVE schema",
       "description": "Indicate which HTTP headers should not be used in response..",
+      "internal": true
+    },
+    "EGRESS_REQUEST_HEADERS_TO_REMOVE": {
+      "$id": "#/properties/EGRESS_REQUEST_HEADERS_TO_REMOVE",
+      "type": "string",
+      "title": "The EGRESS_REQUEST_HEADERS_TO_REMOVE schema",
+      "description": "Indicate which HTTP headers should not be used in request..",
       "internal": true
     },
     "GATEWAYS_ALLOWED_ORIGIN": {

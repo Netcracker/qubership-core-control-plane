@@ -44,7 +44,7 @@ func DefaultEnvoyConfigurationBuilder(dao dao.Dao, entitySrv *entity.Service, pr
 	meshVirtualHostBuilder := routeconfig.NewMeshVirtualHostBuilder(dao, entitySrv, meshRouteBuilder)
 	gatewayVirtualHostBuilder := routeconfig.NewGatewayVirtualHostBuilder(dao, gatewayRouteBuilder, provider)
 	ingressVirtualHostBuilder := routeconfig.NewIngressVirtualHostBuilder(dao, entitySrv, gatewayRouteBuilder)
-	egressVirtualHostBuilder := routeconfig.NewEgressVirtualHostBuilder(dao, egressRouteBuilder, provider)
+	egressVirtualHostBuilder := routeconfig.NewEgressVirtualHostBuilder(dao, entitySrv, egressRouteBuilder)
 
 	return builder.NewEnvoyConfigBuilder(dao, envoyProxyProps,
 		facadeListenerBuilder, gatewayListenerBuilder,
