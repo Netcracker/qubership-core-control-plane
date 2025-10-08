@@ -298,7 +298,8 @@ func TestGatewayVirtualHostBuilderBuildEgressVirtualHosts(t *testing.T) {
 	mockDao := getMockDao(ctrl)
 	mockRouteBuilder := getMockRouteBuilder(ctrl)
 	mockProvider := getMockVersionAliasesProvider(ctrl)
-	gatewayVirtualHostBuilder := NewEgressVirtualHostBuilder(mockDao, mockRouteBuilder, mockProvider)
+	mockDao.EXPECT().FindListenersByNodeGroupId("test-gw").Times(2).Return([]*domain.Listener{{NodeGroupId: "test-gw"}}, nil)
+	gatewayVirtualHostBuilder := NewEgressVirtualHostBuilder(mockDao, entity.NewService("v1"), mockRouteBuilder)
 
 	initRouteConfig, virtualHostsDomain, eRoutes := mockTestData(mockDao, mockRouteBuilder)
 
@@ -315,6 +316,7 @@ func TestGatewayVirtualHostBuilderBuildEgressVirtualHosts(t *testing.T) {
 		assert.Equal(t, initRouteConfig.VirtualHosts[i].RequestHeadersToAdd[0].Value, resultVirtualHost.RequestHeadersToAdd[0].Header.Value)
 		assert.Equal(t, "X-Token-Signature", resultVirtualHost.RequestHeadersToRemove[0])
 		assert.Equal(t, "X-Forwarded-For", resultVirtualHost.ResponseHeadersToRemove[1])
+		assert.Equal(t, "X-Forwarded-For", resultVirtualHost.RequestHeadersToRemove[1])
 	}
 
 	assert.Nil(t, resultVirtualHosts[0].TypedPerFilterConfig["envoy.filters.http.local_ratelimit"])
