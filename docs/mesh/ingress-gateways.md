@@ -38,7 +38,7 @@ Custom ingress gateway can be deployed via facade-operator microservice that is 
 In order to make facade-operator deploy your gateway, you need to apply FacadeService k8s custom resource with the following content:
 ```yaml
 ---
-apiVersion: qubership.org/v1alpha
+apiVersion: netcracker.com/v1alpha
 kind: FacadeService
 metadata:
   name: my-ingress-gateway
