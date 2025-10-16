@@ -47,9 +47,9 @@ require (
 	github.com/uptrace/bun/driver/pgdriver v1.2.15
 	github.com/urfave/cli/v2 v2.27.7
 	github.com/valyala/fasthttp v1.66.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250908214217-97024824d090
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251014184007-4626949a642f
 	google.golang.org/grpc v1.75.1
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.10
 	sigs.k8s.io/yaml v1.6.0
 )
 
