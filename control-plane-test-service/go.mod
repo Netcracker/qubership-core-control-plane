@@ -1,24 +1,24 @@
 module trace-service/trace-service
 
-go 1.25.1
+go 1.25.3
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.1.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.1.1
 	github.com/pkg/errors v0.9.1
 	google.golang.org/grpc v1.75.1
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.10
 )
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
-	github.com/knadh/koanf/v2 v2.1.2 // indirect
+	github.com/knadh/koanf/v2 v2.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
