@@ -1419,21 +1419,6 @@ func (mr *MockDaoMockRecorder) FindListenerByNodeGroupIdAndName(nodeGroupId, nam
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindListenerByNodeGroupIdAndName", reflect.TypeOf((*MockDao)(nil).FindListenerByNodeGroupIdAndName), nodeGroupId, name)
 }
 
-// FindRoutesByLuaFilter mocks base method.
-func (m *MockDao) FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindRoutesByLuaFilter", luaFilterName)
-	ret0, _ := ret[0].([]*domain.Route)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindRoutesByLuaFilter indicates an expected call of FindRoutesByLuaFilter.
-func (mr *MockDaoMockRecorder) FindRoutesByLuaFilter(luaFilterName interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByLuaFilter", reflect.TypeOf((*MockDao)(nil).FindRoutesByLuaFilter), luaFilterName)
-}
-
 // FindListenerIdsByWasmFilterId mocks base method.
 func (m *MockDao) FindListenerIdsByWasmFilterId(wasmFilterId int32) ([]int32, error) {
 	m.ctrl.T.Helper()
@@ -1849,6 +1834,21 @@ func (m *MockDao) FindRoutesByDeploymentVersions(dVersions ...*domain.Deployment
 func (mr *MockDaoMockRecorder) FindRoutesByDeploymentVersions(dVersions ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByDeploymentVersions", reflect.TypeOf((*MockDao)(nil).FindRoutesByDeploymentVersions), dVersions...)
+}
+
+// FindRoutesByLuaFilter mocks base method.
+func (m *MockDao) FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindRoutesByLuaFilter", luaFilterName)
+	ret0, _ := ret[0].([]*domain.Route)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindRoutesByLuaFilter indicates an expected call of FindRoutesByLuaFilter.
+func (mr *MockDaoMockRecorder) FindRoutesByLuaFilter(luaFilterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByLuaFilter", reflect.TypeOf((*MockDao)(nil).FindRoutesByLuaFilter), luaFilterName)
 }
 
 // FindRoutesByNamespaceHeaderIsNot mocks base method.
@@ -4038,21 +4038,6 @@ func (mr *MockRepositoryMockRecorder) FindListenerByNodeGroupIdAndName(nodeGroup
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindListenerByNodeGroupIdAndName", reflect.TypeOf((*MockRepository)(nil).FindListenerByNodeGroupIdAndName), nodeGroupId, name)
 }
 
-// FindRoutesByLuaFilter mocks base method.
-func (m *MockRepository) FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindRoutesByLuaFilter", luaFilterName)
-	ret0, _ := ret[0].([]*domain.Route)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindRoutesByLuaFilter indicates an expected call of FindRoutesByLuaFilter.
-func (mr *MockRepositoryMockRecorder) FindRoutesByLuaFilter(luaFilterName interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByLuaFilter", reflect.TypeOf((*MockRepository)(nil).FindRoutesByLuaFilter), luaFilterName)
-}
-
 // FindListenerIdsByWasmFilterId mocks base method.
 func (m *MockRepository) FindListenerIdsByWasmFilterId(wasmFilterId int32) ([]int32, error) {
 	m.ctrl.T.Helper()
@@ -4468,6 +4453,21 @@ func (m *MockRepository) FindRoutesByDeploymentVersions(dVersions ...*domain.Dep
 func (mr *MockRepositoryMockRecorder) FindRoutesByDeploymentVersions(dVersions ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByDeploymentVersions", reflect.TypeOf((*MockRepository)(nil).FindRoutesByDeploymentVersions), dVersions...)
+}
+
+// FindRoutesByLuaFilter mocks base method.
+func (m *MockRepository) FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindRoutesByLuaFilter", luaFilterName)
+	ret0, _ := ret[0].([]*domain.Route)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindRoutesByLuaFilter indicates an expected call of FindRoutesByLuaFilter.
+func (mr *MockRepositoryMockRecorder) FindRoutesByLuaFilter(luaFilterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByLuaFilter", reflect.TypeOf((*MockRepository)(nil).FindRoutesByLuaFilter), luaFilterName)
 }
 
 // FindRoutesByNamespaceHeaderIsNot mocks base method.
@@ -5522,21 +5522,6 @@ func (m *MockListenerRepository) FindListenerByNodeGroupIdAndName(nodeGroupId, n
 func (mr *MockListenerRepositoryMockRecorder) FindListenerByNodeGroupIdAndName(nodeGroupId, name interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindListenerByNodeGroupIdAndName", reflect.TypeOf((*MockListenerRepository)(nil).FindListenerByNodeGroupIdAndName), nodeGroupId, name)
-}
-
-// FindRoutesByLuaFilter mocks base method.
-func (m *MockListenerRepository) FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindRoutesByLuaFilter", luaFilterName)
-	ret0, _ := ret[0].([]*domain.Route)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindRoutesByLuaFilter indicates an expected call of FindRoutesByLuaFilter.
-func (mr *MockListenerRepositoryMockRecorder) FindRoutesByLuaFilter(luaFilterName interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByLuaFilter", reflect.TypeOf((*MockListenerRepository)(nil).FindRoutesByLuaFilter), luaFilterName)
 }
 
 // FindListenerIdsByWasmFilterId mocks base method.
@@ -6923,6 +6908,21 @@ func (m *MockRouteRepository) FindRoutesByDeploymentVersions(dVersions ...*domai
 func (mr *MockRouteRepositoryMockRecorder) FindRoutesByDeploymentVersions(dVersions ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByDeploymentVersions", reflect.TypeOf((*MockRouteRepository)(nil).FindRoutesByDeploymentVersions), dVersions...)
+}
+
+// FindRoutesByLuaFilter mocks base method.
+func (m *MockRouteRepository) FindRoutesByLuaFilter(luaFilterName string) ([]*domain.Route, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindRoutesByLuaFilter", luaFilterName)
+	ret0, _ := ret[0].([]*domain.Route)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindRoutesByLuaFilter indicates an expected call of FindRoutesByLuaFilter.
+func (mr *MockRouteRepositoryMockRecorder) FindRoutesByLuaFilter(luaFilterName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoutesByLuaFilter", reflect.TypeOf((*MockRouteRepository)(nil).FindRoutesByLuaFilter), luaFilterName)
 }
 
 // FindRoutesByNamespaceHeaderIsNot mocks base method.

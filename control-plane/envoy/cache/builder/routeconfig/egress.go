@@ -2,6 +2,7 @@ package routeconfig
 
 import (
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/golang/protobuf/ptypes/any"
@@ -11,7 +12,18 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 )
 
-func NewEgressVirtualHostBuilder(dao dao.Repository, routeBuilder RouteBuilder, provider VersionAliasesProvider) *GatewayVirtualHostBuilder {
+var (
+	responseHeadersToRemove = []string{"server"}
+	requestHeadersToRemove = []string{"X-Token-Signature"}
+	commonHeadersToRemove = []string{"X-Forwarded-For",
+									"X-Forwarded-Proto",
+									"X-Forwarded-Host",
+									"X-Forwarded-Port",
+									"Via",
+									"X-Real-IP"}
+)
+
+func NewEgressVirtualHostBuilder(dao dao.Repository, entityService entity.ServiceInterface, routeBuilder RouteBuilder) *GatewayVirtualHostBuilder {
 		origins := "*"
 		if value, exists := os.LookupEnv("GATEWAYS_ALLOWED_ORIGIN"); exists {
 			origins = value
@@ -25,29 +37,18 @@ func NewEgressVirtualHostBuilder(dao dao.Repository, routeBuilder RouteBuilder, 
 			maxAge = value
 		}
 
-		responseHeadersToRemove := []string{"server",
-											"X-Forwarded-For",
-											"X-Forwarded-Proto",
-											"X-Forwarded-Host",
-											"X-Forwarded-Port",
-											"Via",
-											"X-Real-IP"}
+		mergedHeadersToRemove := slices.Concat(responseHeadersToRemove, commonHeadersToRemove)
 		if value, exists := os.LookupEnv("EGRESS_RESPONSE_HEADERS_TO_REMOVE"); exists {
-			responseHeadersToRemove = strings.Split(value, ", ")
-			responseHeadersToRemove = append(responseHeadersToRemove, "server")
+			envHeadersToRemove := strings.Split(value, ", ")
+			mergedHeadersToRemove = slices.Concat(responseHeadersToRemove, envHeadersToRemove)
 		}
-		compositePlatformEnv, exists := os.LookupEnv("COMPOSITE_PLATFORM")
-		compositePlatform := exists && strings.EqualFold(strings.TrimSpace(compositePlatformEnv), "true")
 		namespace := configloader.GetOrDefaultString("microservice.namespace", "")
 	
 		return &GatewayVirtualHostBuilder{dao: dao, routeBuilder: routeBuilder, allowedHeaders: allowedHeaders,
-			responseHeadersToRemove: responseHeadersToRemove, maxAge: maxAge, originStringMatchers: convertOrigins(origins),
-			builderExt: &gatewayVhBuilderExt{
-				origins:            origins,
-				allowedHeaders:     allowedHeaders,
-				maxAge:             maxAge,
-				aliasProvider:      provider,
-				compositeSatellite: compositePlatform,
+			responseHeadersToRemove: mergedHeadersToRemove, maxAge: maxAge, originStringMatchers: convertOrigins(origins),
+			builderExt: &egressVirtualHostBuilderExt{
+				dao:                dao, 
+				entityService:      entityService,
 			},
 			namespace: namespace,
 		}
@@ -63,5 +64,10 @@ func (i *egressVirtualHostBuilderExt) BuildExtAuthzPerRoute(virtualHost *domain.
 }
 
 func (i *egressVirtualHostBuilderExt) EnrichHeadersToRemove(headersToRemove []string) []string {
-	return headersToRemove
+	mergedHeadersToRemove := slices.Concat(requestHeadersToRemove, commonHeadersToRemove, headersToRemove)
+	if value, exists := os.LookupEnv("EGRESS_REQUEST_HEADERS_TO_REMOVE"); exists {
+		envHeadersToRemove := strings.Split(value, ", ")
+		mergedHeadersToRemove = slices.Concat(requestHeadersToRemove, envHeadersToRemove, headersToRemove)
+	}
+	return mergedHeadersToRemove
 }

@@ -904,7 +904,7 @@ For memory and cpu limit settings use variables:
 | EGRESS_GW_CPU_LIMIT | 100m |
 | EGRESS_GW_MEMORY_LIMIT | 64Mi |
 
-Since `Core 2025.4 Release` egress gateway can be configured with custom set of response headers to remove. To use this feature set deployment variable `EGRESS_RESPONSE_HEADERS_TO_REMOVE`. If not set the following headers will be removed from response by default:
+Since `Core 2025.4 Release` egress gateway can be configured with custom set of headers to remove. To use this feature set deployment variables `EGRESS_RESPONSE_HEADERS_TO_REMOVE` or `EGRESS_REQUEST_HEADERS_TO_REMOVE`. If not set the following headers will be removed from from corresponding object by default:
 * "X-Forwarded-For"
 * "X-Forwarded-Proto"
 * "X-Forwarded-Host"
