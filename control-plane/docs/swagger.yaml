@@ -41,7 +41,7 @@ definitions:
       commonLbConfig:
         $ref: '#/definitions/domain.CommonLbConfig'
       connectionIdleTimeout:
-        "type": "integer"
+        $ref: '#/definitions/domain.NullInt'
       dnsResolvers:
         items:
           $ref: '#/definitions/domain.DnsResolver'
@@ -102,6 +102,7 @@ definitions:
     enum:
     - 0
     - 1
+    format: int32
     type: integer
     x-enum-varnames:
     - Product
@@ -363,6 +364,7 @@ definitions:
   domain.NullInt:
     properties:
       int64:
+        format: int64
         type: integer
       valid:
         description: Valid is true if Int64 is not NULL
@@ -1438,6 +1440,7 @@ definitions:
         type: string
       stackTrace:
         items:
+          format: int32
           type: integer
         type: array
     type: object
@@ -3584,6 +3587,7 @@ paths:
           description: OK
           schema:
             items:
+              format: int32
               type: integer
             type: array
         "500":
