@@ -2854,7 +2854,8 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "type": "integer"
+                                "type": "integer",
+                                "format": "int32"
                             }
                         }
                     },
@@ -3620,8 +3621,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/domain.CommonLbConfig"
                 },
                 "connectionIdleTimeout": {
-                    "description": "interval of HTTP connection inactivity before closing, unit: seconds"
-                    "type": "integer"
+                    "$ref": "#/definitions/domain.NullInt"
                 },
                 "dnsResolvers": {
                     "type": "array",
@@ -3710,6 +3710,7 @@ const docTemplate = `{
         },
         "domain.ConfigPriority": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -4107,7 +4108,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "int64": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int64"
                 },
                 "valid": {
                     "description": "Valid is true if Int64 is not NULL",
@@ -5742,7 +5744,8 @@ const docTemplate = `{
                 "stackTrace": {
                     "type": "array",
                     "items": {
-                        "type": "integer"
+                        "type": "integer",
+                        "format": "int32"
                     }
                 }
             }

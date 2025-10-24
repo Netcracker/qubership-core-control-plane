@@ -2843,7 +2843,8 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "type": "integer"
+                                "type": "integer",
+                                "format": "int32"
                             }
                         }
                     },
@@ -3609,7 +3610,7 @@
                     "$ref": "#/definitions/domain.CommonLbConfig"
                 },
                 "connectionIdleTimeout": {
-                    "type": "integer"
+                    "$ref": "#/definitions/domain.NullInt"
                 },
                 "dnsResolvers": {
                     "type": "array",
@@ -3698,6 +3699,7 @@
         },
         "domain.ConfigPriority": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1
@@ -4095,7 +4097,8 @@
             "type": "object",
             "properties": {
                 "int64": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int64"
                 },
                 "valid": {
                     "description": "Valid is true if Int64 is not NULL",
@@ -5730,7 +5733,8 @@
                 "stackTrace": {
                     "type": "array",
                     "items": {
-                        "type": "integer"
+                        "type": "integer",
+                        "format": "int32"
                     }
                 }
             }
