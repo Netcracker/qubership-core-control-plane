@@ -18,7 +18,7 @@ To set up rate limit you need to apply two configurations:
 
 ### 1. Apply custom egress (facade service)  with envoy_concurrency=1 (spec.env.facadeGatewayConcurrency: 1) (Declarative: put the file deployments/charts/{SERVICE_NAME}/templates or another way apply to Kubernetes)
 ```yaml
-apiVersion: qubership.org/v1alpha
+apiVersion: netcracker.com/v1alpha
 kind: FacadeService
 metadata:
   name: custom-egress-gateway

@@ -17,7 +17,7 @@
       "DB_CREDENTIALS_SECRET": "control-plane-db-credentials",
       "GATEWAYS_ACCESS_CONTROL_MAX_AGE": -1,
       "GATEWAYS_ALLOWED_HEADERS": "*",
-      "GATEWAYS_ALLOWED_ORIGIN": "*.qubership.org:*, *.qubership.cloud:*",
+      "GATEWAYS_ALLOWED_ORIGIN": "*.netcracker.com:*, *.netcracker.cloud:*",
       "GATEWAYS_COMPRESSION_ENABLED": "false",
       "IMAGE_REPOSITORY": "",
       "NAMESPACE": "",
@@ -203,7 +203,7 @@
       "$id": "#/properties/GATEWAYS_ALLOWED_ORIGIN",
       "type": "string",
       "title": "The GATEWAYS_ALLOWED_ORIGIN schema",
-      "description": "Default list of masks restricting origins allowed to make cross-origin resource sharing with gateways, for example *.qubership.org:* allows every hostname ending with qubership.org and every port.",
+      "description": "Default list of masks restricting origins allowed to make cross-origin resource sharing with gateways, for example *.netcracker.com:* allows every hostname ending with netcracker.com and every port.",
       "internal": true
     },
     "GATEWAYS_COMPRESSION_ENABLED": {
