@@ -28,13 +28,13 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mustafaturan/bus/v3 v3.0.3
 	github.com/mustafaturan/monoton/v3 v3.0.0
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.0.3
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.1.0
 	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.0.4
 	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.0.4
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.0.2
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.0.3
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.0.3
-	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.0.3
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.1.0
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.1.0
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.1.0
+	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.1.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
@@ -59,7 +59,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/avast/retry-go/v4 v4.6.1 // indirect
+	github.com/avast/retry-go/v4 v4.7.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -85,7 +85,7 @@ require (
 	github.com/gofiber/adaptor/v2 v2.2.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/google/btree v1.1.2 // indirect
-	github.com/hashicorp/consul/api v1.32.3 // indirect
+	github.com/hashicorp/consul/api v1.33.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect

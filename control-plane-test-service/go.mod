@@ -6,7 +6,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.1.1
+	github.com/netcracker/qubership-core-lib-go/v3 v3.2.0
 	github.com/pkg/errors v0.9.1
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
