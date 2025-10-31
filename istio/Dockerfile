@@ -2,6 +2,10 @@ FROM golang:1.23-alpine AS builder
 RUN go install github.com/rakyll/hey@latest
 
 FROM alpine:3.22.2
+
+RUN apk update --no-cache
+RUN apk add --no-cache ca-certificates curl bash
+
 ARG TEST_URL="http://private-gateway-service:8080/ambient-test/health"
 
 WORKDIR /files
