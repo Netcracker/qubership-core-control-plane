@@ -21,6 +21,7 @@ RUN cat <<'EOF' > /run-hey.sh
 #!/bin/sh
 for file in /files/*; do
   echo "Running hey with payload $file"
+  curl -v ${TEST_URL} -d '{"status": "OK"}'
   hey -n 100 -c 10 -D "$file" ${TEST_URL}
 done
 wait
