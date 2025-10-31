@@ -4,7 +4,12 @@
         "name": "qubership-core-control-plane",
         "file": "./Dockerfile",
         "context": "."
-      }
+      },
+    {
+      "name": "svt-test",
+      "file": "/istio/Dockerfile",
+      "context": "./istio"
+    }
     ],
     "platforms" : "linux/amd64"
   }

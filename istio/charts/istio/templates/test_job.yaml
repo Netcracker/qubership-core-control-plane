@@ -1,0 +1,13 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hey-load-test
+spec:
+  template:
+    spec:
+      containers:
+      - name: hey
+        image: ghcr.io/netcracker/svt-test:latest
+        command:
+          - "/run-hey.sh"
+      restartPolicy: Never

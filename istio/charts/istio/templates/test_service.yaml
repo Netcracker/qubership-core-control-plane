@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ambient-test-config
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Istio ambient performance test service</title>
+    </head>
+    <body>
+        <h1>Istio + Mesh Performance Test Service</h1>
+        <p>This is a test service for check performance</p>
+        <p>Service is running and accessible through the mesh.</p>
+    </body>
+    </html>
+  nginx.conf: |
+    events {}
+    http {
+      server {
+        listen 8080;
+        location / {
+          root /usr/share/nginx/html;
+          index index.html;
+        }
+        location = /health {
+          default_type application/json;
+          content_by_lua_block {
+            ngx.req.read_body()
+            local data = ngx.req.get_body_data()
+            if not data or data == "" then
+              data = '{"status":"no body"}'
+            end
+            ngx.say(data)
+          }
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ambient-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ambient-test
+  template:
+    metadata:
+      labels:
+        app: ambient-test
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: html
+          mountPath: /usr/share/nginx/html/index.html
+          subPath: index.html
+        - name: nginx-conf
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+      volumes:
+      - name: html
+        configMap:
+          name: ambient-test-config
+      - name: nginx-conf
+        configMap:
+          name: ambient-test-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ambient-test-service
+spec:
+  selector:
+    app: ambient-test
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: ambient-test-routes
+spec:
+  gateways: ["private-gateway-service"]
+  tlsSupported: false
+  virtualServices:
+    - name: private-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: v1
+        routes:
+          - destination:
+              cluster: ambient-test-service
+              endpoint: http://ambient-test-service:8080
+            rules:
+              - match:
+                  prefix: /ambient-test
+                prefixRewrite: "/"
+
