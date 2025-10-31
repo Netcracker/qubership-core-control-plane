@@ -2,7 +2,7 @@ FROM golang:1.23-alpine AS builder
 RUN go install github.com/rakyll/hey@latest
 
 FROM alpine:3.22.2
-ARG TEST_URL="http://istio-gateway-istio/ambient-test/health"
+ARG TEST_URL="http://private-gateway-service:8080/ambient-test/health"
 
 WORKDIR /files
 
@@ -21,7 +21,7 @@ RUN cat <<'EOF' > /run-hey.sh
 #!/bin/sh
 for file in /files/*; do
   echo "Running hey with payload $file"
-  hey -n 100 -c 10 -D "$file" ${TEST_URL} &
+  hey -n 100 -c 10 -D "$file" ${TEST_URL}
 done
 wait
 EOF

@@ -54,7 +54,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:alpine
+        image: openresty/openresty:alpine
         ports:
         - containerPort: 8080
         volumeMounts:
@@ -62,7 +62,7 @@ spec:
           mountPath: /usr/share/nginx/html/index.html
           subPath: index.html
         - name: nginx-conf
-          mountPath: /etc/nginx/nginx.conf
+          mountPath: /usr/local/openresty/nginx/conf/nginx.conf
           subPath: nginx.conf
       volumes:
       - name: html
