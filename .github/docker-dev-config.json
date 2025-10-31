@@ -7,7 +7,7 @@
       },
     {
       "name": "svt-test",
-      "file": "/istio/Dockerfile",
+      "file": "./istio/Dockerfile",
       "context": "."
     }
     ],
