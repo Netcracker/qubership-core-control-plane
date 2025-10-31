@@ -1,2 +1,2 @@
 NAMESPACE: cloud-core
-test_url: istio-gateway-istio/ambient-test/health
+test_url: http://istio-gateway-istio/ambient-test/health

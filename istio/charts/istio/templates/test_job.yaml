@@ -8,6 +8,9 @@ spec:
       containers:
       - name: hey
         image: ghcr.io/netcracker/svt-test:svt-test-snapshot
+        env:
+        - name: TEST_URL
+          value: {{ .Values.test_url }}
         command:
           - "/run-hey.sh"
       restartPolicy: Never
