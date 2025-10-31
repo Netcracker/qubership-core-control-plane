@@ -8,7 +8,7 @@
     {
       "name": "svt-test",
       "file": "/istio/Dockerfile",
-      "context": "./istio"
+      "context": "."
     }
     ],
     "platforms" : "linux/amd64"

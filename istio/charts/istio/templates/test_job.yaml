@@ -7,7 +7,7 @@ spec:
     spec:
       containers:
       - name: hey
-        image: ghcr.io/netcracker/svt-test:latest
+        image: ghcr.io/netcracker/svt-test:svt-test-snapshot
         command:
           - "/run-hey.sh"
       restartPolicy: Never
