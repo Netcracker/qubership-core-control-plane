@@ -1,16 +1,34 @@
-apiVersion: batch/v1
-kind: Job
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: hey-load-test
 spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hey-load-test
   template:
+    metadata:
+      labels:
+        app: hey-load-test
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  gateway.networking.k8s.io/gateway-name: istio-gateway
+              topologyKey: kubernetes.io/hostname
       containers:
       - name: hey
         image: ghcr.io/netcracker/svt-test:svt-test-snapshot
         env:
         - name: TEST_URL
           value: {{ .Values.test_url }}
+        - name: AMOUNT
+          value: 1000
+        - name: CONCURRENCY
+          value: 10
         command:
           - "/run-hey.sh"
       restartPolicy: Never

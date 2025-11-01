@@ -6,7 +6,9 @@ FROM alpine:3.22.2
 RUN apk update --no-cache
 RUN apk add --no-cache ca-certificates curl bash
 
-ARG TEST_URL="http://private-gateway-service:8080/ambient-test/health"
+ARG TEST_URL="http://istio-gateway-istio.cloud-core/ambient-test/health"
+ARG AMOUNT=1000
+ARG CONCURRENCY=10
 
 WORKDIR /files
 
@@ -23,10 +25,10 @@ COPY --from=builder /go/bin/hey /usr/local/bin/hey
 
 RUN cat <<'EOF' > /run-hey.sh
 #!/bin/sh
+curl -v ${TEST_URL} -d '{"desc": "Connectivity test"}'
 for file in /files/*; do
   echo "Running hey with payload $file"
-  curl -v ${TEST_URL} -d '{"status": "OK"}'
-  hey -n 100 -c 10 -D "$file" ${TEST_URL}
+  hey -n ${AMOUNT} -c ${CONCURRENCY} -D "$file" ${TEST_URL}
 done
 wait
 EOF

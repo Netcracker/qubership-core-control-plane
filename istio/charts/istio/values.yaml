@@ -1,2 +1,2 @@
 NAMESPACE: cloud-core
-test_url: http://private-gateway-service:8080/ambient-test/health
+test_url: http://istio-gateway-istio.cloud-core/ambient-test/health
