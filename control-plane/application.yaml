@@ -1,7 +1,7 @@
 microservice:
   name: control-plane
   namespace: core-dev
-  
+
 http:
   server:
     bind: ":8080"
