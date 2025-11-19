@@ -11,14 +11,15 @@ import (
 	extauthz "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	h2m "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_to_metadata/v3"
 	local_ratelimitv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/local_ratelimit/v3"
+	luaFiltersV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
 	routerV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	wasmFiltersV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tlsInspectorV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	uuidv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/request_id/uuid/v3"
 	tlsV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	etype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	luaFiltersV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -151,6 +152,14 @@ func buildBaseHttpConnectionManager(listenerRouteConfigName, defaultHost, statPr
 		return nil, err
 	}
 
+	requestIDExtensionConfig, err := ptypes.MarshalAny(&uuidv3.UuidRequestIdConfig{
+		PackTraceReason:              &wrappers.BoolValue{Value: false},
+		UseRequestIdForTraceSampling: &wrappers.BoolValue{Value: false},
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	manager := &hcm.HttpConnectionManager{
 		ServerHeaderTransformation: hcm.HttpConnectionManager_PASS_THROUGH, // According to security requirements gateway must remove "server" response header whether it is set by envoy or upstream service
 		HttpFilters:                make([]*hcm.HttpFilter, 0),
@@ -162,6 +171,10 @@ func buildBaseHttpConnectionManager(listenerRouteConfigName, defaultHost, statPr
 		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{{
 			UpgradeType: "websocket",
 		}},
+		PreserveExternalRequestId: true,
+		RequestIdExtension: &hcm.RequestIDExtension{
+			TypedConfig: requestIDExtensionConfig,
+		},
 		AccessLog: []*accesslog.AccessLog{{
 			Name:       "envoy.access_loggers.file",
 			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: alsConfigPbst},
@@ -298,7 +311,7 @@ func addLuaFilter(httpConnManager *hcm.HttpConnectionManager, filterToAdd *domai
 		Name:       wellknown.Lua,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: marshalled},
 	})
-return nil
+	return nil
 }
 
 func addCorsFilter(httpConnManager *hcm.HttpConnectionManager) error {
