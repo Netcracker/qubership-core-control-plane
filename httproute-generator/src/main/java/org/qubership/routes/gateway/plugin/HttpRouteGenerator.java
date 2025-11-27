@@ -79,11 +79,9 @@ public class HttpRouteGenerator {
     }
 
     private static List<HTTPRouteResource> createHttpRoutes(String serviceName, Set<HttpRoute> httpRoutes) {
-        // Group routes by RouteType
         Map<RouteType, List<HttpRoute>> routesByType = httpRoutes.stream()
                 .collect(Collectors.groupingBy(HttpRoute::getType));
 
-        // Create one HTTPRouteResource per RouteType
         return routesByType.entrySet().stream()
                 .map(entry -> {
                     RouteType type = entry.getKey();
