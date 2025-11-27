@@ -140,9 +140,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
 
     private Optional<RouteType> getRouteType(AnnotationInfo annotationInfo) {
         return Optional.ofNullable(annotationInfo)
-                .map(annInfo -> Optional.ofNullable(annInfo.getParameterValues().getValue("type"))
-                        .or(() -> Optional.ofNullable(annInfo.getParameterValues().getValue("value")))
-                        .get())
+                .map(annInfo -> annInfo.getParameterValues().getValue("type"))
                 .map(o -> RouteType.valueOf(((AnnotationEnumValue) o).getValueName()));
     }
 }
