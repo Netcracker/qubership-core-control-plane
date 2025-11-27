@@ -42,6 +42,12 @@
             <version>2.2.1</version>
         </dependency>
         <dependency>
+            <groupId>com.netcracker.cloud</groupId>
+            <artifactId>route-registration-common</artifactId>
+            <version>6.2.3-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
             <version>6.0.15</version>
