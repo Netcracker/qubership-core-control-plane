@@ -37,8 +37,8 @@ public class RouteToGatewayMojo extends AbstractMojo {
         Set<HttpRoute> routes = getRoutes();
         getLog().info("Routes: " + routes);
         try {
-            Path file = buildDir.toPath().resolve("generated-resources/gateway-httproutes");
-            Files.createDirectories(file.getParent());
+            getLog().info(project.getFile().getAbsolutePath());
+            Path file = project.getBasedir().toPath().resolve("gateway-httproutes.yaml");
             Files.writeString(file, HttpRouteGenerator.generateHttpRoutesYaml(serviceName, routes));
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -144,4 +144,3 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 .map(o -> RouteType.valueOf(((AnnotationEnumValue) o).getValueName()));
     }
 }
-
