@@ -11,7 +11,7 @@ require (
 	github.com/fasthttp/websocket v1.5.12
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-errors/errors v1.5.1
-	github.com/gofiber/fiber/v2 v2.52.9
+	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
@@ -28,23 +28,23 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mustafaturan/bus/v3 v3.0.3
 	github.com/mustafaturan/monoton/v3 v3.0.0
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.1.0
-	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.0.4
-	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.0.4
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.1.3
+	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.0.7
+	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.0.7
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.1.0
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.1.0
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.1.0
-	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.1.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.2.0
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.1.3
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.1.3
+	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.1.3
+	github.com/netcracker/qubership-core-lib-go/v3 v3.2.3
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.6
 	github.com/tidwall/gjson v1.18.0
-	github.com/uptrace/bun v1.2.15
-	github.com/uptrace/bun/dialect/pgdialect v1.2.15
-	github.com/uptrace/bun/driver/pgdriver v1.2.15
+	github.com/uptrace/bun v1.2.16
+	github.com/uptrace/bun/dialect/pgdialect v1.2.16
+	github.com/uptrace/bun/driver/pgdriver v1.2.16
 	github.com/urfave/cli/v2 v2.27.7
 	github.com/valyala/fasthttp v1.68.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251111163417-95abcf5c77ba
@@ -61,7 +61,6 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/avast/retry-go/v4 v4.7.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20251022180443-0feb69152e9f // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
@@ -150,14 +149,14 @@ require (
 	go.opentelemetry.io/otel/sdk v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/crypto v0.43.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/exp v0.0.0-20250808145144-a408d31f581a // indirect
-	golang.org/x/mod v0.28.0 // indirect
-	golang.org/x/net v0.46.1-0.20251013234738-63d1a5100f82 // indirect
-	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
-	golang.org/x/text v0.30.0 // indirect
-	golang.org/x/tools v0.37.0 // indirect
+	golang.org/x/mod v0.29.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sync v0.18.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/tools v0.38.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251022142026-3a174f9686a8 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
