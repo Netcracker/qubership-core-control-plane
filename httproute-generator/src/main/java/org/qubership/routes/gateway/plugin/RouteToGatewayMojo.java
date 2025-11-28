@@ -26,9 +26,6 @@ public class RouteToGatewayMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
-    @Parameter(defaultValue = "${project.build.directory}", readonly = true)
-    private File buildDir;
-
     @Parameter(defaultValue = "serviceName", required = true)
     private String serviceName;
 
@@ -88,10 +85,10 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 .orElse(Collections.emptyList());
     }
 
-    private Map<RouteType, List<String>> getRequestMappingPaths(ClassInfo classInfo) {
+    private Map<HttpRoute.Type, List<String>> getRequestMappingPaths(ClassInfo classInfo) {
         getLog().info("Get Request Mappings for Class: " + classInfo.getName());
 
-        Optional<RouteType> methodRouteType = getRouteType(classInfo.getAnnotationInfo(Route.class.getName()));
+        Optional<HttpRoute.Type> methodRouteType = getRouteType(classInfo.getAnnotationInfo(Route.class.getName()));
 
         List<String> classesReqMappings = Optional.ofNullable(classInfo.getAnnotationInfo(RequestMapping.class))
                 .or(() -> Optional.ofNullable(classInfo.getAnnotationInfo(GetMapping.class)))
@@ -102,7 +99,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 .map(this::getAnnotationPathFor)
                 .orElse(Collections.emptyList());
 
-        Map<RouteType, List<String>> routes = classInfo.getMethodInfo().stream()
+        Map<HttpRoute.Type, List<String>> routes = classInfo.getMethodInfo().stream()
                 .flatMap(methodInfo ->
                         methodInfo.getAnnotationInfo().stream()
                                 .filter(ann -> ann.getName().equals(RequestMapping.class.getName())
@@ -118,7 +115,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
                             MethodInfo method = entry.getKey();
                             AnnotationInfo routeAnn = method.getAnnotationInfo(Route.class.getName());
                             return methodRouteType.orElse(
-                                    getRouteType(routeAnn).orElse(RouteType.INTERNAL)
+                                    getRouteType(routeAnn).orElse(HttpRoute.Type.INTERNAL)
                             );
                         },
                         entry -> {
@@ -138,9 +135,9 @@ public class RouteToGatewayMojo extends AbstractMojo {
         return routes;
     }
 
-    private Optional<RouteType> getRouteType(AnnotationInfo annotationInfo) {
+    private Optional<HttpRoute.Type> getRouteType(AnnotationInfo annotationInfo) {
         return Optional.ofNullable(annotationInfo)
                 .map(annInfo -> annInfo.getParameterValues().getValue("type"))
-                .map(o -> RouteType.valueOf(((AnnotationEnumValue) o).getValueName()));
+                .map(o -> HttpRoute.Type.valueOf(((AnnotationEnumValue) o).getValueName()));
     }
 }

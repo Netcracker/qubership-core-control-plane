@@ -17,61 +17,31 @@ public class HttpRouteGenerator {
     private static final String PUBLIC_GATEWAY_NAME = "public-gateway-istio";
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    static class HTTPRouteResource {
-        public String apiVersion = "gateway.networking.k8s.io/v1";
-        public String kind = "HTTPRoute";
-        public Metadata metadata = new Metadata();
-        public Spec spec = new Spec();
-
-        static class Metadata {
-            public String name;
+    public record HTTPRouteResource(
+            String apiVersion,
+            String kind,
+            Metadata metadata,
+            Spec spec
+    ) {
+        public record Metadata(String name) {
         }
 
-        static class Spec {
-            public Set<ParentRef> parentRefs = new HashSet<>();
-            public List<Rule> rules = new ArrayList<>();
-
-            static class ParentRef {
-                public String name;
-
-                @Override
-                public boolean equals(Object o) {
-                    if (this == o) {
-                        return true;
-                    }
-                    if (o == null || getClass() != o.getClass()) {
-                        return false;
-                    }
-                    ParentRef parentRef = (ParentRef) o;
-                    return Objects.equals(name, parentRef.name);
-                }
-
-                @Override
-                public int hashCode() {
-                    return Objects.hash(name);
-                }
+        public record Spec(
+                Set<ParentRef> parentRefs,
+                List<Rule> rules
+        ) {
+            public record ParentRef(String name) {
             }
 
-            static class Rule {
-                public List<Match> matches = new ArrayList<>();
+            public record Rule(List<Match> matches) {
             }
 
-            static class Match {
-                public Path path = new Path();
-                public List<ForwardTo> forwardTo = new ArrayList<>();
-
-                static class Path {
-                    public String type = "PathPrefix";
-                    public String value;
+            public record Match(Path path, List<ForwardTo> forwardTo) {
+                public record Path(String type, String value) {
                 }
 
-                static class ForwardTo {
-                    public TargetRef targetRef = new TargetRef();
-
-                    static class TargetRef {
-                        public String kind = "Service";
-                        public String name;
-                        public int port = BACKEND_SERVICE_PORT;
+                public record ForwardTo(TargetRef targetRef) {
+                    public record TargetRef(String kind, String name, int port) {
                     }
                 }
             }
@@ -79,37 +49,58 @@ public class HttpRouteGenerator {
     }
 
     private static List<HTTPRouteResource> createHttpRoutes(String serviceName, Set<HttpRoute> httpRoutes) {
-        Map<RouteType, List<HttpRoute>> routesByType = httpRoutes.stream()
-                .collect(Collectors.groupingBy(HttpRoute::getType));
+        Map<HttpRoute.Type, List<HttpRoute>> routesByType = httpRoutes.stream()
+                .collect(Collectors.groupingBy(HttpRoute::type));
 
-        return routesByType.entrySet().stream()
-                .map(entry -> {
-                    RouteType type = entry.getKey();
-                    List<HttpRoute> routes = entry.getValue();
+        return routesByType.entrySet().stream().map(entry -> {
+            HttpRoute.Type type = entry.getKey();
+            List<HttpRoute> routes = entry.getValue();
 
-                    HTTPRouteResource routeResource = new HTTPRouteResource();
-                    routeResource.metadata.name = serviceName + "-" + type.name().toLowerCase();
-                    HTTPRouteResource.Spec.ParentRef parentRef = new HTTPRouteResource.Spec.ParentRef();
-                    parentRef.name = getGatewayName(type);
-                    routeResource.spec.parentRefs.add(parentRef);
-                    HTTPRouteResource.Spec.Rule rule = new HTTPRouteResource.Spec.Rule();
+            HTTPRouteResource.Metadata metadata =
+                    new HTTPRouteResource.Metadata(serviceName + "-" + type.name().toLowerCase());
 
-                    for (HttpRoute httpRoute : routes) {
-                        HTTPRouteResource.Spec.Match match = new HTTPRouteResource.Spec.Match();
-                        match.path = convertSpringPathToHttpRoutePath(httpRoute.getPath());
+            HTTPRouteResource.Spec.ParentRef parentRef =
+                    new HTTPRouteResource.Spec.ParentRef(getGatewayName(type));
 
-                        HTTPRouteResource.Spec.Match.ForwardTo forwardTo = new HTTPRouteResource.Spec.Match.ForwardTo();
-                        forwardTo.targetRef.name = serviceName;
-                        match.forwardTo.add(forwardTo);
+            List<HTTPRouteResource.Spec.Rule> ruleList = new ArrayList<>();
+            List<HTTPRouteResource.Spec.Match> matchList = new ArrayList<>();
 
-                        rule.matches.add(match);
-                    }
+            for (HttpRoute httpRoute : routes) {
+                HTTPRouteResource.Spec.Match.Path path =
+                        convertSpringPathToHttpRoutePath(httpRoute.path());
 
-                    routeResource.spec.rules.add(rule);
+                HTTPRouteResource.Spec.Match.ForwardTo.TargetRef targetRef =
+                        new HTTPRouteResource.Spec.Match.ForwardTo.TargetRef(
+                                "Service",
+                                serviceName,
+                                BACKEND_SERVICE_PORT
+                        );
 
-                    return routeResource;
-                })
-                .toList();
+                HTTPRouteResource.Spec.Match.ForwardTo forwardTo =
+                        new HTTPRouteResource.Spec.Match.ForwardTo(targetRef);
+
+                HTTPRouteResource.Spec.Match match =
+                        new HTTPRouteResource.Spec.Match(path, List.of(forwardTo));
+
+                matchList.add(match);
+            }
+
+            ruleList.add(new HTTPRouteResource.Spec.Rule(matchList));
+
+            HTTPRouteResource.Spec spec =
+                    new HTTPRouteResource.Spec(
+                            new HashSet<>(Set.of(parentRef)),
+                            ruleList
+                    );
+
+            return new HTTPRouteResource(
+                    "gateway.networking.k8s.io/v1",
+                    "HTTPRoute",
+                    metadata,
+                    spec
+            );
+
+        }).toList();
     }
 
     public static String generateHttpRoutesYaml(String serviceName, Set<HttpRoute> httpRoutes) {
@@ -129,29 +120,26 @@ public class HttpRouteGenerator {
     }
 
     private static HTTPRouteResource.Spec.Match.Path convertSpringPathToHttpRoutePath(String springPath) {
-        HTTPRouteResource.Spec.Match.Path path = new HTTPRouteResource.Spec.Match.Path();
-
         if (springPath == null || springPath.isEmpty()) {
-            path.type = "PathPrefix";
-            path.value = "/";
-            return path;
+            return new HTTPRouteResource.Spec.Match.Path("PathPrefix", "/");
         }
 
         // If path contains Spring placeholders {variable}, use regex
         if (springPath.contains("{")) {
-            path.type = "RegularExpression";
-            path.value = springPath.replaceAll("\\{([^/]+?)}", "([^/]+)");
+            return new HTTPRouteResource.Spec.Match.Path("RegularExpression", normalizePath(springPath.replaceAll("\\{([^/]+?)}", "([^/]+)")));
         } else {
-            path.type = "PathPrefix";
-            path.value = springPath;
+            return new HTTPRouteResource.Spec.Match.Path("PathPrefix", normalizePath(springPath));
         }
-        if (!path.value.startsWith("/")) {
-            path.value = "/" + path.value;
+    }
+
+    private static String normalizePath(String path) {
+        if (!path.startsWith("/")) {
+            return "/" + path;
         }
         return path;
     }
 
-    private static String getGatewayName(RouteType routeType) {
+    private static String getGatewayName(HttpRoute.Type routeType) {
         return switch (routeType) {
             case FACADE -> FACADE_GATEWAY_NAME;
             case INTERNAL -> INTERNAL_GATEWAY_NAME;
