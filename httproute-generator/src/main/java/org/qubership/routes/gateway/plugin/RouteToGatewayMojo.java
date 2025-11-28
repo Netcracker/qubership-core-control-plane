@@ -26,8 +26,11 @@ public class RouteToGatewayMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
-    @Parameter(defaultValue = "serviceName", required = true)
+    @Parameter(required = true)
     private String serviceName;
+
+    @Parameter(defaultValue = "com.netcracker")
+    private String[] packages;
 
     @Override
     public void execute() throws MojoExecutionException {
@@ -52,7 +55,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
         try (ScanResult scan = new ClassGraph()
                 .enableAllInfo()
                 .overrideClasspath(classesDir.getAbsolutePath())
-                .acceptPackages("com.netcracker")
+                .acceptPackages(packages)
                 .scan()) {
 
             return Stream.of(
