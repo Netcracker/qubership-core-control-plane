@@ -10,12 +10,6 @@ import java.util.stream.Collectors;
 
 public class HttpRouteGenerator {
 
-    private static final int BACKEND_SERVICE_PORT = 8080;
-    private static final String FACADE_GATEWAY_NAME = "facade-gateway-istio";
-    private static final String INTERNAL_GATEWAY_NAME = "internal-gateway-istio";
-    private static final String PRIVATE_GATEWAY_NAME = "private-gateway-istio";
-    private static final String PUBLIC_GATEWAY_NAME = "public-gateway-istio";
-
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record HTTPRouteResource(
             String apiVersion,
@@ -48,7 +42,7 @@ public class HttpRouteGenerator {
         }
     }
 
-    private static List<HTTPRouteResource> createHttpRoutes(String serviceName, Set<HttpRoute> httpRoutes) {
+    private static List<HTTPRouteResource> createHttpRoutes(String serviceName, int servicePort, Set<HttpRoute> httpRoutes) {
         Map<HttpRoute.Type, List<HttpRoute>> routesByType = httpRoutes.stream()
                 .collect(Collectors.groupingBy(HttpRoute::type));
 
@@ -60,7 +54,7 @@ public class HttpRouteGenerator {
                     new HTTPRouteResource.Metadata(serviceName + "-" + type.name().toLowerCase());
 
             HTTPRouteResource.Spec.ParentRef parentRef =
-                    new HTTPRouteResource.Spec.ParentRef(getGatewayName(type));
+                    new HTTPRouteResource.Spec.ParentRef(type.gatewayName());
 
             List<HTTPRouteResource.Spec.Rule> ruleList = new ArrayList<>();
             List<HTTPRouteResource.Spec.Match> matchList = new ArrayList<>();
@@ -73,7 +67,7 @@ public class HttpRouteGenerator {
                         new HTTPRouteResource.Spec.Match.ForwardTo.TargetRef(
                                 "Service",
                                 serviceName,
-                                BACKEND_SERVICE_PORT
+                                servicePort
                         );
 
                 HTTPRouteResource.Spec.Match.ForwardTo forwardTo =
@@ -103,8 +97,8 @@ public class HttpRouteGenerator {
         }).toList();
     }
 
-    public static String generateHttpRoutesYaml(String serviceName, Set<HttpRoute> httpRoutes) {
-        List<HTTPRouteResource> routes = createHttpRoutes(serviceName, httpRoutes);
+    public static String generateHttpRoutesYaml(String serviceName, int servicePort, Set<HttpRoute> httpRoutes) {
+        List<HTTPRouteResource> routes = createHttpRoutes(serviceName, servicePort, httpRoutes);
 
         ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -137,14 +131,5 @@ public class HttpRouteGenerator {
             return "/" + path;
         }
         return path;
-    }
-
-    private static String getGatewayName(HttpRoute.Type routeType) {
-        return switch (routeType) {
-            case FACADE -> FACADE_GATEWAY_NAME;
-            case INTERNAL -> INTERNAL_GATEWAY_NAME;
-            case PRIVATE -> PRIVATE_GATEWAY_NAME;
-            case PUBLIC -> PUBLIC_GATEWAY_NAME;
-        };
     }
 }

@@ -32,6 +32,9 @@ public class RouteToGatewayMojo extends AbstractMojo {
     @Parameter(defaultValue = "com.netcracker")
     private String[] packages;
 
+    @Parameter(defaultValue = "8080", required = false)
+    private int servicePort;
+
     @Override
     public void execute() throws MojoExecutionException {
         Set<HttpRoute> routes = getRoutes();
@@ -39,7 +42,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
         try {
             getLog().info(project.getFile().getAbsolutePath());
             Path file = project.getBasedir().toPath().resolve("gateway-httproutes.yaml");
-            Files.writeString(file, HttpRouteGenerator.generateHttpRoutesYaml(serviceName, routes));
+            Files.writeString(file, HttpRouteGenerator.generateHttpRoutesYaml(serviceName, servicePort, routes));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
