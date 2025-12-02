@@ -3,13 +3,13 @@ name: Cleanup Old Docker Container Versions
 run-name: >
   ${{ github.event_name == 'schedule'
     && format(
-      'Scheduled Docker Cleanup • branch: {0} • keep: {1}d • dry-run: {2}',
+      'Scheduled Docker Cleanup - branch: {0} - keep: {1}d - dry-run: {2}',
       github.ref_name,
       github.event.inputs.threshold-days || '7',
       github.event.inputs.dry-run || 'false'
     )
     || format(
-      'Manual Docker Cleanup by {0} • branch: {1} • sha: {2} • keep: {3}d • dry-run: {4}',
+      'Manual Docker Cleanup by {0} - branch: {1} - sha: {2} - keep: {3}d - dry-run: {4}',
       github.actor,
       github.ref_name,
       github.sha,
