@@ -1,54 +1,70 @@
 ---
 name: Cleanup Old Docker Container Versions
-run-name: "${{ github.event_name }} - ${{ github.actor }}"
+run-name: >
+  ${{ github.event_name == 'schedule'
+    && format(
+      'Scheduled Docker Cleanup - branch: {0} - keep: {1}d - dry-run: {2}',
+      github.ref_name,
+      github.event.inputs.threshold-days || '7',
+      github.event.inputs.dry-run || 'false'
+    )
+    || format(
+      'Manual Docker Cleanup by {0} - branch: {1} - sha: {2} - keep: {3}d - dry-run: {4}',
+      github.actor,
+      github.ref_name,
+      github.sha,
+      github.event.inputs.threshold-days || '7',
+      github.event.inputs.dry-run || 'false'
+    )
+  }}
 on:
-    schedule:
-      - cron: "0 0 * * 0" # Runs weekly on Sunday at midnight
-    workflow_dispatch:
-      inputs:
-        threshold-days:
-          description: "Number of days to keep container versions"
-          required: false
-          default: "7"
-        included-tags:
-          description: "Tags to include for deletion"
-          required: false
-          default: "*"
-        excluded-tags:
-          description: "Tags to exclude from deletion"
-          required: false
-          default: "latest,release*,*.*"
-        dry-run:
-          description: "Enable dry-run mode"
-          required: false
-          default: "false"
-          type: "boolean"
-        debug:
-          description: "Enable debug mode"
-          required: false
-          default: "false"
-          type: "boolean"
+  schedule:
+    - cron: "0 0 * * 0" # Runs weekly on Sunday at midnight
+  workflow_dispatch:
+    inputs:
+      threshold-days:
+        description: "Number of days to keep container versions"
+        required: false
+        default: "7"
+      included-tags:
+        description: "Tags to include for deletion"
+        required: false
+        default: "*"
+      excluded-tags:
+        description: "Tags to exclude from deletion"
+        required: false
+        default: "latest,release*,*.*"
+      dry-run:
+        description: "Enable dry-run mode"
+        required: false
+        default: false
+        type: "boolean"
+      debug:
+        description: "Enable debug mode"
+        required: false
+        default: false
+        type: "boolean"
 jobs:
-    cleanup:
-      runs-on: ubuntu-latest
+  cleanup:
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: "Summary"
-          run: |
-            echo "**Event**: ${{ github.event_name }}"
-            echo "**Actor**: ${{ github.actor }}"
-            echo "**Threshold days**: ${{ github.event.inputs.threshold-days || 8 }}"
-            echo "**Included tags**: ${{ github.event.inputs.included-tags || '*' }}"
-            echo "**Excluded tags**: ${{ github.event.inputs.excluded-tags || 'latest,release*,*.*' }}"
-            echo "**Dry-run**: ${{ github.event.inputs.dry-run || 'false' }}"
-            echo "**Debug**: ${{ github.event.inputs.debug || 'false' }}"
-        - name: Run Container Package Cleanup Action
-          uses: netcracker/qubership-workflow-hub/actions/container-package-cleanup@ad7ed53caff0d6e09b4a1835cd903b03264ffbd5
-          with:
-            threshold-days: ${{ github.event.inputs.threshold-days || 8 }}
-            included-tags: ${{ github.event.inputs.included-tags || '*' }}
-            excluded-tags: ${{ github.event.inputs.excluded-tags || 'latest,release*,*.*' }}
-            dry-run: ${{ github.event.inputs.dry-run || 'false' }}
-            debug: ${{ github.event.inputs.debug || 'false' }}
-          env:
-            PACKAGE_TOKEN: ${{ secrets.GH_RWD_PACKAGE_TOKEN }}
+    steps:
+      - name: "Summary"
+        run: |
+          echo "**Event**: ${{ github.event_name }}"
+          echo "**Actor**: ${{ github.actor }}"
+          echo "**Threshold days**: ${{ github.event.inputs.threshold-days || 8 }}"
+          echo "**Included tags**: ${{ github.event.inputs.included-tags || '*' }}"
+          echo "**Excluded tags**: ${{ github.event.inputs.excluded-tags || 'latest,release*,*.*' }}"
+          echo "**Dry-run**: ${{ github.event.inputs.dry-run || 'false' }}"
+          echo "**Debug**: ${{ github.event.inputs.debug || 'false' }}"
+      - name: Run Container Package Cleanup Action
+        uses: netcracker/qubership-workflow-hub/actions/container-package-cleanup@v2.0.3
+        with:
+          threshold-days: ${{ github.event.inputs.threshold-days || 8 }}
+          included-tags: ${{ github.event.inputs.included-tags || '*' }}
+          excluded-tags: ${{ github.event.inputs.excluded-tags || 'latest,release*,*.*' }}
+          dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+          debug: ${{ github.event.inputs.debug || 'false' }}
+        env:
+          PACKAGE_TOKEN: ${{ secrets.GH_RWD_PACKAGE_TOKEN }}
