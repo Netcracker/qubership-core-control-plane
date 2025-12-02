@@ -21,12 +21,12 @@ on:
         dry-run:
           description: "Enable dry-run mode"
           required: false
-          default: "false"
+          default: false
           type: "boolean"
         debug:
           description: "Enable debug mode"
           required: false
-          default: "false"
+          default: false
           type: "boolean"
 jobs:
     cleanup:
@@ -43,7 +43,7 @@ jobs:
             echo "**Dry-run**: ${{ github.event.inputs.dry-run || 'false' }}"
             echo "**Debug**: ${{ github.event.inputs.debug || 'false' }}"
         - name: Run Container Package Cleanup Action
-          uses: netcracker/qubership-workflow-hub/actions/container-package-cleanup@ad7ed53caff0d6e09b4a1835cd903b03264ffbd5
+          uses: netcracker/qubership-workflow-hub/actions/container-package-cleanup@487-bug-cleanup-packages-action-became-invalid
           with:
             threshold-days: ${{ github.event.inputs.threshold-days || 8 }}
             included-tags: ${{ github.event.inputs.included-tags || '*' }}
