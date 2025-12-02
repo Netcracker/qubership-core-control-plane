@@ -14,6 +14,7 @@
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-plugin-api</artifactId>
             <version>3.9.6</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.maven.plugin-tools</groupId>
@@ -40,11 +41,17 @@
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-project</artifactId>
             <version>2.2.1</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>route-registration-common</artifactId>
             <version>6.2.3-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.netcracker.cloud</groupId>
+            <artifactId>route-registration-common-spring</artifactId>
+            <version>6.1.3</version>
         </dependency>
 
         <dependency>

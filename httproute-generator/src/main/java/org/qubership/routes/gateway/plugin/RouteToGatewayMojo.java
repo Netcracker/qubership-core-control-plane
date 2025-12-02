@@ -26,9 +26,6 @@ public class RouteToGatewayMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
-    @Parameter(required = true)
-    private String serviceName;
-
     @Parameter(defaultValue = "com.netcracker")
     private String[] packages;
 
@@ -42,7 +39,8 @@ public class RouteToGatewayMojo extends AbstractMojo {
         try {
             getLog().info(project.getFile().getAbsolutePath());
             Path file = project.getBasedir().toPath().resolve("gateway-httproutes.yaml");
-            Files.writeString(file, HttpRouteGenerator.generateHttpRoutesYaml(serviceName, servicePort, routes));
+            String httpRoutesYaml = HttpRouteGenerator.generateHttpRoutesYaml(servicePort, routes);
+            Files.writeString(file, prependYamlHeader(httpRoutesYaml));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -145,5 +143,16 @@ public class RouteToGatewayMojo extends AbstractMojo {
         return Optional.ofNullable(annotationInfo)
                 .map(annInfo -> annInfo.getParameterValues().getValue("type"))
                 .map(o -> HttpRoute.Type.valueOf(((AnnotationEnumValue) o).getValueName()));
+    }
+
+    private String prependYamlHeader(String yamlContent) {
+        return """
+           # -----------------------------------------------------------------------------
+           # THIS FILE WAS AUTOMATICALLY GENERATED — DO NOT EDIT.
+           # Any changes will be overwritten during the next build.
+           # Modify source annotations and regenerate using RouteToGatewayMojo.
+           # -----------------------------------------------------------------------------
+
+           """ + yamlContent;
     }
 }

@@ -35,14 +35,14 @@ public class HttpRouteGenerator {
         }
     }
 
-    private static List<HTTPRouteResource> createHttpRoutes(String serviceName, int servicePort, Set<HttpRoute> httpRoutes) {
+    private static List<HTTPRouteResource> createHttpRoutes(int servicePort, Set<HttpRoute> httpRoutes) {
         Map<HttpRoute.Type, List<HttpRoute>> routesByType = httpRoutes.stream().collect(Collectors.groupingBy(HttpRoute::type));
 
         return routesByType.entrySet().stream().map(entry -> {
             HttpRoute.Type type = entry.getKey();
             List<HttpRoute> routes = entry.getValue();
 
-            HTTPRouteResource.Metadata metadata = new HTTPRouteResource.Metadata(serviceName + "-" + type.name().toLowerCase());
+            HTTPRouteResource.Metadata metadata = new HTTPRouteResource.Metadata("{{ .Values.SERVICE_NAME }}-" + type.name().toLowerCase());
 
             HTTPRouteResource.Spec.ParentRef parentRef = new HTTPRouteResource.Spec.ParentRef(type.gatewayName());
 
@@ -54,7 +54,7 @@ public class HttpRouteGenerator {
                 matches.add(new HTTPRouteResource.Spec.Match(path));
             }
 
-            List<HTTPRouteResource.Spec.BackendRef> backendRefs = List.of(new HTTPRouteResource.Spec.BackendRef(serviceName, servicePort));
+            List<HTTPRouteResource.Spec.BackendRef> backendRefs = List.of(new HTTPRouteResource.Spec.BackendRef("{{ .Values.SERVICE_NAME }}", servicePort));
 
             ruleList.add(new HTTPRouteResource.Spec.Rule(matches, backendRefs));
 
@@ -64,8 +64,8 @@ public class HttpRouteGenerator {
         }).toList();
     }
 
-    public static String generateHttpRoutesYaml(String serviceName, int servicePort, Set<HttpRoute> httpRoutes) {
-        List<HTTPRouteResource> routes = createHttpRoutes(serviceName, servicePort, httpRoutes);
+    public static String generateHttpRoutesYaml(int servicePort, Set<HttpRoute> httpRoutes) {
+        List<HTTPRouteResource> routes = createHttpRoutes(servicePort, httpRoutes);
 
         ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
