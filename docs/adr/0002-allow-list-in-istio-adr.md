@@ -45,7 +45,7 @@ https://github.com/orgs/Netcracker/projects/11/views/8?pane=issue&itemId=1393022
 
 ## Decision
 
-We will disable anonymous requests by default at the Public and Private gateways in Istio Ambient Mesh.  
+We will disable anonymous requests at the Public and Private gateways in Istio Ambient Mesh.  
 We will introduce a **centralized allow-list**, maintained by the Security Team, that defines which routes can be accessed anonymously.
 
 The centralized allow-list will be implemented using an **Istio AuthorizationPolicy** with a DENY action, blocking all anonymous requests except those matching explicitly allowed paths (supports glob patterns).
