@@ -89,10 +89,10 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 .orElse(Collections.emptyList());
     }
 
-    private Map<HttpRoute.Type, List<String>> getRequestMappingPaths(ClassInfo classInfo) {
+    protected Map<HttpRoute.Type, Set<String>> getRequestMappingPaths(ClassInfo classInfo) {
         getLog().info("Get Request Mappings for Class: " + classInfo.getName());
 
-        Optional<HttpRoute.Type> methodRouteType = getRouteType(classInfo.getAnnotationInfo(Route.class.getName()));
+        Optional<HttpRoute.Type> classRouteType = getRouteType(classInfo.getAnnotationInfo(Route.class.getName()));
 
         List<String> classesReqMappings = Optional.ofNullable(classInfo.getAnnotationInfo(RequestMapping.class))
                 .or(() -> Optional.ofNullable(classInfo.getAnnotationInfo(GetMapping.class)))
@@ -103,7 +103,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 .map(this::getAnnotationPathFor)
                 .orElse(Collections.emptyList());
 
-        Map<HttpRoute.Type, List<String>> routes = classInfo.getMethodInfo().stream()
+        Map<HttpRoute.Type, Set<String>> routes = classInfo.getMethodInfo().stream()
                 .flatMap(methodInfo ->
                         methodInfo.getAnnotationInfo().stream()
                                 .filter(ann -> ann.getName().equals(RequestMapping.class.getName())
@@ -118,31 +118,43 @@ public class RouteToGatewayMojo extends AbstractMojo {
                         entry -> {
                             MethodInfo method = entry.getKey();
                             AnnotationInfo routeAnn = method.getAnnotationInfo(Route.class.getName());
-                            return methodRouteType.orElse(
-                                    getRouteType(routeAnn).orElse(HttpRoute.Type.INTERNAL)
-                            );
+                            return getRouteType(routeAnn)
+                                    .orElse(classRouteType.orElse(HttpRoute.Type.INTERNAL));
                         },
                         entry -> {
                             AnnotationInfo mappingAnn = entry.getValue();
+
+                            if (classesReqMappings.isEmpty()) {
+                                return new LinkedHashSet<>(getAnnotationPathFor(mappingAnn));
+                            }
+
                             return classesReqMappings.stream()
                                     .flatMap(classPrefix -> getAnnotationPathFor(mappingAnn).stream()
-                                            .map(methodPath -> classPrefix + "/" + methodPath))
-                                    .toList();
+                                            .map(methodPath -> classPrefix + methodPath))
+                                    .collect(Collectors.toCollection(HashSet::new));
                         },
-                        (list1, list2) -> {
-                            List<String> merged = new ArrayList<>(list1);
-                            merged.addAll(list2);
+                        (set1, set2) -> {
+                            Set<String> merged = new HashSet<>(set1);
+                            merged.addAll(set2);
                             return merged;
                         }
                 ));
+
         getLog().info("Found " + routes.size() + " routes");
         return routes;
     }
 
+
     private Optional<HttpRoute.Type> getRouteType(AnnotationInfo annotationInfo) {
         return Optional.ofNullable(annotationInfo)
-                .map(annInfo -> annInfo.getParameterValues().getValue("type"))
-                .map(o -> HttpRoute.Type.valueOf(((AnnotationEnumValue) o).getValueName()));
+                .map(annInfo -> annInfo.getParameterValues(false))
+                .flatMap(params ->
+                        Optional.ofNullable(params.getValue("type"))
+                                .or(() -> Optional.ofNullable(params.getValue("value")))
+                )
+                .filter(v -> v instanceof AnnotationEnumValue)
+                .map(v -> (AnnotationEnumValue) v)
+                .map(enumVal -> HttpRoute.Type.valueOf(enumVal.getValueName()));
     }
 
     private String prependYamlHeader(String yamlContent) {
