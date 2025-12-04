@@ -68,9 +68,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
                     .flatMap(Collection::stream)
                     .distinct()
                     .map(this::getRequestMappingPaths)
-                    .flatMap(m -> m.entrySet().stream())
-                    .flatMap(e -> e.getValue().stream()
-                            .map(path -> new HttpRoute(path, e.getKey())))
+                    .flatMap(Collection::stream)
                     .collect(Collectors.toSet());
         } catch (Exception e) {
             throw new MojoExecutionException("Failed scanning annotations", e);
@@ -89,10 +87,11 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 .orElse(Collections.emptyList());
     }
 
-    protected Map<HttpRoute.Type, Set<String>> getRequestMappingPaths(ClassInfo classInfo) {
+    protected Set<HttpRoute> getRequestMappingPaths(ClassInfo classInfo) {
         getLog().info("Get Request Mappings for Class: " + classInfo.getName());
 
-        Optional<HttpRoute.Type> classRouteType = getRouteType(classInfo.getAnnotationInfo(Route.class.getName()));
+        Optional<HttpRoute.Type> classRouteType =
+                getRouteType(classInfo.getAnnotationInfo(Route.class.getName()));
 
         List<String> classesReqMappings = Optional.ofNullable(classInfo.getAnnotationInfo(RequestMapping.class))
                 .or(() -> Optional.ofNullable(classInfo.getAnnotationInfo(GetMapping.class)))
@@ -103,7 +102,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 .map(this::getAnnotationPathFor)
                 .orElse(Collections.emptyList());
 
-        Map<HttpRoute.Type, Set<String>> routes = classInfo.getMethodInfo().stream()
+        Set<HttpRoute> routes = classInfo.getMethodInfo().stream()
                 .flatMap(methodInfo ->
                         methodInfo.getAnnotationInfo().stream()
                                 .filter(ann -> ann.getName().equals(RequestMapping.class.getName())
@@ -112,33 +111,29 @@ public class RouteToGatewayMojo extends AbstractMojo {
                                         || ann.getName().equals(PutMapping.class.getName())
                                         || ann.getName().equals(DeleteMapping.class.getName())
                                         || ann.getName().equals(PatchMapping.class.getName()))
-                                .map(mappingAnnotation -> Map.entry(methodInfo, mappingAnnotation))
+                                .map(mappingAnn -> Map.entry(methodInfo, mappingAnn))
                 )
-                .collect(Collectors.toMap(
-                        entry -> {
-                            MethodInfo method = entry.getKey();
-                            AnnotationInfo routeAnn = method.getAnnotationInfo(Route.class.getName());
-                            return getRouteType(routeAnn)
-                                    .orElse(classRouteType.orElse(HttpRoute.Type.INTERNAL));
-                        },
-                        entry -> {
-                            AnnotationInfo mappingAnn = entry.getValue();
+                .map(entry -> {
+                    AnnotationInfo mappingAnn = entry.getValue();
+                    HttpRoute.Type routeType = getRouteType(
+                            entry.getKey().getAnnotationInfo(Route.class.getName())
+                    ).orElse(classRouteType.orElse(HttpRoute.Type.INTERNAL));
 
-                            if (classesReqMappings.isEmpty()) {
-                                return new LinkedHashSet<>(getAnnotationPathFor(mappingAnn));
-                            }
+                    // No class prefix → direct paths
+                    if (classesReqMappings.isEmpty()) {
+                        return getAnnotationPathFor(mappingAnn).stream()
+                                .map(path -> new HttpRoute(path, routeType))
+                                .collect(Collectors.toCollection(LinkedHashSet::new));
+                    }
 
-                            return classesReqMappings.stream()
-                                    .flatMap(classPrefix -> getAnnotationPathFor(mappingAnn).stream()
-                                            .map(methodPath -> classPrefix + methodPath))
-                                    .collect(Collectors.toCollection(HashSet::new));
-                        },
-                        (set1, set2) -> {
-                            Set<String> merged = new HashSet<>(set1);
-                            merged.addAll(set2);
-                            return merged;
-                        }
-                ));
+                    // Merge class + method mappings
+                    return classesReqMappings.stream()
+                            .flatMap(classPrefix -> getAnnotationPathFor(mappingAnn).stream()
+                                    .map(methodPath -> new HttpRoute(classPrefix + methodPath, routeType)))
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
+                })
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
 
         getLog().info("Found " + routes.size() + " routes");
         return routes;
