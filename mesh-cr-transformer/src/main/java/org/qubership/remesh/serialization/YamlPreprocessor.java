@@ -15,8 +15,8 @@ public class YamlPreprocessor {
         this.mapper = mapper;
     }
 
-    public JsonNode readAsJsonNode(String rawDoc) {
-        String preprocessed = preprocessYaml(rawDoc);
+    public JsonNode readAsJsonNode(String yamlFragment) {
+        String preprocessed = preprocessYaml(yamlFragment);
 
         try {
             return mapper.readTree(preprocessed);

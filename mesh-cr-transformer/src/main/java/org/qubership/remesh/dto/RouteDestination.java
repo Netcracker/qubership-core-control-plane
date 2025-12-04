@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class RouteDestination {
-//    private String cluster; //not used
+    private String cluster; //obsolete, ignore
 //    private Boolean tlsSupported; //not used
     private String endpoint;
 //    private String tlsEndpoint; //not used

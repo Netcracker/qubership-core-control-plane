@@ -1,1 +1,2 @@
 org.qubership.remesh.handler.RouteConfigurationHandler
+org.qubership.remesh.handler.VirtualServiceHandler

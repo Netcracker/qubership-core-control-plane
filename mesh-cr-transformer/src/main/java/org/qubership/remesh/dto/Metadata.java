@@ -10,5 +10,6 @@ import java.util.Map;
 public class Metadata {
     private String name;
     private String namespace;
+    private String gateway;
     private Map<String, String> labels;
 }
