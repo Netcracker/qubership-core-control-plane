@@ -7,7 +7,7 @@ COPY control-plane-test-service/ .
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOSUMDB=off GOTOOLCHAIN=local go build -v -o control-plane-test-service .
 
-FROM alpine:3.22
+FROM alpine:3.23
 
 RUN apk add --no-cache curl && apk add --no-cache openssl
 
