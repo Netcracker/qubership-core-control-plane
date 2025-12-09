@@ -56,6 +56,7 @@ public class HttpRoute implements Resource {
         private List<Match> matches;
         private List<Filter> filters;
         private List<BackendRef> backendRefs;
+        private RouteTimeouts timeouts;
     }
 
     @Data
@@ -189,6 +190,12 @@ public class HttpRoute implements Resource {
         private String port;
         @JsonSerialize(using = ExtendedIntegerSerializer.class)
         private String weight;
+    }
+
+    @Data
+    @NoArgsConstructor
+    public static class RouteTimeouts {
+        private String request;
     }
 
     @Data

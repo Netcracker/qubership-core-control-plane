@@ -125,6 +125,8 @@ public class VirtualServiceHandler implements CrHandler{
                     }
                     newRule.setBackendRefs(backendRefs);
 
+                    newRule.setTimeouts(toRouteTimeouts(rule.getTimeout()));
+
                     result.add(newRule);
                 }
             }
@@ -318,5 +320,14 @@ public class VirtualServiceHandler implements CrHandler{
         // TODO: dst.TlsSupported / TlsEndpoint / HttpVersion / TlsConfigName → DestinationRule/Policy
 
         return backendRef;
+    }
+
+    private HttpRoute.RouteTimeouts toRouteTimeouts(Long timeout) {
+        if (timeout == null) {
+            return null;
+        }
+        HttpRoute.RouteTimeouts result = new HttpRoute.RouteTimeouts();
+        result.setRequest(timeout + "ms");
+        return result;
     }
 }

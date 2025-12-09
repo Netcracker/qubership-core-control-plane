@@ -14,7 +14,7 @@ public class Rule {
     private List<HeaderDefinition> addHeaders;
     private List<String> removeHeaders;
     private Boolean allowed; //TODO need to check
-//    private Long timeout; //not used
+    private Long timeout;
 //    private Long idleTimeout; //not used
 //    private StatefulSession statefulSession; //not used
 //    private String rateLimit; //not used

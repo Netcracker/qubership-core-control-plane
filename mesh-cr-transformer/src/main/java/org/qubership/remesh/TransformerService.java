@@ -100,13 +100,16 @@ public class TransformerService {
 
                 Path newFile = file.resolveSibling(generatedFileName(file));
 
+                int i = 0;
                 try (Writer writer = Files.newBufferedWriter(newFile)) {
                     writer.write("# This file was automatically generated from NC Mesh CRs\n\n");
                     for (Resource resource : allOutputResources) {
                         if (validate) {
                             resourceValidator.validateResource(resource);
                         }
+                        writer.write("# fragment " + i++ + "\n");
                         writer.write(mapper.writeValueAsString(resource));
+
                     }
                 }
 
