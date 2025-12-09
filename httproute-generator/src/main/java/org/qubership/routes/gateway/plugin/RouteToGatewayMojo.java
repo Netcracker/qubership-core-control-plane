@@ -2,6 +2,7 @@ package org.qubership.routes.gateway.plugin;
 
 import com.netcracker.cloud.routesregistration.common.annotation.FacadeRoute;
 import com.netcracker.cloud.routesregistration.common.annotation.Route;
+import com.netcracker.cloud.routesregistration.common.spring.gateway.route.annotation.GatewayRequestMapping;
 import io.github.classgraph.*;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -76,15 +77,14 @@ public class RouteToGatewayMojo extends AbstractMojo {
     }
 
     private List<String> getAnnotationPathFor(AnnotationInfo annotationInfo) {
-        if (annotationInfo.getParameterValues().isEmpty()) {
+        if (annotationInfo == null || annotationInfo.getParameterValues() == null || annotationInfo.getParameterValues().isEmpty()) {
             return Collections.emptyList();
         }
-        return Optional.ofNullable(annotationInfo.getParameterValues().getValue("path"))
-                .or(() -> Optional.ofNullable(annotationInfo.getParameterValues().getValue("value")))
-                .filter(path -> path instanceof Object[])
-                .map(o -> (Object[]) o)
-                .map(o -> Arrays.stream(o).map(Object::toString).toList())
-                .orElse(Collections.emptyList());
+        String[] paths = (String[]) annotationInfo.getParameterValues().getValue("path");
+        if (paths == null || paths.length == 0) {
+            paths = (String[]) annotationInfo.getParameterValues().getValue("value");
+        }
+        return paths == null ? Collections.emptyList() : Arrays.asList(paths);
     }
 
     protected Set<HttpRoute> getRequestMappingPaths(ClassInfo classInfo) {
@@ -92,6 +92,9 @@ public class RouteToGatewayMojo extends AbstractMojo {
 
         Optional<HttpRoute.Type> classRouteType =
                 getRouteType(classInfo.getAnnotationInfo(Route.class.getName()));
+
+        List<String> classGatewayRequestMapping =
+                getAnnotationPathFor(classInfo.getAnnotationInfo(GatewayRequestMapping.class.getName()));
 
         List<String> classesReqMappings = Optional.ofNullable(classInfo.getAnnotationInfo(RequestMapping.class))
                 .or(() -> Optional.ofNullable(classInfo.getAnnotationInfo(GetMapping.class)))
@@ -119,23 +122,46 @@ public class RouteToGatewayMojo extends AbstractMojo {
                             entry.getKey().getAnnotationInfo(Route.class.getName())
                     ).orElse(classRouteType.orElse(HttpRoute.Type.INTERNAL));
 
+                    List<String> methodGatewayRequestMapping = getAnnotationPathFor(entry.getKey().getAnnotationInfo(GatewayRequestMapping.class.getName()));
+                    if (!classGatewayRequestMapping.isEmpty()) {
+                        return classGatewayRequestMapping.stream()
+                                .flatMap(classPrefix -> methodGatewayRequestMapping.stream()
+                                        .map(methodPath -> new HttpRoute(classesReqMappings.getFirst() + getAnnotationPathFor(mappingAnn).getFirst(), classPrefix + methodPath, routeType)))
+                                .collect(Collectors.toSet());
+                    } else if (!methodGatewayRequestMapping.isEmpty()) {
+                        String classPrefix;
+                        if (!classesReqMappings.isEmpty()) {
+                            classPrefix = classesReqMappings.getFirst();
+                        } else {
+                            classPrefix = "";
+                        }
+                        return methodGatewayRequestMapping.stream()
+                                .map(methodPath -> new HttpRoute(classPrefix + getAnnotationPathFor(mappingAnn).getFirst(), methodPath, routeType))
+                                .collect(Collectors.toSet());
+                    }
+
                     // No class prefix → direct paths
                     if (classesReqMappings.isEmpty()) {
                         return getAnnotationPathFor(mappingAnn).stream()
                                 .map(path -> new HttpRoute(path, routeType))
-                                .collect(Collectors.toCollection(LinkedHashSet::new));
+                                .collect(Collectors.toSet());
                     }
 
                     // Merge class + method mappings
                     return classesReqMappings.stream()
                             .flatMap(classPrefix -> getAnnotationPathFor(mappingAnn).stream()
                                     .map(methodPath -> new HttpRoute(classPrefix + methodPath, routeType)))
-                            .collect(Collectors.toCollection(LinkedHashSet::new));
+                            .collect(Collectors.toSet());
                 })
                 .flatMap(Collection::stream)
                 .collect(Collectors.toSet());
 
         getLog().info("Found " + routes.size() + " routes");
+        if (classInfo.getSuperclass() != null) {
+            routes.addAll(getRequestMappingPaths(classInfo.getSuperclass()));
+
+        }
+
         return routes;
     }
 
@@ -149,17 +175,18 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 )
                 .filter(v -> v instanceof AnnotationEnumValue)
                 .map(v -> (AnnotationEnumValue) v)
-                .map(enumVal -> HttpRoute.Type.valueOf(enumVal.getValueName()));
+                .map(enumVal -> HttpRoute.Type.valueOf(enumVal.getValueName()))
+                .or(() -> Optional.of(HttpRoute.Type.INTERNAL));
     }
 
     private String prependYamlHeader(String yamlContent) {
         return """
-           # -----------------------------------------------------------------------------
-           # THIS FILE WAS AUTOMATICALLY GENERATED — DO NOT EDIT.
-           # Any changes will be overwritten during the next build.
-           # Modify source annotations and regenerate using RouteToGatewayMojo.
-           # -----------------------------------------------------------------------------
+                # -----------------------------------------------------------------------------
+                # THIS FILE WAS AUTOMATICALLY GENERATED — DO NOT EDIT.
+                # Any changes will be overwritten during the next build.
+                # Modify source annotations and regenerate using RouteToGatewayMojo.
+                # -----------------------------------------------------------------------------
 
-           """ + yamlContent;
+                """ + yamlContent;
     }
 }

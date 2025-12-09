@@ -1,6 +1,10 @@
 package org.qubership.routes.gateway.plugin;
 
-public record HttpRoute(String path, Type type) {
+public record HttpRoute(String path, String gatewayPath, Type type) {
+    public HttpRoute(String path, Type type) {
+        this(path, path, type);
+    }
+
     public enum Type {
         FACADE("facade-gateway-istio"),
         INTERNAL("internal-gateway-istio"),
