@@ -77,15 +77,36 @@ public class RouteToGatewayMojo extends AbstractMojo {
     }
 
     private List<String> getAnnotationPathFor(AnnotationInfo annotationInfo) {
-        if (annotationInfo == null || annotationInfo.getParameterValues() == null || annotationInfo.getParameterValues().isEmpty()) {
+        if (annotationInfo == null) {
             return Collections.emptyList();
         }
-        String[] paths = (String[]) annotationInfo.getParameterValues().getValue("path");
-        if (paths == null || paths.length == 0) {
-            paths = (String[]) annotationInfo.getParameterValues().getValue("value");
+
+        AnnotationParameterValueList params = annotationInfo.getParameterValues();
+        if (params == null || params.isEmpty()) {
+            return Collections.emptyList();
         }
-        return paths == null ? Collections.emptyList() : Arrays.asList(paths);
+
+        Object raw = params.getValue("path");
+        if (raw == null) {
+            raw = params.getValue("value");
+        }
+        if (raw == null) {
+            return Collections.emptyList();
+        }
+
+        if (raw instanceof String[]) {
+            return Arrays.asList((String[]) raw);
+        }
+
+        if (raw instanceof Object[] arr) {
+            return Arrays.stream(arr)
+                    .map(String::valueOf)
+                    .collect(Collectors.toList());
+        }
+
+        return Collections.singletonList(String.valueOf(raw));
     }
+
 
     protected Set<HttpRoute> getRequestMappingPaths(ClassInfo classInfo) {
         getLog().info("Get Request Mappings for Class: " + classInfo.getName());

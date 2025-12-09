@@ -8,6 +8,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -22,11 +23,18 @@ public class HttpRouteGenerator {
             public record ParentRef(String name) {
             }
 
-            public record Rule(List<Match> matches, List<BackendRef> backendRefs) {
+            public record Rule(List<Match> matches, List<Filter> filters, List<BackendRef> backendRefs) {
             }
 
             public record Match(Path path) {
                 public record Path(String type, String value) {
+                }
+            }
+
+            public record Filter(String type, UrlRewrite urlRewrite) {
+                public record UrlRewrite(Path path) {
+                    public record Path(String type, String replacePrefixMatch) {
+                    }
                 }
             }
 
@@ -47,16 +55,35 @@ public class HttpRouteGenerator {
             HTTPRouteResource.Spec.ParentRef parentRef = new HTTPRouteResource.Spec.ParentRef(type.gatewayName());
 
             List<HTTPRouteResource.Spec.Rule> ruleList = new ArrayList<>();
-            List<HTTPRouteResource.Spec.Match> matches = new ArrayList<>();
+            List<HTTPRouteResource.Spec.BackendRef> backendRefs =
+                    List.of(new HTTPRouteResource.Spec.BackendRef("{{ .Values.SERVICE_NAME }}", servicePort));
 
             for (HttpRoute route : routes) {
-                var path = convertSpringPathToHttpRoutePath(route.path());
-                matches.add(new HTTPRouteResource.Spec.Match(path));
+                // match uses the externally visible (gateway) path
+                var matchPath = convertSpringPathToHttpRoutePath(route.gatewayPath());
+                HTTPRouteResource.Spec.Match match = new HTTPRouteResource.Spec.Match(matchPath);
+
+                List<HTTPRouteResource.Spec.Filter> filters = null;
+                // If gateway path differs from service path, add URLRewrite ReplacePrefixMatch
+                String normalizedGateway = normalizePath(route.gatewayPath());
+                String normalizedService = normalizePath(route.path());
+                if (!Objects.equals(normalizedGateway, normalizedService)) {
+                    String rewriteTarget = normalizedService;
+                    HTTPRouteResource.Spec.Filter.UrlRewrite.Path rewritePath =
+                            new HTTPRouteResource.Spec.Filter.UrlRewrite.Path("ReplacePrefixMatch", rewriteTarget);
+                    HTTPRouteResource.Spec.Filter.UrlRewrite urlRewrite =
+                            new HTTPRouteResource.Spec.Filter.UrlRewrite(rewritePath);
+                    HTTPRouteResource.Spec.Filter filter =
+                            new HTTPRouteResource.Spec.Filter("URLRewrite", urlRewrite);
+                    filters = List.of(filter);
+                }
+
+                ruleList.add(new HTTPRouteResource.Spec.Rule(
+                        List.of(match),
+                        filters,
+                        backendRefs
+                ));
             }
-
-            List<HTTPRouteResource.Spec.BackendRef> backendRefs = List.of(new HTTPRouteResource.Spec.BackendRef("{{ .Values.SERVICE_NAME }}", servicePort));
-
-            ruleList.add(new HTTPRouteResource.Spec.Rule(matches, backendRefs));
 
             HTTPRouteResource.Spec spec = new HTTPRouteResource.Spec(Set.of(parentRef), ruleList);
 
@@ -92,6 +119,9 @@ public class HttpRouteGenerator {
     }
 
     private static String normalizePath(String path) {
+        if (path == null || path.isEmpty()) {
+            return "/";
+        }
         if (!path.startsWith("/")) {
             return "/" + path;
         }
