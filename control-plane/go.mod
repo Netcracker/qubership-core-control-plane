@@ -28,7 +28,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mustafaturan/bus/v3 v3.0.3
 	github.com/mustafaturan/monoton/v3 v3.0.0
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.1.0
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.2.0
 	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.0.8
 	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.0.4
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.1.1
