@@ -113,12 +113,15 @@ func (r migrationRecord) String() string {
 	return fmt.Sprintf("MigrationRecord{id=%d,Name=%s,Group=%d,migratedAt=%s}", r.Id, r.Name, r.GroupId, r.MigratedAt.Format(time.RFC3339))
 }
 
-func applyMigration17(tx *bun.DB, migrations *migrate.Migrations, ctx context.Context) error {
+func applyMigration17(db *bun.DB, migrations *migrate.Migrations, ctx context.Context) error {
+	migrator := migrate.NewMigrator(db, migrations)
+
 	for _, migration := range migrations.Sorted() {
 		if migration.Name == "00000000000017" {
-			if err := migration.Up(ctx, tx, nil); err != nil {
+			if err := migration.Up(ctx, migrator, nil); err != nil {
 				return gerrors.Wrap(err, 0)
 			}
+			break
 		}
 	}
 	return nil
