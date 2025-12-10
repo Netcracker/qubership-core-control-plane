@@ -433,6 +433,8 @@ github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.1.0 h1:sbiC
 github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.1.0/go.mod h1:PhmYzvkrqOFXu/qEKqcj19WuHPV0hKkHh3iOfiloA0E=
 github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.1.0 h1:HbOtKu3iJCQDANfTzpdncDI+goUa5jZpCU8uM83n4GU=
 github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.1.0/go.mod h1:j0suqyJLZ0v/+dAKvARJ3LvMS/Tw622B8Vb6gnPw+uE=
+github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.1.4 h1:B2gqwek7Tuq98oXoz0gCgN8skQGz5qOE7Qp7E78rp6A=
+github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.1.4/go.mod h1:uKkotQLR99V+WB8xTbR9UVhAwIABz0KBOqHNMBbSkSk=
 github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.1.0 h1:+8Q+WLF4hodA/BTnhTfR5nMcm3WppkmRrRqEvqQ8M1E=
 github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.1.0/go.mod h1:7iPrmR0lo5lBwj5XbAG2Vw5ytjxwi2bvCRG0RvI9/24=
 github.com/netcracker/qubership-core-lib-go/v3 v3.2.0 h1:Z52/fVL0ql4+TiOog/EKnFufq0XlsUFEPRUyFBNOT/A=
