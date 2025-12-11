@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SpringTestController2 {
 
 
-    @RequestMapping(path = {RoutesTestConfiguration.METHOD_ROUTES_1, RoutesTestConfiguration.METHOD_ROUTES_2}, method = RequestMethod.POST)
+    @RequestMapping(path = {RoutesTestConfiguration.METHOD_ROUTES_1 + "/{id}", RoutesTestConfiguration.METHOD_ROUTES_2}, method = RequestMethod.POST)
     @Route
     public void method11() {
     }

@@ -61,7 +61,7 @@ public class RouteToGatewayMojoTest {
             Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
 
             assertEquals(3, routes.size());
-            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.INTERNAL)));
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.METHOD_ROUTES_1 + "/{id}", HttpRoute.Type.INTERNAL)));
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.INTERNAL)));
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.PRIVATE)));
         }
