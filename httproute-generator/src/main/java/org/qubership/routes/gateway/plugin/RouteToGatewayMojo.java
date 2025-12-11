@@ -226,8 +226,4 @@ public class RouteToGatewayMojo extends AbstractMojo {
         return !scan.getClassesWithMethodAnnotation(Path.class).isEmpty()
                 || !scan.getClassesWithAnnotation(Path.class).isEmpty();
     }
-
-    interface HasPaths {
-        Set<String> getPaths();
-    }
 }
