@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController("TestController4")
 @Validated
-public class TestController4 {
+public class SpringTestController4 {
 
     @GatewayRequestMapping({RoutesTestConfiguration.METHOD_ROUTE_PATH_FROM_1, RoutesTestConfiguration.METHOD_ROUTE_PATH_FROM_2})
     @RequestMapping(path = {RoutesTestConfiguration.METHOD_ROUTE_PATH_TO_1}, method = RequestMethod.POST)

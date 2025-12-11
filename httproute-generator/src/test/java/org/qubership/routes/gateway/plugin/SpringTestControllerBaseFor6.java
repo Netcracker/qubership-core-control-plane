@@ -12,7 +12,7 @@ import static org.qubership.routes.gateway.plugin.RoutesTestConfiguration.METHOD
 
 @RestController("TestController5")
 @RequestMapping(path = CLASS_ROUTES_4)
-public class TestControllerBaseFor6 {
+public class SpringTestControllerBaseFor6 {
 
     @RequestMapping(path = METHOD_ROUTES_1, method = RequestMethod.POST)
     @GatewayRequestMapping("/custom" + METHOD_ROUTES_1)

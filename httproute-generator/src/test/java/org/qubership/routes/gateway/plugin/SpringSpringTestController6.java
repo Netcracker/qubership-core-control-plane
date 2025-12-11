@@ -1,7 +1,7 @@
 package org.qubership.routes.gateway.plugin;
 
 
-public class TestController6 extends TestControllerBaseFor6 {
+public class SpringSpringTestController6 extends SpringTestControllerBaseFor6 {
 
     @Override
     public void method1() {

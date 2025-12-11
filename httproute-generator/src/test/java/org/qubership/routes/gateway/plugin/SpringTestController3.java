@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Route
 @GatewayRequestMapping({RoutesTestConfiguration.CLASS_ROUTE_PATH_FROM_1, RoutesTestConfiguration.CLASS_ROUTE_PATH_FROM_2})
 @RequestMapping(path = RoutesTestConfiguration.CLASS_ROUTE_PATH_TO_1)
-public class TestController3 {
+public class SpringTestController3 {
 
     @Route
     @GatewayRequestMapping(path = {RoutesTestConfiguration.METHOD_ROUTE_PATH_FROM_1, RoutesTestConfiguration.METHOD_ROUTE_PATH_FROM_2})

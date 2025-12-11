@@ -2,7 +2,6 @@ package org.qubership.routes.gateway.plugin;
 
 import com.netcracker.cloud.routesregistration.common.annotation.Route;
 import com.netcracker.cloud.routesregistration.common.gateway.route.RouteType;
-import com.netcracker.cloud.routesregistration.common.spring.gateway.route.annotation.GatewayRequestMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -10,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController("TestController1")
 @RequestMapping(path = {RoutesTestConfiguration.CLASS_ROUTES_1, RoutesTestConfiguration.CLASS_ROUTES_2})
 @Route(value = RouteType.PUBLIC)
-public class TestController1 {
+public class SpringTestController1 {
 
 
     @RequestMapping(path = {RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2}, method = RequestMethod.POST)

@@ -13,7 +13,7 @@ import static com.netcracker.cloud.routesregistration.common.gateway.route.Route
 @RestController("TestController5")
 @RequestMapping(path = RoutesTestConfiguration.CLASS_ROUTES_3)
 @Route(PUBLIC)
-public class TestControllerBaseFor5 {
+public class SpringTestControllerBaseFor5 {
 
     @PostMapping(path = RoutesTestConfiguration.METHOD_ROUTES_1)
     @Route(PUBLIC)
