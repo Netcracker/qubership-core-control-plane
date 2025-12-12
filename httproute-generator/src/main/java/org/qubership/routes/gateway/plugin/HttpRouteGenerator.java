@@ -20,10 +20,18 @@ public class HttpRouteGenerator {
         }
 
         public record Spec(Set<ParentRef> parentRefs, List<Rule> rules) {
+
             public record ParentRef(String name) {
             }
 
-            public record Rule(List<Match> matches, List<Filter> filters, List<BackendRef> backendRefs) {
+            public record Rule(
+                    List<Match> matches,
+                    List<Filter> filters,
+                    List<BackendRef> backendRefs,
+                    Timeouts timeouts
+            ) {
+                public record Timeouts(String request) {
+                }
             }
 
             public record Match(Path path) {
@@ -78,10 +86,16 @@ public class HttpRouteGenerator {
                     filters = List.of(filter);
                 }
 
+                HTTPRouteResource.Spec.Rule.Timeouts timeouts = null;
+                if (route.timeout() > 0) {
+                    timeouts = new HTTPRouteResource.Spec.Rule.Timeouts(formatDuration(route.timeout()));
+                }
+
                 ruleList.add(new HTTPRouteResource.Spec.Rule(
                         List.of(match),
                         filters,
-                        backendRefs
+                        backendRefs,
+                        timeouts
                 ));
             }
 
@@ -127,4 +141,21 @@ public class HttpRouteGenerator {
         }
         return path;
     }
+
+    public static String formatDuration(long ms) {
+        if (ms < 1000) {
+            return ms + "ms";
+        }
+        if (ms % 3_600_000 == 0) {
+            return (ms / 3_600_000) + "h";
+        }
+        if (ms % 60_000 == 0) {
+            return (ms / 60_000) + "m";
+        }
+        if (ms % 1000 == 0) {
+            return (ms / 1000) + "s";
+        }
+        return ms + "ms";
+    }
+
 }

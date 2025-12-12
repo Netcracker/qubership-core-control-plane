@@ -93,11 +93,16 @@ public class RouteToGatewayMojo extends AbstractMojo {
         if (annotationInfo.getParameterValues().getValue("value") instanceof String) {
             return List.of((String) annotationInfo.getParameterValues().getValue("value"));
         }
-        String[] paths = (String[]) annotationInfo.getParameterValues().getValue("path");
-        if (paths == null || paths.length == 0) {
-            paths = (String[]) annotationInfo.getParameterValues().getValue("value");
+        String[] paths = Arrays.stream((Object[])annotationInfo.getParameterValues().getValue("path"))
+                .map(String.class::cast)
+                .toArray(String[]::new);
+        if (paths.length == 0) {
+            paths = Arrays.stream((Object[])annotationInfo.getParameterValues().getValue("value"))
+                    .map(String.class::cast)
+                    .toArray(String[]::new);
         }
-        return paths == null ? Collections.emptyList() : Arrays.asList(paths);
+
+        return Arrays.asList(paths);
     }
 
     protected Set<HttpRoute> getRequestMappingPaths(ClassInfo classInfo) {
@@ -146,7 +151,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
                     HttpRoute.Type routeType = getRouteType(entry.getKey().getAnnotationInfo(Route.class.getName()))
                             .orElse(classRouteType.orElse(HttpRoute.Type.INTERNAL));
 
-                    Long routeTimeout = getRouteTimeout(entry.getKey().getAnnotationInfo(Route.class.getName()))
+                    long routeTimeout = getRouteTimeout(entry.getKey().getAnnotationInfo(Route.class.getName()))
                             .orElse(classRouteTimeout.orElse(0L));
 
                     List<String> methodGatewayRequestMapping;
