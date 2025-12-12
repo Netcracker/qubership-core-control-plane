@@ -41,12 +41,12 @@ public class RouteToGatewayMojoTest {
             Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
 
             assertEquals(6, routes.size());
-            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.INTERNAL)));
-            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_2 + RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.INTERNAL)));
-            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.PRIVATE)));
-            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.PRIVATE)));
-            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_2 + RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.PRIVATE)));
-            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_2 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.PRIVATE)));
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.INTERNAL, RoutesTestConfiguration.TEST_TIMEOUT_1)));
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_2 + RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.INTERNAL, RoutesTestConfiguration.TEST_TIMEOUT_1)));
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.PRIVATE, RoutesTestConfiguration.TEST_TIMEOUT_2)));
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.PRIVATE, RoutesTestConfiguration.TEST_TIMEOUT_2)));
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_2 + RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.PRIVATE, RoutesTestConfiguration.TEST_TIMEOUT_2)));
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_2 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.PRIVATE, RoutesTestConfiguration.TEST_TIMEOUT_2)));
         }
     }
 
@@ -146,8 +146,8 @@ public class RouteToGatewayMojoTest {
             Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
 
             assertEquals(2, routes.size());
-            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.INTERNAL)));
-            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.PRIVATE)));
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.INTERNAL, RoutesTestConfiguration.TEST_TIMEOUT_1)));
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.PRIVATE, RoutesTestConfiguration.TEST_TIMEOUT_2)));
         }
     }
 

@@ -106,6 +106,9 @@ public class RouteToGatewayMojo extends AbstractMojo {
         Optional<HttpRoute.Type> classRouteType =
                 getRouteType(classInfo.getAnnotationInfo(Route.class.getName()));
 
+        Optional<Long> classRouteTimeout =
+                getRouteTimeout(classInfo.getAnnotationInfo(Route.class.getName()));
+
         List<String> classGatewayRequestMapping;
         if (classInfo.hasAnnotation(GatewayRequestMapping.class.getName())) {
             classGatewayRequestMapping =
@@ -140,9 +143,11 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 )
                 .map(entry -> {
                     AnnotationInfo mappingAnn = entry.getValue();
-                    HttpRoute.Type routeType = getRouteType(
-                            entry.getKey().getAnnotationInfo(Route.class.getName())
-                    ).orElse(classRouteType.orElse(HttpRoute.Type.INTERNAL));
+                    HttpRoute.Type routeType = getRouteType(entry.getKey().getAnnotationInfo(Route.class.getName()))
+                            .orElse(classRouteType.orElse(HttpRoute.Type.INTERNAL));
+
+                    Long routeTimeout = getRouteTimeout(entry.getKey().getAnnotationInfo(Route.class.getName()))
+                            .orElse(classRouteTimeout.orElse(0L));
 
                     List<String> methodGatewayRequestMapping;
                     if (entry.getKey().hasAnnotation(GatewayRequestMapping.class.getName())) {
@@ -153,7 +158,12 @@ public class RouteToGatewayMojo extends AbstractMojo {
                     if (!classGatewayRequestMapping.isEmpty()) {
                         return classGatewayRequestMapping.stream()
                                 .flatMap(classPrefix -> methodGatewayRequestMapping.stream()
-                                        .map(methodPath -> new HttpRoute(classesReqMappings.getFirst() + getAnnotationPathFor(mappingAnn).getFirst(), classPrefix + methodPath, routeType)))
+                                        .map(methodPath -> new HttpRoute(
+                                                classesReqMappings.getFirst() + getAnnotationPathFor(mappingAnn).getFirst(),
+                                                classPrefix + methodPath,
+                                                routeType,
+                                                routeTimeout
+                                        )))
                                 .collect(Collectors.toSet());
                     } else if (!methodGatewayRequestMapping.isEmpty()) {
                         String classPrefix;
@@ -163,21 +173,21 @@ public class RouteToGatewayMojo extends AbstractMojo {
                             classPrefix = "";
                         }
                         return methodGatewayRequestMapping.stream()
-                                .map(methodPath -> new HttpRoute(classPrefix + getAnnotationPathFor(mappingAnn).getFirst(), methodPath, routeType))
+                                .map(methodPath -> new HttpRoute(classPrefix + getAnnotationPathFor(mappingAnn).getFirst(), methodPath, routeType, routeTimeout))
                                 .collect(Collectors.toSet());
                     }
 
                     // No class prefix → direct paths
                     if (classesReqMappings.isEmpty()) {
                         return getAnnotationPathFor(mappingAnn).stream()
-                                .map(path -> new HttpRoute(path, routeType))
+                                .map(path -> new HttpRoute(path, routeType, routeTimeout))
                                 .collect(Collectors.toSet());
                     }
 
                     // Merge class + method mappings
                     return classesReqMappings.stream()
                             .flatMap(classPrefix -> getAnnotationPathFor(mappingAnn).stream()
-                                    .map(methodPath -> new HttpRoute(classPrefix + methodPath, routeType)))
+                                    .map(methodPath -> new HttpRoute(classPrefix + methodPath, routeType, routeTimeout)))
                             .collect(Collectors.toSet());
                 })
                 .flatMap(Collection::stream)
@@ -192,6 +202,14 @@ public class RouteToGatewayMojo extends AbstractMojo {
         return routes;
     }
 
+    private Optional<Long> getRouteTimeout(AnnotationInfo annotationInfo) {
+        return Optional.ofNullable(annotationInfo)
+                .map(a -> a.getParameterValues(false))
+                .map(p -> p.getValue("timeout"))
+                .filter(Number.class::isInstance)
+                .map(Number.class::cast)
+                .map(Number::longValue);
+    }
 
     private Optional<HttpRoute.Type> getRouteType(AnnotationInfo annotationInfo) {
         return Optional.ofNullable(annotationInfo)
