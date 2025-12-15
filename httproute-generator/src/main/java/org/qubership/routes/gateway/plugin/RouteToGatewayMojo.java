@@ -14,7 +14,6 @@ import java.util.Set;
 @Mojo(
         name = "generate",
         defaultPhase = LifecyclePhase.GENERATE_RESOURCES,
-        threadSafe = true,
         aggregator = true
 )
 public class RouteToGatewayMojo extends AbstractMojo {
