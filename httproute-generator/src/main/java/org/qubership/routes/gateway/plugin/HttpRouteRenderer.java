@@ -11,13 +11,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class HttpRouteGenerator {
+public class HttpRouteRenderer {
 
     private static final ObjectMapper YAML_MAPPER = yamlMapper();
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record HTTPRouteResource(String apiVersion, String kind, Metadata metadata, Spec spec) {
-        public record Metadata(String name) {
+        public record Metadata(String name, String namespace, Map<String, String> labels) {
         }
 
         public record Spec(Set<ParentRef> parentRefs, List<Rule> rules) {
@@ -56,7 +56,7 @@ public class HttpRouteGenerator {
         List<HTTPRouteResource> routes = createHttpRoutes(servicePort, httpRoutes);
 
         return routes.stream()
-                .map(HttpRouteGenerator::writeYaml)
+                .map(HttpRouteRenderer::writeYaml)
                 .collect(Collectors.joining());
     }
 
@@ -111,7 +111,16 @@ public class HttpRouteGenerator {
 
     private static HTTPRouteResource toResource(HttpRoute.Type type, List<HttpRoute> routes, int servicePort) {
         HTTPRouteResource.Metadata metadata =
-                new HTTPRouteResource.Metadata("{{ .Values.SERVICE_NAME }}-" + type.name().toLowerCase());
+                new HTTPRouteResource.Metadata(
+                        "{{ .Values.SERVICE_NAME }}-" + type.name().toLowerCase(),
+                        "{{ .Values.NAMESPACE }}",
+                        Map.of(
+                                "name", "{{ .Values.SERVICE_NAME }}",
+                                "app.kubernetes.io/name", "{{ .Values.SERVICE_NAME }}",
+                                "app.kubernetes.io/part-of", "Cloud-Core",
+                                "deployment.netcracker.com/sessionId", "{{ .Values.DEPLOYMENT_SESSION_ID }}"
+                        )
+                );
         HTTPRouteResource.Spec.ParentRef parentRef = new HTTPRouteResource.Spec.ParentRef(type.gatewayName());
         List<HTTPRouteResource.Spec.BackendRef> backendRefs =
                 List.of(new HTTPRouteResource.Spec.BackendRef("{{ .Values.SERVICE_NAME }}", servicePort));

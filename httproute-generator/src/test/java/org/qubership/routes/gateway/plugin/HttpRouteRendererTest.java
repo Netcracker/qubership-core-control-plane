@@ -6,7 +6,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class HttpRouteGeneratorTest {
+class HttpRouteRendererTest {
 
     @Test
     void generatesYamlWithMatchesRewritesAndTimeouts() {
@@ -16,7 +16,7 @@ class HttpRouteGeneratorTest {
                 new HttpRoute("/items/{id}", HttpRoute.Type.PRIVATE)
         );
 
-        String yaml = HttpRouteGenerator.generateHttpRoutesYaml(8081, routes);
+        String yaml = HttpRouteRenderer.generateHttpRoutesYaml(8081, routes);
 
         assertTrue(yaml.contains("HTTPRoute"));
         assertTrue(yaml.contains("ReplacePrefixMatch"));

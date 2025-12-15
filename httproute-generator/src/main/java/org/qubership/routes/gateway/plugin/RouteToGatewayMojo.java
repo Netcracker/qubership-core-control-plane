@@ -43,7 +43,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
                     .toPath()
                     .resolve("gateway-httproutes.yaml");
 
-            String yaml = HttpRouteGenerator
+            String yaml = HttpRouteRenderer
                     .generateHttpRoutesYaml(servicePort, routes);
 
             Files.writeString(file, prependYamlHeader(yaml));
