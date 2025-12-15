@@ -20,10 +20,16 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@Mojo(name = "generate",
+@Mojo(
+        name = "generate",
         defaultPhase = LifecyclePhase.GENERATE_RESOURCES,
-        threadSafe = true)
+        threadSafe = true,
+        aggregator = true
+)
 public class RouteToGatewayMojo extends AbstractMojo {
+
+    @Parameter(defaultValue = "${reactorProjects}", readonly = true, required = true)
+    private List<MavenProject> reactorProjects;
 
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
@@ -36,20 +42,31 @@ public class RouteToGatewayMojo extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException {
-        Set<HttpRoute> routes = getRoutes();
-        getLog().info("Routes: " + routes);
+        Set<HttpRoute> allRoutes = new HashSet<>();
+
+        for (MavenProject module : reactorProjects) {
+            getLog().info("Scanning module: " + module.getArtifactId());
+            allRoutes.addAll(getRoutes(module));
+        }
+
         try {
-            getLog().info(project.getFile().getAbsolutePath());
-            java.nio.file.Path file = project.getBasedir().toPath().resolve("gateway-httproutes.yaml");
-            String httpRoutesYaml = HttpRouteGenerator.generateHttpRoutesYaml(servicePort, routes);
-            Files.writeString(file, prependYamlHeader(httpRoutesYaml));
+            java.nio.file.Path file = project.getBasedir()
+                    .toPath()
+                    .resolve("gateway-httproutes.yaml");
+
+            String yaml = HttpRouteGenerator
+                    .generateHttpRoutesYaml(servicePort, allRoutes);
+
+            Files.writeString(file, prependYamlHeader(yaml));
+            getLog().info("Generated gateway-httproutes.yaml at root project");
+
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new MojoExecutionException("Failed to generate routes", e);
         }
     }
 
-    private Set<HttpRoute> getRoutes() throws MojoExecutionException {
-        File classesDir = new File(project.getBuild().getOutputDirectory());
+    private Set<HttpRoute> getRoutes(MavenProject module) throws MojoExecutionException {
+        File classesDir = new File(module.getBuild().getOutputDirectory());
         if (!classesDir.exists()) {
             getLog().warn("No classes to scan: outputDirectory does not exist.");
             return Collections.emptySet();
@@ -93,9 +110,14 @@ public class RouteToGatewayMojo extends AbstractMojo {
         if (annotationInfo.getParameterValues().getValue("value") instanceof String) {
             return List.of((String) annotationInfo.getParameterValues().getValue("value"));
         }
-        String[] paths = Arrays.stream((Object[])annotationInfo.getParameterValues().getValue("path"))
-                .map(String.class::cast)
-                .toArray(String[]::new);
+
+        String[] paths = new String[]{};
+        if (annotationInfo.getParameterValues().getValue("path") != null) {
+            paths = Arrays.stream((Object[])annotationInfo.getParameterValues().getValue("path"))
+                    .map(String.class::cast)
+                    .toArray(String[]::new);
+        }
+
         if (paths.length == 0) {
             paths = Arrays.stream((Object[])annotationInfo.getParameterValues().getValue("value"))
                     .map(String.class::cast)
