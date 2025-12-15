@@ -3,31 +3,22 @@ package org.qubership.routes.gateway.plugin;
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfo;
 import io.github.classgraph.ScanResult;
-import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
 
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.when;
 
 public class RouteToGatewayMojoTest {
 
-    @Spy
-    private RouteToGatewayMojo mojo;
-
-    @Mock
-    private Log mockLog;
+    private RouteScanner scanner;
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
-        when(mojo.getLog()).thenReturn(mockLog);
+        scanner = new RouteScanner(new String[]{"org.qubership"}, new SystemStreamLog());
     }
 
     @Test
@@ -38,7 +29,7 @@ public class RouteToGatewayMojoTest {
                 .scan()) {
 
             ClassInfo info = scan.getClassInfo(SpringTestController1.class.getName());
-            Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
 
             assertEquals(6, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.INTERNAL, RoutesTestConfiguration.TEST_TIMEOUT_1)));
@@ -58,7 +49,7 @@ public class RouteToGatewayMojoTest {
                 .scan()) {
 
             ClassInfo info = scan.getClassInfo(SpringTestController2.class.getName());
-            Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
 
             assertEquals(3, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.METHOD_ROUTES_1 + "/{id}", HttpRoute.Type.INTERNAL)));
@@ -75,7 +66,7 @@ public class RouteToGatewayMojoTest {
                 .scan()) {
 
             ClassInfo info = scan.getClassInfo(SpringTestController3.class.getName());
-            Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
 
             assertEquals(4, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTE_PATH_TO_1 + RoutesTestConfiguration.METHOD_ROUTE_PATH_TO_1, RoutesTestConfiguration.CLASS_ROUTE_PATH_FROM_1 + RoutesTestConfiguration.METHOD_ROUTE_PATH_FROM_1, HttpRoute.Type.INTERNAL)));
@@ -93,7 +84,7 @@ public class RouteToGatewayMojoTest {
                 .scan()) {
 
             ClassInfo info = scan.getClassInfo(SpringTestController4.class.getName());
-            Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
 
             assertEquals(4, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.METHOD_ROUTE_PATH_TO_1, RoutesTestConfiguration.METHOD_ROUTE_PATH_FROM_1, HttpRoute.Type.PUBLIC)));
@@ -111,7 +102,7 @@ public class RouteToGatewayMojoTest {
                 .scan()) {
 
             ClassInfo info = scan.getClassInfo(SpringSpringTestController5.class.getName());
-            Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
 
             assertEquals(3, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_3 + RoutesTestConfiguration.METHOD_ROUTES_1, RoutesTestConfiguration.CLASS_ROUTES_3 + RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.PUBLIC)));
@@ -128,7 +119,7 @@ public class RouteToGatewayMojoTest {
                 .scan()) {
 
             ClassInfo info = scan.getClassInfo(SpringSpringTestController6.class.getName());
-            Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
 
             assertEquals(1, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_4 + RoutesTestConfiguration.METHOD_ROUTES_1, "/custom" + RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.PUBLIC)));
@@ -143,7 +134,7 @@ public class RouteToGatewayMojoTest {
                 .scan()) {
 
             ClassInfo info = scan.getClassInfo(QuarkusTestController1.class.getName());
-            Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
 
             assertEquals(2, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.INTERNAL, RoutesTestConfiguration.TEST_TIMEOUT_1)));
@@ -159,7 +150,7 @@ public class RouteToGatewayMojoTest {
                 .scan()) {
 
             ClassInfo info = scan.getClassInfo(QuarkusTestController2.class.getName());
-            Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
 
             assertEquals(2, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.INTERNAL)));
@@ -175,7 +166,7 @@ public class RouteToGatewayMojoTest {
                 .scan()) {
 
             ClassInfo info = scan.getClassInfo(QuarkusTestController3.class.getName());
-            Set<HttpRoute> routes = mojo.getRequestMappingPaths(info);
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
 
             assertEquals(2, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTE_PATH_TO_1 + RoutesTestConfiguration.METHOD_ROUTE_PATH_TO_1, RoutesTestConfiguration.CLASS_ROUTE_PATH_FROM_1 + RoutesTestConfiguration.METHOD_ROUTE_PATH_FROM_1, HttpRoute.Type.INTERNAL)));
