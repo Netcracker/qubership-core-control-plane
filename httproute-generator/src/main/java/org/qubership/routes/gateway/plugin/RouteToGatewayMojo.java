@@ -59,7 +59,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 # -----------------------------------------------------------------------------
                 # THIS FILE WAS AUTOMATICALLY GENERATED — DO NOT EDIT.
                 # Any changes will be overwritten during the next build.
-                # Modify source annotations and regenerate using RouteToGatewayMojo.
+                # Modify source annotations and regenerate using route generation maven plugin.
                 # -----------------------------------------------------------------------------
 
                 """ + yamlContent;

@@ -23,7 +23,7 @@ public class QuarkusTestController2 {
     public void method12() {
     }
 
-    /* duplicate route*/
+    // duplicate route
     @GET
     @Path(RoutesTestConfiguration.METHOD_ROUTES_1 + RoutesTestConfiguration.METHOD_ROUTES_2)
     @Route(RouteType.PRIVATE)

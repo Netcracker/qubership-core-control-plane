@@ -115,7 +115,6 @@ public class HttpRouteRenderer {
                         "{{ .Values.SERVICE_NAME }}-" + type.name().toLowerCase(),
                         "{{ .Values.NAMESPACE }}",
                         Map.of(
-                                "name", "{{ .Values.SERVICE_NAME }}",
                                 "app.kubernetes.io/name", "{{ .Values.SERVICE_NAME }}",
                                 "app.kubernetes.io/part-of", "Cloud-Core",
                                 "deployment.netcracker.com/sessionId", "{{ .Values.DEPLOYMENT_SESSION_ID }}"
