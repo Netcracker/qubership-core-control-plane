@@ -291,8 +291,18 @@ public class RouteScanner {
     }
 
     private boolean isSpringUsed(ScanResult scan) {
-        return !scan.getClassesWithMethodAnnotation(Route.class).isEmpty()
-                || !scan.getClassesWithAnnotation(Route.class).isEmpty();
+        return !scan.getClassesWithMethodAnnotation(RequestMapping.class).isEmpty()
+                || !scan.getClassesWithAnnotation(RequestMapping.class).isEmpty()
+                || !scan.getClassesWithMethodAnnotation(GetMapping.class).isEmpty()
+                || !scan.getClassesWithAnnotation(GetMapping.class).isEmpty()
+                || !scan.getClassesWithMethodAnnotation(PostMapping.class).isEmpty()
+                || !scan.getClassesWithAnnotation(PostMapping.class).isEmpty()
+                || !scan.getClassesWithMethodAnnotation(PutMapping.class).isEmpty()
+                || !scan.getClassesWithAnnotation(PutMapping.class).isEmpty()
+                || !scan.getClassesWithMethodAnnotation(DeleteMapping.class).isEmpty()
+                || !scan.getClassesWithAnnotation(DeleteMapping.class).isEmpty()
+                || !scan.getClassesWithMethodAnnotation(PatchMapping.class).isEmpty()
+                || !scan.getClassesWithAnnotation(PatchMapping.class).isEmpty();
     }
 
     private boolean isQuarkusUsed(ScanResult scan) {
