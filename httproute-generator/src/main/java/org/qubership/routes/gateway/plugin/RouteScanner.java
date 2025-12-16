@@ -209,14 +209,14 @@ public class RouteScanner {
             HttpRoute.Type routeType,
             long routeTimeout
     ) {
-        if (methodGatewayRequestMapping.isEmpty() || mappingPaths.isEmpty() || classesReqMappings.isEmpty()) {
-            return Collections.emptySet();
+        if (methodGatewayRequestMapping.isEmpty()) {
+            methodGatewayRequestMapping = mappingPaths;
         }
-
         String servicePrefix = classesReqMappings.getFirst();
         String mappingPath = mappingPaths.getFirst();
+        List<String> finalMethodGatewayRequestMapping = methodGatewayRequestMapping;
         return classGatewayRequestMapping.stream()
-                .flatMap(classPrefix -> methodGatewayRequestMapping.stream()
+                .flatMap(classPrefix -> finalMethodGatewayRequestMapping.stream()
                         .map(methodPath -> new HttpRoute(
                                 servicePrefix + mappingPath,
                                 classPrefix + methodPath,

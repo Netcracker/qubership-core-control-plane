@@ -1,7 +1,7 @@
 package org.qubership.routes.gateway.plugin;
 
 
-public class SpringSpringTestController5 extends SpringTestControllerBaseFor5 {
+public class SpringTestController5 extends SpringTestControllerBaseFor5 {
 
     @Override
     public void methodGet() {
