@@ -13,7 +13,7 @@ import java.util.Set;
 
 @Mojo(
         name = "generate",
-        defaultPhase = LifecyclePhase.GENERATE_RESOURCES,
+        defaultPhase = LifecyclePhase.PROCESS_CLASSES,
         aggregator = true
 )
 public class RouteToGatewayMojo extends AbstractMojo {
