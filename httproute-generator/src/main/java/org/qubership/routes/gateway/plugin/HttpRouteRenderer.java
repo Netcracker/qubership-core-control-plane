@@ -15,6 +15,10 @@ public class HttpRouteRenderer {
 
     private static final ObjectMapper YAML_MAPPER = yamlMapper();
 
+    private static final long SECOND = 1_000;
+    private static final long MINUTE = 60_000;
+    private static final long HOUR = 3_600_000;
+
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record HTTPRouteResource(String apiVersion, String kind, Metadata metadata, Spec spec) {
         public record Metadata(String name, String namespace, Map<String, String> labels) {
@@ -84,17 +88,17 @@ public class HttpRouteRenderer {
     }
 
     public static String formatDuration(long ms) {
-        if (ms < 1000) {
+        if (ms < SECOND) {
             return ms + "ms";
         }
-        if (ms % 3_600_000 == 0) {
-            return (ms / 3_600_000) + "h";
+        if (ms % HOUR == 0) {
+            return (ms / HOUR) + "h";
         }
-        if (ms % 60_000 == 0) {
-            return (ms / 60_000) + "m";
+        if (ms % MINUTE == 0) {
+            return (ms / MINUTE) + "m";
         }
-        if (ms % 1000 == 0) {
-            return (ms / 1000) + "s";
+        if (ms % SECOND == 0) {
+            return (ms / SECOND) + "s";
         }
         return ms + "ms";
     }
@@ -116,8 +120,11 @@ public class HttpRouteRenderer {
                         "{{ .Values.NAMESPACE }}",
                         Map.of(
                                 "app.kubernetes.io/name", "{{ .Values.SERVICE_NAME }}",
-                                "app.kubernetes.io/part-of", "Cloud-Core",
-                                "deployment.netcracker.com/sessionId", "{{ .Values.DEPLOYMENT_SESSION_ID }}"
+                                "app.kubernetes.io/part-of", "{{ .Values.APPLICATION_NAME }}",
+                                "app.kubernetes.io/managed-by", "{{ .Values.MANAGED_BY }}",
+                                "deployment.netcracker.com/sessionId", "{{ .Values.DEPLOYMENT_SESSION_ID }}",
+                                "deployer.cleanup/allow", "true",
+                                "app.kubernetes.io/processed-by-operator", "istiod"
                         )
                 );
         HTTPRouteResource.Spec.ParentRef parentRef = new HTTPRouteResource.Spec.ParentRef(type.gatewayName());

@@ -46,9 +46,9 @@ public record HttpRoute(String path, String gatewayPath, Type type, long timeout
         if (path == null || path.isEmpty()) {
             return "/";
         }
-        if (path.startsWith("/")) {
-            return path;
+        if (!path.startsWith("/")) {
+            return "/" + path;
         }
-        return "/" + path;
+        return path;
     }
 }
