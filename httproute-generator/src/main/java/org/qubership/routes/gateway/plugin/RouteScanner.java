@@ -3,30 +3,18 @@ package org.qubership.routes.gateway.plugin;
 import com.netcracker.cloud.routesregistration.common.annotation.Gateway;
 import com.netcracker.cloud.routesregistration.common.annotation.Route;
 import com.netcracker.cloud.routesregistration.common.spring.gateway.route.annotation.GatewayRequestMapping;
-import io.github.classgraph.AnnotationInfo;
-import io.github.classgraph.AnnotationEnumValue;
-import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ClassInfo;
-import io.github.classgraph.ClassInfoList;
-import io.github.classgraph.MethodInfo;
-import io.github.classgraph.ScanResult;
+import io.github.classgraph.*;
 import jakarta.ws.rs.Path;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.netcracker.cloud.routesregistration.common.spring.gateway.route.RouteAnnotationProcessorUtil.getAnnotationFromMethod;
 
 /**
  * Scans compiled classes to collect HttpRoute definitions based on annotations.
@@ -87,6 +75,7 @@ public class RouteScanner {
             } else {
                 return Set.of();
             }
+
             return pathsStream
                     .flatMap(Collection::stream)
                     .distinct()

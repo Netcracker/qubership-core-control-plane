@@ -30,6 +30,9 @@ public class RouteToGatewayMojo extends AbstractMojo {
     @Parameter(defaultValue = "8080", required = false)
     private int servicePort;
 
+    @Parameter(defaultValue = "gateway-httproutes.yaml", required = false)
+    private String outputFile;
+
     @Override
     public void execute() throws MojoExecutionException {
         RouteScanner scanner = new RouteScanner(packages, getLog());
@@ -41,13 +44,14 @@ public class RouteToGatewayMojo extends AbstractMojo {
         try {
             java.nio.file.Path file = project.getBasedir()
                     .toPath()
-                    .resolve("gateway-httproutes.yaml");
+                    .resolve(outputFile);
 
             String yaml = HttpRouteRenderer
                     .generateHttpRoutesYaml(servicePort, routes);
 
+            Files.createDirectories(file.getParent());
             Files.writeString(file, prependYamlHeader(yaml));
-            getLog().info("Generated gateway-httproutes.yaml at root project");
+            getLog().info(String.format("Generated gateway routes CRs at %s", outputFile));
 
         } catch (Exception e) {
             throw new MojoExecutionException("Failed to generate routes", e);
