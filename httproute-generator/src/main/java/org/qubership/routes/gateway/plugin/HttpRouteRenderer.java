@@ -134,7 +134,7 @@ public class HttpRouteRenderer {
                                 "app.kubernetes.io/processed-by-operator", "istiod"
                         ))
                 );
-        HTTPRouteResource.Spec.ParentRef parentRef = new HTTPRouteResource.Spec.ParentRef(type.gatewayName());
+
         List<HTTPRouteResource.Spec.BackendRef> backendRefs =
                 List.of(new HTTPRouteResource.Spec.BackendRef(this.backendRefVal, servicePort));
 
@@ -143,8 +143,20 @@ public class HttpRouteRenderer {
             ruleList.add(toRule(route, backendRefs));
         }
 
-        HTTPRouteResource.Spec spec = new HTTPRouteResource.Spec(Set.of(parentRef), ruleList);
+        HTTPRouteResource.Spec spec = new HTTPRouteResource.Spec(getParentRefs(type), ruleList);
         return new HTTPRouteResource(metadata, spec);
+    }
+
+    private static Set<HTTPRouteResource.Spec.ParentRef> getParentRefs(HttpRoute.Type type) {
+        Set<HTTPRouteResource.Spec.ParentRef> parentRefs = new HashSet<>();
+        parentRefs.add(new HTTPRouteResource.Spec.ParentRef(type.gatewayName()));
+        if (type == HttpRoute.Type.PUBLIC) {
+            parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.PRIVATE.gatewayName()));
+            parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName()));
+        } else if (type == HttpRoute.Type.PRIVATE) {
+            parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName()));
+        }
+        return parentRefs;
     }
 
     private static HTTPRouteResource.Spec.Rule toRule(HttpRoute route, List<HTTPRouteResource.Spec.BackendRef> backendRefs) {
