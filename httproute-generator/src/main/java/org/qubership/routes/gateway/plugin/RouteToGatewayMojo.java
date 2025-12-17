@@ -27,13 +27,13 @@ public class RouteToGatewayMojo extends AbstractMojo {
     @Parameter(defaultValue = "com.netcracker")
     private String[] packages;
 
-    @Parameter(defaultValue = "8080", required = false)
+    @Parameter(defaultValue = "8080")
     private int servicePort;
 
-    @Parameter(defaultValue = "gateway-httproutes.yaml", required = false)
+    @Parameter(defaultValue = "gateway-httproutes.yaml")
     private String outputFile;
 
-    @Parameter(defaultValue = "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}", required = false)
+    @Parameter(defaultValue = "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}")
     private String backendRefVal;
 
     @Override
