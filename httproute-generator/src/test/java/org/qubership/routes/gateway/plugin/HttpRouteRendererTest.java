@@ -16,12 +16,13 @@ class HttpRouteRendererTest {
                 new HttpRoute("/items/{id}", HttpRoute.Type.PRIVATE)
         );
 
-        String yaml = HttpRouteRenderer.generateHttpRoutesYaml(8081, routes);
+        String yaml = new HttpRouteRenderer("{{ CustomBackendRef }}").generateHttpRoutesYaml(8081, routes);
 
         assertTrue(yaml.contains("HTTPRoute"));
         assertTrue(yaml.contains("ReplacePrefixMatch"));
         assertTrue(yaml.contains("request: \"5s\""));
         assertTrue(yaml.contains("RegularExpression"));
         assertTrue(yaml.contains("items/([^/]+)"));
+        assertTrue(yaml.contains("{{ CustomBackendRef }}"));
     }
 }

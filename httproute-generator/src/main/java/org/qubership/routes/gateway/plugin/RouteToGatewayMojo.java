@@ -33,6 +33,9 @@ public class RouteToGatewayMojo extends AbstractMojo {
     @Parameter(defaultValue = "gateway-httproutes.yaml", required = false)
     private String outputFile;
 
+    @Parameter(defaultValue = "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}", required = false)
+    private String backendRefVal;
+
     @Override
     public void execute() throws MojoExecutionException {
         RouteScanner scanner = new RouteScanner(packages, getLog());
@@ -46,9 +49,8 @@ public class RouteToGatewayMojo extends AbstractMojo {
                     .toPath()
                     .resolve(outputFile);
 
-            String yaml = HttpRouteRenderer
-                    .generateHttpRoutesYaml(servicePort, routes);
 
+            String yaml = new HttpRouteRenderer(backendRefVal).generateHttpRoutesYaml(servicePort, routes);
             Files.createDirectories(file.getParent());
             Files.writeString(file, prependYamlHeader(yaml));
             getLog().info(String.format("Generated gateway routes CRs at %s", outputFile));

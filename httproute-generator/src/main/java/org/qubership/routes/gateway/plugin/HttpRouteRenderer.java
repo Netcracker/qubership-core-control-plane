@@ -19,6 +19,12 @@ public class HttpRouteRenderer {
     private static final long MINUTE = 60_000;
     private static final long HOUR = 3_600_000;
 
+    private final String backendRefVal;
+
+    public HttpRouteRenderer(String backendRefVal) {
+        this.backendRefVal = backendRefVal;
+    }
+
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record HTTPRouteResource(String apiVersion, String kind, Metadata metadata, Spec spec) {
         public record Metadata(String name, String namespace, Map<String, String> labels) {
@@ -56,7 +62,7 @@ public class HttpRouteRenderer {
         }
     }
 
-    public static String generateHttpRoutesYaml(int servicePort, Set<HttpRoute> httpRoutes) {
+    public String generateHttpRoutesYaml(int servicePort, Set<HttpRoute> httpRoutes) {
         List<HTTPRouteResource> routes = createHttpRoutes(servicePort, httpRoutes);
 
         return routes.stream()
@@ -103,7 +109,7 @@ public class HttpRouteRenderer {
         return ms + "ms";
     }
 
-    private static List<HTTPRouteResource> createHttpRoutes(int servicePort, Set<HttpRoute> httpRoutes) {
+    private List<HTTPRouteResource> createHttpRoutes(int servicePort, Set<HttpRoute> httpRoutes) {
         Map<HttpRoute.Type, List<HttpRoute>> routesByType = httpRoutes
                 .stream()
                 .collect(Collectors.groupingBy(HttpRoute::type));
@@ -113,7 +119,7 @@ public class HttpRouteRenderer {
                 .toList();
     }
 
-    private static HTTPRouteResource toResource(HttpRoute.Type type, List<HttpRoute> routes, int servicePort) {
+    private HTTPRouteResource toResource(HttpRoute.Type type, List<HttpRoute> routes, int servicePort) {
         HTTPRouteResource.Metadata metadata =
                 new HTTPRouteResource.Metadata(
                         "{{ .Values.SERVICE_NAME }}-" + type.name().toLowerCase(),
@@ -129,7 +135,7 @@ public class HttpRouteRenderer {
                 );
         HTTPRouteResource.Spec.ParentRef parentRef = new HTTPRouteResource.Spec.ParentRef(type.gatewayName());
         List<HTTPRouteResource.Spec.BackendRef> backendRefs =
-                List.of(new HTTPRouteResource.Spec.BackendRef("{{ .Values.SERVICE_NAME }}", servicePort));
+                List.of(new HTTPRouteResource.Spec.BackendRef(this.backendRefVal, servicePort));
 
         List<HTTPRouteResource.Spec.Rule> ruleList = new ArrayList<>(routes.size());
         for (HttpRoute route : routes) {
