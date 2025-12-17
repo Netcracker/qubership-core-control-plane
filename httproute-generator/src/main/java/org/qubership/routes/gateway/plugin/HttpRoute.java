@@ -26,6 +26,7 @@ public record HttpRoute(String path, String gatewayPath, Type type, long timeout
         this(path, gatewayPath, type, 0);
     }
 
+    // TODO CHANGE GATEWAYS NAMES ACCORDING TO REAL GATEWAYS NAMES
     public enum Type {
         INTERNAL("internal-gateway-istio"),
         PRIVATE("private-gateway-istio"),
