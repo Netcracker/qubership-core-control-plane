@@ -4,11 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class HttpRouteRenderer {
@@ -124,14 +120,14 @@ public class HttpRouteRenderer {
                 new HTTPRouteResource.Metadata(
                         "{{ .Values.SERVICE_NAME }}-" + type.name().toLowerCase(),
                         "{{ .Values.NAMESPACE }}",
-                        Map.of(
+                        new TreeMap<>(Map.of( // keep ordering
                                 "app.kubernetes.io/name", "{{ .Values.SERVICE_NAME }}",
                                 "app.kubernetes.io/part-of", "{{ .Values.APPLICATION_NAME }}",
                                 "app.kubernetes.io/managed-by", "{{ .Values.MANAGED_BY }}",
                                 "deployment.netcracker.com/sessionId", "{{ .Values.DEPLOYMENT_SESSION_ID }}",
                                 "deployer.cleanup/allow", "true",
                                 "app.kubernetes.io/processed-by-operator", "istiod"
-                        )
+                        ))
                 );
         HTTPRouteResource.Spec.ParentRef parentRef = new HTTPRouteResource.Spec.ParentRef(type.gatewayName());
         List<HTTPRouteResource.Spec.BackendRef> backendRefs =
