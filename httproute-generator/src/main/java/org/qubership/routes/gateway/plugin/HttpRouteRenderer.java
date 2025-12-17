@@ -23,6 +23,11 @@ public class HttpRouteRenderer {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record HTTPRouteResource(String apiVersion, String kind, Metadata metadata, Spec spec) {
+
+        public HTTPRouteResource(Metadata metadata, Spec spec) {
+            this("gateway.networking.k8s.io/v1", "HTTPRoute", metadata, spec);
+        }
+
         public record Metadata(String name, String namespace, Map<String, String> labels) {
         }
 
@@ -139,7 +144,7 @@ public class HttpRouteRenderer {
         }
 
         HTTPRouteResource.Spec spec = new HTTPRouteResource.Spec(Set.of(parentRef), ruleList);
-        return new HTTPRouteResource("gateway.networking.k8s.io/v1", "HTTPRoute", metadata, spec);
+        return new HTTPRouteResource(metadata, spec);
     }
 
     private static HTTPRouteResource.Spec.Rule toRule(HttpRoute route, List<HTTPRouteResource.Spec.BackendRef> backendRefs) {
@@ -160,8 +165,8 @@ public class HttpRouteRenderer {
     private static List<HTTPRouteResource.Spec.Filter> buildRewriteFilter(HttpRoute route) {
         String normalizedGateway = normalizePath(route.gatewayPath());
         String normalizedService = normalizePath(route.path());
-        if (Objects.equals(normalizedGateway, normalizedService)) {
-            return null;
+        if (normalizedGateway.equals(normalizedService)) {
+            return List.of();
         }
 
         HTTPRouteResource.Spec.Filter.UrlRewrite.Path rewritePath =
@@ -184,7 +189,7 @@ public class HttpRouteRenderer {
         try {
             return YAML_MAPPER.writeValueAsString(route);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to serialize HTTPRouteResource to YAML", e);
+            throw new RuntimeException("Failed to serialize HTTPRoute Resource to YAML", e);
         }
     }
 
