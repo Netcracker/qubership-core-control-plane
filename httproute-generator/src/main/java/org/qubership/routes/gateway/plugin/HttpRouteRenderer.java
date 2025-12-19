@@ -95,9 +95,6 @@ public class HttpRouteRenderer {
     }
 
     public static String formatDuration(long ms) {
-        if (ms < SECOND) {
-            return ms + "ms";
-        }
         if (ms % HOUR == 0) {
             return (ms / HOUR) + "h";
         }
