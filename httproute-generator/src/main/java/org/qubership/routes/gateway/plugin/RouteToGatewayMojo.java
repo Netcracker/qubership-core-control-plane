@@ -52,7 +52,7 @@ public class RouteToGatewayMojo extends AbstractMojo {
 
             String yaml = new HttpRouteRenderer(backendRefVal).generateHttpRoutesYaml(servicePort, routes);
             Files.createDirectories(file.getParent());
-            Files.writeString(file, prependYamlHeader(yaml));
+            Files.writeString(file, prependYamlHeader(wrapWithEnabler(yaml)));
             getLog().info(String.format("Generated gateway routes CRs at %s", outputFile));
 
         } catch (Exception e) {
@@ -69,6 +69,10 @@ public class RouteToGatewayMojo extends AbstractMojo {
                 # -----------------------------------------------------------------------------
 
                 """ + yamlContent;
+    }
+
+    private String wrapWithEnabler(String yamlContent) {
+        return "{{ if .Values.ISTIO_ENABLED }}\n" + yamlContent + "{{ end }}\n";
     }
 
 }
