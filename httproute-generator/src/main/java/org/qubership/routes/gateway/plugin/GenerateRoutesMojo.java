@@ -12,11 +12,11 @@ import java.util.List;
 import java.util.Set;
 
 @Mojo(
-        name = "generate",
+        name = "generate-routes",
         defaultPhase = LifecyclePhase.PROCESS_CLASSES,
         aggregator = true
 )
-public class RouteToGatewayMojo extends AbstractMojo {
+public class GenerateRoutesMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "${reactorProjects}", readonly = true, required = true)
     private List<MavenProject> reactorProjects;
