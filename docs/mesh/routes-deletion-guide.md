@@ -10,9 +10,9 @@ Typical request contains **routes** with **prefix** in each and **namespace** or
 route in is specified in **nodeGroup** field or **path**. **namespace** and **version** fields can be omitted - then
 these values will be substituted in control-plane.
 
-## Routes deletion using configuration files
+## Routes deletion using configuration files - Legacy approach
 
-Routes can be deleted using routes-configuration file. Supported formats are json and yaml.
+Routes can be deleted using legacy routes-configuration file. Supported formats are json and yaml.
 
 Request contract:
 [Apply Configuration](../api/control-plane-api.md#apply-configuration)
@@ -42,6 +42,30 @@ spec:
 This request will delete route with prefix "/test-route-1" and namespace "test-namespace" in virtual service
 "test-service" in gateway "facade-gateway-service". Field **namespace** in spec will be replaced with **namespace**
 field from namespace.
+
+#### Modern declarative approach
+Put in your helm chart CRs with all the contract labels.
+```yaml
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RoutesDrop
+metadata:
+  name: delete-route-yaml-example
+  namespace: test-namespace
+  labels:
+    deployer.cleanup/allow: "true"
+    app.kubernetes.io/managed-by: saasDeployer
+    app.kubernetes.io/part-of: "Cloud-Core"
+    app.kubernetes.io/processed-by-operator: "core-operator"
+spec:
+  entities:
+    - gateways:
+        - facade-gateway-service
+      virtualService: test-service
+      routes:
+        - prefix: /test-route-1
+```
+This CR (Custom Resource) will be applied to Kubernetes and processed by core-operator, which will delete the route with prefix "/test-route-1" for namespace "test-namespace" in virtual service "test-service" in gateway "facade-gateway-service".
 
 ## Routes deletion using REST API
 
