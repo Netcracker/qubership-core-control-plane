@@ -29,7 +29,8 @@ public record HttpRoute(String path, String gatewayPath, Type type, long timeout
     public enum Type {
         INTERNAL("internal-gateway-service"),
         PRIVATE("private-gateway-istio"),
-        PUBLIC("public-gateway-istio");
+        PUBLIC("public-gateway-istio"),
+        FACADE("facade");
 
         private final String gatewayName;
 

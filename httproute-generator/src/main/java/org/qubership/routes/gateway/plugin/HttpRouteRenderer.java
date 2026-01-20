@@ -114,6 +114,7 @@ public class HttpRouteRenderer {
 
         return routesByType.entrySet().stream()
                 .map(entry -> toResource(entry.getKey(), entry.getValue(), servicePort))
+                .filter(Objects::nonNull)
                 .toList();
     }
 
@@ -137,7 +138,14 @@ public class HttpRouteRenderer {
 
         List<HTTPRouteResource.Spec.Rule> ruleList = new ArrayList<>(routes.size());
         for (HttpRoute route : routes) {
+            if (route.type() == HttpRoute.Type.FACADE && route.path().equals(route.gatewayPath())) { // ignore Facade routes with same path
+                continue;
+            }
             ruleList.add(toRule(route, backendRefs));
+        }
+
+        if (ruleList.isEmpty()) {
+            return null;
         }
 
         HTTPRouteResource.Spec spec = new HTTPRouteResource.Spec(getParentRefs(type), ruleList);
@@ -146,7 +154,11 @@ public class HttpRouteRenderer {
 
     private static Set<HTTPRouteResource.Spec.ParentRef> getParentRefs(HttpRoute.Type type) {
         Set<HTTPRouteResource.Spec.ParentRef> parentRefs = new HashSet<>();
-        parentRefs.add(new HTTPRouteResource.Spec.ParentRef(type.gatewayName()));
+        if (type == HttpRoute.Type.FACADE) {
+            parentRefs.add(new HTTPRouteResource.Spec.ParentRef("{{ .Values.SERVICE_NAME }}"));
+        } else {
+            parentRefs.add(new HTTPRouteResource.Spec.ParentRef(type.gatewayName()));
+        }
         if (type == HttpRoute.Type.PUBLIC) {
             parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.PRIVATE.gatewayName()));
             parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName()));
