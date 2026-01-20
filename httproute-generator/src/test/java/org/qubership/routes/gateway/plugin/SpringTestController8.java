@@ -15,6 +15,7 @@ public class SpringTestController8 {
 
 
     @RequestMapping(path = RoutesTestConfiguration.METHOD_ROUTE_PATH_TO_1, method = RequestMethod.POST)
+    @GatewayRequestMapping({RoutesTestConfiguration.METHOD_ROUTE_PATH_FROM_1})
     @Route(value = RouteType.FACADE, timeout = 10000)
     public void method1() {
     }
