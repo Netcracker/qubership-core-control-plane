@@ -6,7 +6,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.11
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.3.1
+	github.com/netcracker/qubership-core-lib-go/v3 v3.4.0
 	github.com/pkg/errors v0.9.1
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
@@ -18,7 +18,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
-	github.com/knadh/koanf/v2 v2.3.0 // indirect
+	github.com/knadh/koanf/v2 v2.3.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
