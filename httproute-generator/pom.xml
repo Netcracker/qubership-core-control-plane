@@ -46,12 +46,12 @@
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>route-registration-common</artifactId>
-            <version>6.2.10</version>
+            <version>6.3.0</version>
         </dependency>
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>route-registration-common-spring</artifactId>
-            <version>6.2.10</version>
+            <version>6.3.0</version>
         </dependency>
         <dependency>
             <groupId>jakarta.ws.rs</groupId>
