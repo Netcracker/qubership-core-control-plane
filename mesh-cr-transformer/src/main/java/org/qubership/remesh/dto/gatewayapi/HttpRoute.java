@@ -1,5 +1,6 @@
 package org.qubership.remesh.dto.gatewayapi;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,7 +10,7 @@ import org.qubership.remesh.serialization.ExtendedIntegerSerializer;
 import java.util.List;
 import java.util.Map;
 
-//generated from https://gateway-api.sigs.k8s.io/reference/1.3/spec/?utm_source=chatgpt.com#httproute
+//generated from https://gateway-api.sigs.k8s.io/reference/1.3/spec/
 @Data
 @NoArgsConstructor
 public class HttpRoute implements Resource {
@@ -19,6 +20,13 @@ public class HttpRoute implements Resource {
     private Metadata metadata;
     private HttpRouteSpec spec;
     private Status status;
+
+    /**
+     * Raw metadata section preserved from original YAML.
+     * Used for serialization to preserve Helm templates and comments.
+     */
+    @JsonIgnore
+    private String rawMetadata;
 
     @Data
     @NoArgsConstructor

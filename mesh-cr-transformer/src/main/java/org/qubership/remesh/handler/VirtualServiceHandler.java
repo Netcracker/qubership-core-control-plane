@@ -1,7 +1,6 @@
 package org.qubership.remesh.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.qubership.remesh.dto.*;
 import org.qubership.remesh.dto.gatewayapi.HttpRoute;
@@ -15,18 +14,18 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 @Slf4j
-public class VirtualServiceHandler implements CrHandler{
+public class VirtualServiceHandler implements CrHandler {
     @Override
     public String getKind() {
         return "VirtualService";
     }
 
     @Override
-    public List<Resource> handle(JsonNode node) {
+    public List<Resource> handle(MeshResourceFragment fragment) {
         try {
             List<Resource> result = new ArrayList<>();
 
-            VirtualServiceYaml original = ObjectMapperProvider.getMapper().treeToValue(node, VirtualServiceYaml.class);
+            VirtualServiceYaml original = ObjectMapperProvider.getMapper().treeToValue(fragment.getSpec(), VirtualServiceYaml.class);
 
             if (original.getSpec() != null) {
                 String gateway = original.getMetadata().getGateway();
@@ -34,7 +33,7 @@ public class VirtualServiceHandler implements CrHandler{
                     throw new IllegalStateException("Required parameter 'gateway' is absent in 'VirtualService' metadata");
                 }
                 HttpRoute httpRoute = new HttpRoute();
-                httpRoute.setMetadata(metadataToHttpRouteMetadata(original.getMetadata()));
+                httpRoute.setRawMetadata(fragment.getRawMetadata());
                 httpRoute.setSpec(virtualServiceToHttpRouteSpec(List.of(gateway), original.getSpec()));
                 result.add(httpRoute);
             }
@@ -44,26 +43,6 @@ public class VirtualServiceHandler implements CrHandler{
             log.error("Cannot deserialize RouteConfiguration", e);
             return Collections.emptyList();
         }
-    }
-
-
-    protected HttpRoute.Metadata metadataToHttpRouteMetadata(Metadata metadata) {
-        if (metadata == null) {
-            return null;
-        }
-
-        HttpRoute.Metadata result = new HttpRoute.Metadata();
-        result.setName(safeName(metadata));
-        result.setNamespace(metadata.getNamespace());
-        result.setLabels(metadata.getLabels());
-        return result;
-    }
-
-    private String safeName(Metadata metadata) {
-        if (metadata != null && metadata.getName() != null && !metadata.getName().isEmpty()) {
-            return metadata.getName() + "-http-route";
-        }
-        return "generated-http-route";
     }
 
     protected HttpRoute.HttpRouteSpec virtualServiceToHttpRouteSpec(List<String> gateways, VirtualService virtualService) {
@@ -297,7 +276,7 @@ public class VirtualServiceHandler implements CrHandler{
             else
             {
                 //TODO VLLA the rest types are not supported
-                log.warn("Header match {} is unsupported", headerMatch);
+                log.warn("       Header match {} is unsupported", headerMatch);
             }
 
             if (headerMatch.getType() != null) {

@@ -3,6 +3,7 @@ package org.qubership.remesh.handler;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,8 +34,8 @@ class CrHandlerRegistryTest {
         }
 
         @Override
-        public java.util.List<Resource> handle(com.fasterxml.jackson.databind.JsonNode node) {
-            return java.util.List.of();
+        public List<Resource> handle(MeshResourceFragment fragment) {
+            return List.of();
         }
     }
 }

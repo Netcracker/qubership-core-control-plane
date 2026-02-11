@@ -3,6 +3,7 @@ package org.qubership.remesh.handler;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.qubership.remesh.dto.gatewayapi.HttpRoute;
+import org.qubership.remesh.serialization.RawYamlExtractor;
 import org.qubership.remesh.serialization.YamlPreprocessor;
 import org.qubership.remesh.util.ObjectMapperProvider;
 
@@ -54,18 +55,22 @@ class RouteConfigurationHandlerE2ETest {
     @Test
     void convertsRouteConfigurationToHttpRoute() {
         YamlPreprocessor preprocessor = new YamlPreprocessor(ObjectMapperProvider.getMapper());
+        RawYamlExtractor extractor = new RawYamlExtractor();
+
         JsonNode node = preprocessor.readAsJsonNode(YAML);
         assertNotNull(node);
 
+        String rawMetadata = extractor.extractMetadata(YAML);
+        MeshResourceFragment fragment = MeshResourceFragment.create(0, node, rawMetadata);
+
         RouteConfigurationHandler handler = new RouteConfigurationHandler();
-        List<Resource> resources = handler.handle(node);
+        List<Resource> resources = handler.handle(fragment);
 
         assertEquals(1, resources.size());
         HttpRoute httpRoute = (HttpRoute) resources.getFirst();
 
-        assertNotNull(httpRoute.getMetadata());
-        assertEquals("{{ .Values.SERVICE_NAME }}-mesh-routes-http-route", httpRoute.getMetadata().getName());
-        assertEquals("{{ .Values.NAMESPACE }}", httpRoute.getMetadata().getNamespace());
+        // Metadata is preserved in rawMetadata, not deserialized
+        assertNotNull(httpRoute.getRawMetadata());
 
         HttpRoute.HttpRouteSpec spec = httpRoute.getSpec();
         assertNotNull(spec);

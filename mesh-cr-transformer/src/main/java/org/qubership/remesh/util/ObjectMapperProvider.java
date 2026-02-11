@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -24,7 +25,11 @@ public class ObjectMapperProvider {
     }
 
     static ObjectMapper constructMapper() {
-        ObjectMapper result = new ObjectMapper(new YAMLFactory());
+        YAMLFactory yamlFactory = YAMLFactory.builder()
+                .disable(YAMLGenerator.Feature.SPLIT_LINES)
+                .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
+                .build();
+        ObjectMapper result = new ObjectMapper(yamlFactory);
 
         result.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
@@ -37,7 +42,7 @@ public class ObjectMapperProvider {
 
                 String path = buildPath(p, propertyName);
 
-                log.warn("    Unknown YAML property '{}' for type '{}', location: {}",
+                log.warn("       Unsupported YAML property '{}' for type '{}', location: {}. Manual migration is needed",
                         propertyName,
                         targetClass.getSimpleName(),
                         path);

@@ -1,10 +1,8 @@
 package org.qubership.remesh.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
-import org.qubership.remesh.dto.RouteConfigurationYaml;
-import org.qubership.remesh.dto.VirtualService;
+import org.qubership.remesh.dto.*;
 import org.qubership.remesh.dto.gatewayapi.HttpRoute;
 import org.qubership.remesh.util.ObjectMapperProvider;
 
@@ -20,22 +18,25 @@ public class RouteConfigurationHandler extends VirtualServiceHandler {
     }
 
     @Override
-    public List<Resource> handle(JsonNode node) {
+    public List<Resource> handle(MeshResourceFragment fragment) {
         try {
             List<Resource> result = new ArrayList<>();
 
-            RouteConfigurationYaml original = ObjectMapperProvider.getMapper().treeToValue(node, RouteConfigurationYaml.class);
+            // Deserialize only the spec part
+            RoutingConfigRequestV3 spec = ObjectMapperProvider.getMapper()
+                    .treeToValue(fragment.getSpec(), RoutingConfigRequestV3.class);
 
-            if (original.getSpec() != null && original.getSpec().getVirtualServices() != null) {
-                for (VirtualService virtualService : original.getSpec().getVirtualServices()) {
+            if (spec != null && spec.getVirtualServices() != null) {
+                for (VirtualService virtualService : spec.getVirtualServices()) {
                     HttpRoute httpRoute = new HttpRoute();
-                    httpRoute.setMetadata(metadataToHttpRouteMetadata(original.getMetadata()));
-                    httpRoute.setSpec(virtualServiceToHttpRouteSpec(original.getSpec().getGateways(), virtualService));
+                    httpRoute.setSpec(virtualServiceToHttpRouteSpec(spec.getGateways(), virtualService));
+                    httpRoute.setRawMetadata(fragment.getRawMetadata());
                     result.add(httpRoute);
                 }
             }
             return result;
-        } catch (IllegalArgumentException | JsonProcessingException e) {
+        }
+        catch (IllegalArgumentException | JsonProcessingException e) {
             log.error("Cannot deserialize RouteConfiguration", e);
             return Collections.emptyList();
         }

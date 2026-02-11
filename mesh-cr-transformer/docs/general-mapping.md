@@ -18,6 +18,7 @@ Author: @alsergs
 | High Code Extensions       | WASMplugin         | On demand                                                                                    |                                              |                                                                         |
 |                            | RoutesDrop         | Not applicable                                                                               |                                              |                                                                         |
 | CORS                       | ?                  | VirtualService::CorsPolicy, HTTPRoute::HTTPCORSFilter                                        | medium                                       |                                                                         |
+| ?                          | FacadeService      | ?                                                                                            | ?                                            | ?                                                                       |
 
 Notes:
 Configuration levels by envoy model:

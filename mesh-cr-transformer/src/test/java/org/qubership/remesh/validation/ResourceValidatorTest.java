@@ -21,6 +21,16 @@ class ResourceValidatorTest {
             public String getKind() {
                 return "HTTPRoute";
             }
+
+            @Override
+            public String getRawMetadata() {
+                return "";
+            }
+
+            @Override
+            public void setRawMetadata(String rawMetadata) {
+
+            }
         });
 
         assertEquals("gateway.networking.k8s.io_httproute.yaml", name);

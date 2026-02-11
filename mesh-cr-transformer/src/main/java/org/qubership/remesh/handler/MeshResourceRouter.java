@@ -1,6 +1,5 @@
 package org.qubership.remesh.handler;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -22,32 +21,24 @@ public class MeshResourceRouter {
         this.handlerProvider = handlerProvider;
     }
 
-    public List<Resource> route(JsonNode node) {
-        if (node == null) {
+    public List<Resource> route(MeshResourceFragment fragment) {
+        if (fragment == null) {
             return List.of();
         }
 
-        JsonNode apiVersion = node.get("apiVersion");
-        JsonNode kind = node.get("kind");
-        JsonNode subKind = node.get("subKind");
-
-        if (apiVersion == null || kind == null || subKind == null) {
+        if (!isMeshResource(fragment.getApiVersion(), fragment.getKind())) {
             return List.of();
         }
 
-        if (!isMeshResource(apiVersion, kind)) {
-            return List.of();
-        }
-
-        log.debug("    Start processing Mesh resource with subKind {}", subKind.asText());
-
-        CrHandler handler = handlerProvider.apply(subKind.asText());
+        CrHandler handler = handlerProvider.apply(fragment.getSubKind());
         if (handler == null) {
-            log.warn("    Handler not found for kind {}", subKind.asText());
+            log.warn("       Handler not found for kind {}. Manual migration is needed", fragment.getSubKind());
             return List.of();
         }
 
-        List<Resource> resources = handler.handle(node);
+        log.info("------ Handle mesh fragment[{}] '{}'", fragment.getIndex(), fragment.getFullKind());
+
+        List<Resource> resources = handler.handle(fragment);
         if (resources == null) {
             return Collections.emptyList();
         }
@@ -55,7 +46,7 @@ public class MeshResourceRouter {
         return resources;
     }
 
-    boolean isMeshResource(JsonNode apiVersion, JsonNode kind) {
-        return CORE_NETCRACKER_COM_API_VERSION.equals(apiVersion.asText()) && MESH_KIND.equals(kind.asText());
+    boolean isMeshResource(String apiVersion, String kind) {
+        return CORE_NETCRACKER_COM_API_VERSION.equals(apiVersion) && MESH_KIND.equals(kind);
     }
 }

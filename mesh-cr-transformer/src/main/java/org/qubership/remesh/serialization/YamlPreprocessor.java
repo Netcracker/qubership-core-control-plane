@@ -21,7 +21,7 @@ public class YamlPreprocessor {
         try {
             return mapper.readTree(preprocessed);
         } catch (Exception e) {
-            log.warn("    Failed to parse document, skipping. Cause: {}", e.getMessage());
+            log.warn("       Failed to parse document, skipping. Cause: {}", e.getMessage());
             return null;
         }
     }
