@@ -29,6 +29,4 @@ public class SpringTestControllerBaseFor5 {
     @Route(PRIVATE)
     public void methodPut() {
     }
-
-
 }

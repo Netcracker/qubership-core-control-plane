@@ -4,7 +4,7 @@ import com.netcracker.cloud.routesregistration.common.annotation.Gateway;
 import com.netcracker.cloud.routesregistration.common.annotation.Route;
 import com.netcracker.cloud.routesregistration.common.spring.gateway.route.annotation.GatewayRequestMapping;
 import io.github.classgraph.*;
-import jakarta.ws.rs.Path;
+import jakarta.ws.rs.*;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
@@ -49,6 +49,7 @@ public class RouteScanner {
                 .enableAllInfo()
                 .overrideClasspath(classesDir.getAbsolutePath())
                 .acceptPackages(packages)
+                .disableRuntimeInvisibleAnnotations()
                 .scan()) {
 
             Stream<ClassInfoList> pathsStream;
@@ -70,7 +71,17 @@ public class RouteScanner {
             } else if (isQuarkusUsed(scan)) {
                 pathsStream = Stream.of(
                         scan.getClassesWithMethodAnnotation(Path.class),
-                        scan.getClassesWithAnnotation(Path.class)
+                        scan.getClassesWithAnnotation(Path.class),
+                        scan.getClassesWithMethodAnnotation(GET.class),
+                        scan.getClassesWithAnnotation(GET.class),
+                        scan.getClassesWithMethodAnnotation(POST.class),
+                        scan.getClassesWithAnnotation(POST.class),
+                        scan.getClassesWithMethodAnnotation(PUT.class),
+                        scan.getClassesWithAnnotation(PUT.class),
+                        scan.getClassesWithMethodAnnotation(DELETE.class),
+                        scan.getClassesWithAnnotation(DELETE.class),
+                        scan.getClassesWithMethodAnnotation(PATCH.class),
+                        scan.getClassesWithAnnotation(PATCH.class)
                 );
             } else {
                 return Set.of();
@@ -79,6 +90,7 @@ public class RouteScanner {
             return pathsStream
                     .flatMap(Collection::stream)
                     .distinct()
+                    .filter(this::hasRoute)
                     .map(this::getRequestMappingPaths)
                     .flatMap(Collection::stream)
                     .collect(Collectors.toSet());
@@ -98,7 +110,8 @@ public class RouteScanner {
 
         Set<HttpRoute> routes = classInfo.getMethodInfo().stream()
                 .flatMap(methodInfo -> methodInfo.getAnnotationInfo().stream()
-                        .filter(this::isHttpMappingAnnotation)
+                        .filter(annotationInfo -> isHttpMappingAnnotation(annotationInfo) || annotationInfo.getName().equals(RequestMapping.class.getName()))
+                        .filter(annotationInfo -> !isMetaRequestMapping(annotationInfo, methodInfo))
                         .map(mappingAnn -> Map.entry(methodInfo, mappingAnn)))
                 .map(entry -> buildRoutesForMethod(
                         entry.getKey(),
@@ -116,6 +129,17 @@ public class RouteScanner {
 
         log.info("Found " + routes.size() + " routes");
         return routes;
+    }
+
+    private boolean hasRoute(ClassInfo classInfo) {
+        return classInfo.hasAnnotation(Route.class) || classInfo.hasMethodAnnotation(Route.class);
+    }
+
+    private boolean isMetaRequestMapping(AnnotationInfo annotationInfo, MethodInfo methodInfo) {
+        String annotationName = annotationInfo.getName();
+
+        // Special handling for @RequestMapping - it can be a meta-annotation on @GetMapping, @PostMapping, etc.
+        return RequestMapping.class.getName().equals(annotationName) && methodInfo.getAnnotationInfo().stream().anyMatch(this::isHttpMappingAnnotation);
     }
 
     private List<String> resolveGatewayMappings(ClassInfo classInfo) {
@@ -146,13 +170,16 @@ public class RouteScanner {
 
     private boolean isHttpMappingAnnotation(AnnotationInfo annotationInfo) {
         String name = annotationInfo.getName();
-        return name.equals(RequestMapping.class.getName())
-                || name.equals(GetMapping.class.getName())
+        return name.equals(GetMapping.class.getName())
                 || name.equals(PostMapping.class.getName())
                 || name.equals(PutMapping.class.getName())
                 || name.equals(DeleteMapping.class.getName())
                 || name.equals(PatchMapping.class.getName())
-                || name.equals(Path.class.getName());
+                || name.equals(GET.class.getName())
+                || name.equals(POST.class.getName())
+                || name.equals(PUT.class.getName())
+                || name.equals(DELETE.class.getName())
+                || name.equals(PATCH.class.getName());
     }
 
     private Set<HttpRoute> buildRoutesForMethod(
@@ -169,7 +196,12 @@ public class RouteScanner {
                 .orElse(classRouteTimeout.orElse(0L));
 
         List<String> methodGatewayRequestMapping = resolveGatewayMappings(methodInfo);
-        List<String> mappingPaths = getAnnotationPathFor(mappingAnn);
+        List<String> mappingPaths;
+        if (mappingAnn.getName().equals(POST.class.getName())) {
+            mappingPaths = getAnnotationPathFor(methodInfo.getAnnotationInfo(Path.class.getName()));
+        } else {
+            mappingPaths = getAnnotationPathFor(mappingAnn);
+        }
 
         if (!classGatewayRequestMapping.isEmpty()) {
             return buildClassGatewayRoutes(classGatewayRequestMapping, methodGatewayRequestMapping, classesReqMappings, mappingPaths, routeType, routeTimeout);
@@ -194,15 +226,18 @@ public class RouteScanner {
             List<String> classGatewayRequestMapping,
             List<String> methodGatewayRequestMapping,
             List<String> classesReqMappings,
-            List<String> mappingPaths,
+            List<String> methodReqMappings,
             HttpRoute.Type routeType,
             long routeTimeout
     ) {
+        if (methodReqMappings.isEmpty()) {
+            methodReqMappings = List.of("/");
+        }
         if (methodGatewayRequestMapping.isEmpty()) {
-            methodGatewayRequestMapping = mappingPaths;
+            methodGatewayRequestMapping = methodReqMappings;
         }
         String servicePrefix = classesReqMappings.getFirst();
-        String mappingPath = mappingPaths.getFirst();
+        String mappingPath = methodReqMappings.isEmpty() ? "" : methodReqMappings.getFirst();
         List<String> finalMethodGatewayRequestMapping = methodGatewayRequestMapping;
         return classGatewayRequestMapping.stream()
                 .flatMap(classPrefix -> finalMethodGatewayRequestMapping.stream()
@@ -234,27 +269,70 @@ public class RouteScanner {
     }
 
     private List<String> getAnnotationPathFor(AnnotationInfo annotationInfo) {
-        if (annotationInfo == null || annotationInfo.getParameterValues() == null || annotationInfo.getParameterValues().isEmpty()) {
+        if (annotationInfo == null) {
             return Collections.emptyList();
         }
-        if (annotationInfo.getParameterValues().getValue("value") instanceof String) {
-            return List.of((String) annotationInfo.getParameterValues().getValue("value"));
+
+        AnnotationParameterValueList parameters = annotationInfo.getParameterValues();
+
+        // Handle single string value
+        Object valueParam = parameters.getValue("value");
+        Object pathParam = parameters.getValue("path");
+
+        if (isNullOrEmpty(valueParam) && isNullOrEmpty(pathParam)) {
+            return List.of("");
+        }
+        if (valueParam instanceof String && !isNullOrEmpty(valueParam)) {
+            return List.of(valueParam.toString());
+        }
+        if (pathParam instanceof String && !isNullOrEmpty(pathParam)) {
+            return List.of(pathParam.toString());
         }
 
-        String[] paths = new String[]{};
-        if (annotationInfo.getParameterValues().getValue("path") != null) {
-            paths = Arrays.stream((Object[]) annotationInfo.getParameterValues().getValue("path"))
-                    .map(String.class::cast)
-                    .toArray(String[]::new);
-        }
+        // Try "path" parameter first, then fall back to "value"
+        AnnotationParameterValueList finalParameters = parameters;
+        return extractPathsFromParameter(parameters, "path")
+                .or(() -> extractPathsFromParameter(finalParameters, "value"))
+                .orElse(List.of(""));
+    }
 
-        if (paths.length == 0) {
-            paths = Arrays.stream((Object[]) annotationInfo.getParameterValues().getValue("value"))
-                    .map(String.class::cast)
-                    .toArray(String[]::new);
-        }
+    private boolean isNullOrEmpty(Object param) {
+        return switch (param) {
+            case null -> true;
+            case String s -> s.isEmpty();
+            case Object[] objects -> objects.length == 0;
+            default -> false;
+        };
+    }
 
-        return Arrays.asList(paths);
+    private boolean hasNoParameters(AnnotationInfo annotationInfo) {
+        return annotationInfo.getParameterValues() == null
+                || annotationInfo.getParameterValues().isEmpty();
+    }
+
+    private Optional<List<String>> extractPathsFromParameter(AnnotationParameterValueList parameters, String parameterName) {
+        Object paramValue = parameters.getValue(parameterName);
+
+        switch (paramValue) {
+            case String s -> {
+                return Optional.of(List.of(s));
+            }
+            case Object[] objects -> {
+                if (objects.length == 0) {
+                    return Optional.empty();
+                }
+
+                List<String> paths = Arrays.stream(objects)
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .toList();
+
+                return paths.isEmpty() ? Optional.empty() : Optional.of(paths);
+            }
+            case null, default -> {
+                return Optional.empty();
+            }
+        }
     }
 
     private Optional<Long> getRouteTimeout(AnnotationInfo annotationInfo) {
@@ -275,8 +353,7 @@ public class RouteScanner {
                 )
                 .filter(v -> v instanceof AnnotationEnumValue)
                 .map(v -> (AnnotationEnumValue) v)
-                .map(enumVal -> HttpRoute.Type.valueOf(enumVal.getValueName()))
-                .or(() -> Optional.of(HttpRoute.Type.INTERNAL));
+                .map(enumVal -> HttpRoute.Type.valueOf(enumVal.getValueName()));
     }
 
     private boolean isSpringUsed(ScanResult scan) {

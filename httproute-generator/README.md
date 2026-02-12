@@ -20,8 +20,8 @@ Add the plugin to your `pom.xml`:
 <build>
     <plugins>
         <plugin>
-            <groupId>org.qubership.routes</groupId>
-            <artifactId>gateway-plugin</artifactId>
+            <groupId>org.qubership.cloud.core</groupId>
+            <artifactId>httproutes-generator-maven-plugin</artifactId>
             <version>1.0.0</version>
             <executions>
                 <execution>

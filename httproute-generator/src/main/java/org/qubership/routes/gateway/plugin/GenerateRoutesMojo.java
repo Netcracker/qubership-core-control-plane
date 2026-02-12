@@ -72,7 +72,7 @@ public class GenerateRoutesMojo extends AbstractMojo {
     }
 
     private String wrapWithEnabler(String yamlContent) {
-        return "{{ if .Values.ISTIO_ENABLED }}\n" + yamlContent + "{{ end }}\n";
+        return "{{- if eq .Values.SERVICE_MESH_TYPE \"ISTIO\" }}\n" + yamlContent + "{{- end }}\n";
     }
 
 }
