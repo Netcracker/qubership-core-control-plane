@@ -106,7 +106,7 @@ public class GenerateRoutesMojoTest {
 
             assertEquals(3, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_3 + RoutesTestConfiguration.METHOD_ROUTES_1, RoutesTestConfiguration.CLASS_ROUTES_3 + RoutesTestConfiguration.METHOD_ROUTES_1, HttpRoute.Type.PUBLIC)));
-            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_3 + RoutesTestConfiguration.METHOD_ROUTES_2, RoutesTestConfiguration.CLASS_ROUTES_3 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.INTERNAL)));
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_3 + RoutesTestConfiguration.METHOD_ROUTES_2, RoutesTestConfiguration.CLASS_ROUTES_3 + RoutesTestConfiguration.METHOD_ROUTES_2, HttpRoute.Type.PUBLIC)));
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTES_3 + RoutesTestConfiguration.METHOD_ROUTES_3, RoutesTestConfiguration.CLASS_ROUTES_3 + RoutesTestConfiguration.METHOD_ROUTES_3, HttpRoute.Type.PRIVATE)));
         }
     }
@@ -175,6 +175,20 @@ public class GenerateRoutesMojoTest {
     }
 
     @Test
+    void testGetRequestMappingPaths_QuarkusTestController4() {
+        try (ScanResult scan = new ClassGraph()
+                .enableAllInfo()
+                .acceptClasses(QuarkusTestController4.class.getName())
+                .scan()) {
+
+            ClassInfo info = scan.getClassInfo(QuarkusTestController4.class.getName());
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
+
+            assertEquals(1, routes.size());
+        }
+    }
+
+    @Test
     void testGetRequestMappingPaths_SpringTestController7() {
         try (ScanResult scan = new ClassGraph()
                 .enableAllInfo()
@@ -204,6 +218,22 @@ public class GenerateRoutesMojoTest {
             assertEquals(2, routes.size());
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTE_PATH_TO_1 + RoutesTestConfiguration.METHOD_ROUTE_PATH_TO_1, RoutesTestConfiguration.CLASS_ROUTE_PATH_FROM_1 + RoutesTestConfiguration.METHOD_ROUTE_PATH_FROM_1, HttpRoute.Type.FACADE, 10_000)));
             assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTE_PATH_TO_1 + RoutesTestConfiguration.METHOD_ROUTE_PATH_TO_2, RoutesTestConfiguration.CLASS_ROUTE_PATH_FROM_1 + RoutesTestConfiguration.METHOD_ROUTE_PATH_TO_2, HttpRoute.Type.PRIVATE, 20_000)));
+        }
+    }
+
+    @Test
+    void testGetRequestMappingPaths_SpringTestController9() {
+        try (ScanResult scan = new ClassGraph()
+                .enableAllInfo()
+                .acceptClasses(SpringTestController9.class.getName())
+                .scan()) {
+
+            ClassInfo info = scan.getClassInfo(SpringTestController9.class.getName());
+            Set<HttpRoute> routes = scanner.getRequestMappingPaths(info);
+
+            assertEquals(1, routes.size());
+            assertTrue(routes.contains(new HttpRoute(RoutesTestConfiguration.CLASS_ROUTE_PATH_TO_1, RoutesTestConfiguration.CLASS_ROUTE_PATH_FROM_1, HttpRoute.Type.PUBLIC, 0)));
+
         }
     }
 }
