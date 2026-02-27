@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.qubership.remesh.util.ObjectMapperProvider;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +33,7 @@ class MeshResourceRouterTest {
             }
 
             @Override
-            public List<Resource> handle(MeshResourceFragment ignored) {
+            public List<Resource> handle(MeshResourceFragment ignored, Map<String, Object> config) {
                 handled.set(true);
                 return List.of(new TestResource());
             }

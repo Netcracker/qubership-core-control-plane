@@ -15,7 +15,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -65,7 +67,7 @@ class TransformerServiceTest {
         private int handledDocuments = 0;
 
         @Override
-        public List<Resource> route(MeshResourceFragment fragment) {
+        public List<Resource> route(MeshResourceFragment fragment, Map<String, Object> config) {
             handledDocuments++;
             List<Resource> resources = new ArrayList<>();
             resources.add(new DemoResource());

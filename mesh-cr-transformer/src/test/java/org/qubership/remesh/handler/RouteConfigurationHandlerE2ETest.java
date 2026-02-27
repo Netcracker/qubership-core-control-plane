@@ -8,6 +8,7 @@ import org.qubership.remesh.serialization.YamlPreprocessor;
 import org.qubership.remesh.util.ObjectMapperProvider;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -64,7 +65,7 @@ class RouteConfigurationHandlerE2ETest {
         MeshResourceFragment fragment = MeshResourceFragment.create(0, node, rawMetadata);
 
         RouteConfigurationHandler handler = new RouteConfigurationHandler();
-        List<Resource> resources = handler.handle(fragment);
+        List<Resource> resources = handler.handle(fragment, Map.of());
 
         assertEquals(1, resources.size());
         HttpRoute httpRoute = (HttpRoute) resources.getFirst();

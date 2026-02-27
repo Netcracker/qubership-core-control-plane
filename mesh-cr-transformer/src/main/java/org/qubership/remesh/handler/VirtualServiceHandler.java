@@ -11,6 +11,7 @@ import org.qubership.remesh.util.ObjectMapperProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -20,8 +21,18 @@ public class VirtualServiceHandler implements CrHandler {
         return "VirtualService";
     }
 
+    public static final String CONFIG_COMPOSITE_GATEWAY_NAME = "composite-gateway-name";
+
+    final static Map<String, String> GATEWAY_MAP = Map.of(
+            "public-gateway-service", "public-gateway",
+            "private-gateway-service", "private-gateway");
+
+    final static String weaveGatewayName(String gatewayName) {
+        return GATEWAY_MAP.getOrDefault(gatewayName, gatewayName);
+    }
+
     @Override
-    public List<Resource> handle(MeshResourceFragment fragment) {
+    public List<Resource> handle(MeshResourceFragment fragment, Map<String, Object> config) {
         try {
             List<Resource> result = new ArrayList<>();
 
@@ -34,20 +45,21 @@ public class VirtualServiceHandler implements CrHandler {
                 }
                 HttpRoute httpRoute = new HttpRoute();
                 httpRoute.setRawMetadata(fragment.getRawMetadata());
-                httpRoute.setSpec(virtualServiceToHttpRouteSpec(List.of(gateway), original.getSpec()));
+                httpRoute.setSpec(virtualServiceToHttpRouteSpec(List.of(gateway), original.getSpec(), config));
                 result.add(httpRoute);
             }
             return result;
-        }
-        catch (IllegalArgumentException | JsonProcessingException e) {
+        } catch (IllegalArgumentException | JsonProcessingException e) {
             log.error("Cannot deserialize RouteConfiguration", e);
             return Collections.emptyList();
         }
     }
 
-    protected HttpRoute.HttpRouteSpec virtualServiceToHttpRouteSpec(List<String> gateways, VirtualService virtualService) {
+    protected HttpRoute.HttpRouteSpec virtualServiceToHttpRouteSpec(List<String> gateways, VirtualService virtualService,
+                                                                    Map<String, Object> config) {
+        String serviceName = virtualService.getName();
         HttpRoute.HttpRouteSpec result = new HttpRoute.HttpRouteSpec();
-        result.setParentRefs(gatewaysToParentReferences(gateways));
+        result.setParentRefs(gatewaysToParentReferences(gateways, config, serviceName));
         result.setHostnames(hostsToHostnames(virtualService));
         result.setRules(routeRulesToRules(virtualService));
         return result;
@@ -58,8 +70,7 @@ public class VirtualServiceHandler implements CrHandler {
         if (hosts != null) {
             if (hosts.size() == 1 && hosts.getFirst().equals("*")) {
                 return null;
-            }
-            else {
+            } else {
                 return hosts;
             }
         } else {
@@ -199,15 +210,35 @@ public class VirtualServiceHandler implements CrHandler {
         return requestHeaderModifier;
     }
 
-    List<HttpRoute.ParentReference> gatewaysToParentReferences(List<String> gateways) {
+
+    List<HttpRoute.ParentReference> gatewaysToParentReferences(List<String> gateways, Map<String, Object> config,
+                                                               String serviceName) {
+        String compositeGatewayName = config != null && config.get(CONFIG_COMPOSITE_GATEWAY_NAME) != null
+                ? config.get(CONFIG_COMPOSITE_GATEWAY_NAME).toString()
+                : null;
+
         List<HttpRoute.ParentReference> parentRefs = new ArrayList<>();
         if (gateways != null) {
             for (String gateway : gateways) {
-                HttpRoute.ParentReference parentReference = new HttpRoute.ParentReference();
-                parentReference.setGroup("gateway.networking.k8s.io");
-                parentReference.setKind("Gateway");
-                parentReference.setName(gateway);
-                parentRefs.add(parentReference);
+                if (compositeGatewayName != null && gateway.equals(compositeGatewayName) && serviceName != null && !serviceName.isEmpty()) {
+                    parentRefs.add(HttpRoute.ParentReference.builder()
+                            .group("")
+                            .kind("Service")
+                            .name(serviceName)
+                            .build());
+                } else if (GATEWAY_MAP.containsKey(gateway)) {
+                    parentRefs.add(HttpRoute.ParentReference.builder()
+                            .group("gateway.networking.k8s.io")
+                            .kind("Gateway")
+                            .name(weaveGatewayName(gateway))
+                            .build());
+                } else {
+                    parentRefs.add(HttpRoute.ParentReference.builder()
+                            .group("")
+                            .kind("Service")
+                            .name(gateway)
+                            .build());
+                }
             }
         }
         return parentRefs;
@@ -257,24 +288,19 @@ public class VirtualServiceHandler implements CrHandler {
             if (headerMatcher.getExactMatch() != null) {
                 headerMatch.setType(HttpRoute.HeaderMatchType.Exact);
                 headerMatch.setValue(headerMatcher.getExactMatch());
-            }
-            else if (headerMatcher.getSafeRegexMatch() != null) {
+            } else if (headerMatcher.getSafeRegexMatch() != null) {
                 headerMatch.setType(HttpRoute.HeaderMatchType.RegularExpression);
                 headerMatch.setValue(headerMatcher.getSafeRegexMatch());
             } else if (headerMatcher.getPrefixMatch() != null) {
                 headerMatch.setType(HttpRoute.HeaderMatchType.RegularExpression);
                 headerMatch.setValue("^" + Pattern.quote(headerMatcher.getPrefixMatch()) + ".*$");
-            }
-            else if (headerMatcher.getSuffixMatch() != null) {
+            } else if (headerMatcher.getSuffixMatch() != null) {
                 headerMatch.setType(HttpRoute.HeaderMatchType.RegularExpression);
                 headerMatch.setValue(".*" + Pattern.quote(headerMatcher.getSuffixMatch()) + "$");
-            }
-            else if (headerMatcher.isPresentMatch()) {
+            } else if (headerMatcher.isPresentMatch()) {
                 headerMatch.setType(HttpRoute.HeaderMatchType.RegularExpression);
                 headerMatch.setValue(".*");
-            }
-            else
-            {
+            } else {
                 //TODO VLLA the rest types are not supported
                 log.warn("       Header match {} is unsupported", headerMatch);
             }

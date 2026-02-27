@@ -52,7 +52,7 @@ public class ObjectMapperProvider {
             }
         });
 
-        result.setSerializationInclusion(JsonInclude.Include.NON_EMPTY);
+        result.setSerializationInclusion(JsonInclude.Include.NON_ABSENT);
 
         return result;
     }

@@ -34,7 +34,7 @@ class CrHandlerRegistryTest {
         }
 
         @Override
-        public List<Resource> handle(MeshResourceFragment fragment) {
+        public List<Resource> handle(MeshResourceFragment fragment, Map<String, Object> config) {
             return List.of();
         }
     }

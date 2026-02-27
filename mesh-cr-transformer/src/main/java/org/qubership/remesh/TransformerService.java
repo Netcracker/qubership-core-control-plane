@@ -16,7 +16,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -50,11 +52,16 @@ public class TransformerService {
     }
 
     public void transform(Path dir, boolean validate) throws IOException {
+        transform(dir, validate, Collections.emptyMap());
+    }
+
+    public void transform(Path dir, boolean validate, Map<String, Object> config) throws IOException {
         log.info("Start transforming in dir '{}'", dir);
+        Map<String, Object> effectiveConfig = config != null ? config : Collections.emptyMap();
         try (Stream<Path> stream = Files.walk(dir)) {
             stream.filter(Files::isRegularFile)
                     .filter(this::isYaml)
-                    .forEach(file -> processFile(file, validate));
+                    .forEach(file -> processFile(file, validate, effectiveConfig));
         }
     }
 
@@ -71,7 +78,7 @@ public class TransformerService {
         return filename + suffix;
     }
 
-    void processFile(Path file, boolean validate) {
+    void processFile(Path file, boolean validate, Map<String, Object> config) {
         log.info("=== Processing file '{}' ===", file);
 
         List<Resource> allResources = new ArrayList<>();
@@ -91,7 +98,7 @@ public class TransformerService {
                     continue;
                 }
 
-                List<Resource> resources = meshResourceRouter.route(fragment);
+                List<Resource> resources = meshResourceRouter.route(fragment, config);
                 if (resources == null || resources.isEmpty()) {
                     continue;
                 }

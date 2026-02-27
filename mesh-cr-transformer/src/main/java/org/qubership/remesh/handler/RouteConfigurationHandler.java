@@ -9,6 +9,7 @@ import org.qubership.remesh.util.ObjectMapperProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public class RouteConfigurationHandler extends VirtualServiceHandler {
@@ -18,7 +19,7 @@ public class RouteConfigurationHandler extends VirtualServiceHandler {
     }
 
     @Override
-    public List<Resource> handle(MeshResourceFragment fragment) {
+    public List<Resource> handle(MeshResourceFragment fragment, Map<String, Object> config) {
         try {
             List<Resource> result = new ArrayList<>();
 
@@ -29,7 +30,7 @@ public class RouteConfigurationHandler extends VirtualServiceHandler {
             if (spec != null && spec.getVirtualServices() != null) {
                 for (VirtualService virtualService : spec.getVirtualServices()) {
                     HttpRoute httpRoute = new HttpRoute();
-                    httpRoute.setSpec(virtualServiceToHttpRouteSpec(spec.getGateways(), virtualService));
+                    httpRoute.setSpec(virtualServiceToHttpRouteSpec(spec.getGateways(), virtualService, config));
                     httpRoute.setRawMetadata(fragment.getRawMetadata());
                     result.add(httpRoute);
                 }

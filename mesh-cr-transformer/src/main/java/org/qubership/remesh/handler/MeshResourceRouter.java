@@ -1,9 +1,11 @@
 package org.qubership.remesh.handler;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 @Slf4j
@@ -22,6 +24,10 @@ public class MeshResourceRouter {
     }
 
     public List<Resource> route(MeshResourceFragment fragment) {
+        return route(fragment, Collections.emptyMap());
+    }
+
+    public List<Resource> route(MeshResourceFragment fragment, @NonNull Map<String, Object> config) {
         if (fragment == null) {
             return List.of();
         }
@@ -38,7 +44,7 @@ public class MeshResourceRouter {
 
         log.info("------ Handle mesh fragment[{}] '{}'", fragment.getIndex(), fragment.getFullKind());
 
-        List<Resource> resources = handler.handle(fragment);
+        List<Resource> resources = handler.handle(fragment, config);
         if (resources == null) {
             return Collections.emptyList();
         }

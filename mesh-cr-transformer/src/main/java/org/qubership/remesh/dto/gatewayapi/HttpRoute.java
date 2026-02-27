@@ -2,6 +2,8 @@ package org.qubership.remesh.dto.gatewayapi;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.qubership.remesh.handler.Resource;
@@ -47,6 +49,8 @@ public class HttpRoute implements Resource {
 
     @Data
     @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class ParentReference {
         private String group;
         private String kind;
