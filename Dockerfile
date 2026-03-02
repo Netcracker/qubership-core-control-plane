@@ -7,7 +7,7 @@ COPY control-plane/ .
 RUN go mod download
 RUN go build -o control-plane .
 
-FROM ghcr.io/netcracker/qubership-core-base:2.2.1 AS run
+FROM ghcr.io/netcracker/qubership-core-base:2.2.4 AS run
 
 COPY --chown=10001:0 --chmod=555 --from=build app/control-plane /app/control-plane
 COPY --chown=10001:0 --chmod=444 --from=build app/application.yaml /app/
