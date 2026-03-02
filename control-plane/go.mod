@@ -28,13 +28,13 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mustafaturan/bus/v3 v3.0.3
 	github.com/mustafaturan/monoton/v3 v3.0.0
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.3.0
-	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.1.0
-	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.1.0
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.2.0
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.3.0
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.2.0
-	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.2.0
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.5.0
+	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.3.0
+	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.3.0
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.4.0
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.5.0
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.4.0
+	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.4.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
