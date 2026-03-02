@@ -14,6 +14,7 @@ public class HttpRouteRenderer {
     private static final long SECOND = 1_000;
     private static final long MINUTE = 60_000;
     private static final long HOUR = 3_600_000;
+    public static final String PARENT_REF_KIND_SERVICE = "Service";
 
     private final String backendRefVal;
 
@@ -33,7 +34,10 @@ public class HttpRouteRenderer {
 
         public record Spec(Set<ParentRef> parentRefs, List<Rule> rules) {
 
-            public record ParentRef(String name) {
+            public record ParentRef(String name, String kind, String group) {
+                public ParentRef(String name) {
+                    this(name, null, null);
+                }
             }
 
             public record Rule(
@@ -154,17 +158,22 @@ public class HttpRouteRenderer {
 
     private static Set<HTTPRouteResource.Spec.ParentRef> getParentRefs(HttpRoute.Type type) {
         Set<HTTPRouteResource.Spec.ParentRef> parentRefs = new HashSet<>();
-        if (type == HttpRoute.Type.FACADE) {
-            parentRefs.add(new HTTPRouteResource.Spec.ParentRef("{{ .Values.SERVICE_NAME }}"));
-        } else {
-            parentRefs.add(new HTTPRouteResource.Spec.ParentRef(type.gatewayName()));
+
+        switch (type) {
+            case FACADE -> parentRefs.add(new HTTPRouteResource.Spec.ParentRef("{{ .Values.SERVICE_NAME }}", PARENT_REF_KIND_SERVICE, ""));
+            case INTERNAL -> parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName(), PARENT_REF_KIND_SERVICE, ""));
+            case PUBLIC -> {
+                parentRefs.add(new HTTPRouteResource.Spec.ParentRef(type.gatewayName()));
+                parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.PRIVATE.gatewayName()));
+                parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName(), PARENT_REF_KIND_SERVICE, ""));
+            }
+            case PRIVATE -> {
+                parentRefs.add(new HTTPRouteResource.Spec.ParentRef(type.gatewayName()));
+                parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName(), PARENT_REF_KIND_SERVICE, ""));
+            }
+            default -> parentRefs.add(new HTTPRouteResource.Spec.ParentRef(type.gatewayName()));
         }
-        if (type == HttpRoute.Type.PUBLIC) {
-            parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.PRIVATE.gatewayName()));
-            parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName()));
-        } else if (type == HttpRoute.Type.PRIVATE) {
-            parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName()));
-        }
+
         return parentRefs;
     }
 
