@@ -6,7 +6,7 @@ Blue-Green is about "zero downtime deployment" model. It makes sense when you wa
 
 A simple model of deployment means that you have one environment and when you update the application you show stub maintenance page to a user.
 
-In our model we assume that an application deploys with two or more versions on the same cloud environment. You can chose which version of application you want to call using HTTP Header _X-Version_. The application which was deployed using another version of bundle is neighboring in the environment and it is called [**_Candidate_**](./glossary.md#candidate). The HTTP traffic can be directed to [**_Candidate_**](/docs/glossary.md#candidate) and [**_Legacy_**](./glossary.md#legacy) by only using requests with _X-Version_ header though, at the same time, user's traffic is directed to **_Active_** version of application.
+In our model we assume that an application deploys with two or more versions on the same cloud environment. You can chose which version of application you want to call using HTTP Header _X-Version_. The application which was deployed using another version of bundle is neighboring in the environment and it is called [**_Candidate_**](./glossary.md#candidate). The HTTP traffic can be directed to [**_Candidate_**](./glossary.md#candidate) and [**_Legacy_**](./glossary.md#legacy) by only using requests with _X-Version_ header though, at the same time, user's traffic is directed to **_Active_** version of application.
 
 # Control Plane modes
 
@@ -153,7 +153,7 @@ The routing model should be as follows.
 
 ![Routing model - v4 active](./images/routing-model-v4-active.png)
 
-There we promoted v4 [**_Candidate_**](./glossary.md#candidate), and that means we have v4 as Active version, and user traffic is going to ms-v4 without any extra headers. At the same time v3 [**_Candidate_**](/docs/glossary.md#candidate) was deleted from DB at all (DeploymentVersion, Endpoints and Routes). Also you can see that v1 became Archive and it is present in DB storage but it is not participating in routing model.
+There we promoted v4 [**_Candidate_**](./glossary.md#candidate), and that means we have v4 as Active version, and user traffic is going to ms-v4 without any extra headers. At the same time v3 [**_Candidate_**](./glossary.md#candidate) was deleted from DB at all (DeploymentVersion, Endpoints and Routes). Also you can see that v1 became Archive and it is present in DB storage but it is not participating in routing model.
 
  >**CAUTION:** If you send a request to API Gateway with header 'x-version: v1', that request will be routed to ms-v4 because this micro-service belongs to Active version and the default strategy of fallback scenario is routing to Active version.
 
