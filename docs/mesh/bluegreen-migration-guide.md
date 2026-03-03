@@ -59,7 +59,7 @@ Please refer to development guide section that suits your needs:
     
 ## Step 4. Configure Load Balance (Optional)
 
-Sticky session can be set up by providing load balance configuration in your routes-configuration file. It is implemented by configuring envoy to use [Ring hash](https://www.envoyproxy.io/docs/envoy/v1.13.0/intro/arch_overview/upstream/load_balancing/load_balancers#ring-hash) algorithm based on [Consistent hash](https://medium.com/@dgryski/consistent-hashing-algorithmic-tradeoffs-ef6b8e2fcae8) ([wiki](https://en.wikipedia.org/wiki/Consistent_hashing)).
+Sticky session can be set up by providing load balance configuration in your routes-configuration file. It is implemented by configuring envoy to use [Ring hash](https://www.envoyproxy.io/docs/envoy/v1.13.0/intro/arch_overview/upstream/load_balancing/load_balancers#ring-hash) algorithm based on [Consistent Hashing](https://en.wikipedia.org/wiki/Consistent_hashing).
 
 Consistent hash provides guaranties that balancing model is the same for equal settings of hashing, so you need to set up hashing policies for each cluster that needs to support sticky session. 
 

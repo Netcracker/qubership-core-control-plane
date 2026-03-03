@@ -90,7 +90,7 @@ The role of routing table is to define a microservice, that will serve a particu
 Version is provided in “x-version” header.  
 Routing table has version by default - it will be used when no version is specified, or when no version is found.
 
-![routing_table](/docs/img/routing_table.png)
+![routing_table](../../img/routing_table.png)
 
 A very simplified representation of routing table contains the following columns:
 * **Target URL**. Route published on gateway. There could be several routes at a time, and `/` wildcard is used to register any possible route of target microservice.
