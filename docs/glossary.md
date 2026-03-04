@@ -3,7 +3,7 @@ This Glossary explains the Control Plane basic terms.
 ## [Version](#version)
 
 Version is a characteristic/label of an application bundle. It is not the same version which was set by Builder. This characteristic binds to a bundle by the Deployment Job, and only you can use the job in blue-green Deployment mode.
-Version in source code is represented by [DeploymentVersion](/api/definitions.adoc#_deploymentversion).
+Version in source code is represented by [DeploymentVersion](./api/control-plane-api.md#deploymentversion).
 Version can be of several stages: [Active](#active), [Candidate](#candidate), [Legacy](#legacy), [Archived](#archived). Depending on a stage, gateways and facades perform different routing strategies. Example of version values: 'v1', 'v2', 'v3', etc.
 
 ## [Active](#active)

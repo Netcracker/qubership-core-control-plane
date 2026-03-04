@@ -4,7 +4,7 @@ Service Mesh is a means to manage communications between microservices. In a com
 <li>First of all, you cannot change the call destination, replacing microservice B with any other microservice (for example, split microservice B on two microservices and split API between them)</li>
 <li>You cannot make any measurement/flow control &ndash; throttling, circuit breaker, security check etc.&nbsp;&nbsp;</li></ul>
 
-![Communication Cases](/docs/images/image2020-2-11-18-22-18.png)
+![Communication Cases](../images/image2020-2-11-18-22-18.png)
 
 <p style="text-align: left;">Service Mesh introduces such a manageable smart mediator between microservices &ndash; a Gateway. By Gateway you can decouple microservices from their communication rules and control traffic between microservices.</p><ac:structured-macro ac:name="info" ac:schema-version="1" ac:macro-id="56769a29-bab6-4244-b4d3-f218cf77c1a7"><ac:parameter ac:name="title" /><ac:rich-text-body>
 <p>Note that NC implementation of service mesh differs from canonical approach. In the industry, service mesh is implemented via Sidecars, that intercepts traffic between microservices on network layer and you cannot make a call between microservices bypassing the gateway. In Cloud Core we use a lite approach &ndash; Gateway is a common microservice and, technically, it does not prohibit microservice-to-microservice communication.</p></ac:rich-text-body></ac:structured-macro><ac:structured-macro ac:name="info" ac:schema-version="1" ac:macro-id="581ad46c-f6a3-427a-b04c-a9a6fa4a6ab7"><ac:rich-text-body>
@@ -17,7 +17,7 @@ Service Mesh is a means to manage communications between microservices. In a com
 <li><strong>Traffic control.</strong> <span>&nbsp;</span>Gateway collects traffic metrics, can act as a circuit breaker (with the request retry), and can perform throttling.<span>&nbsp;</span> <u> <span style="color: rgb(0,51,102);">This functionality is available in gateway framework, but not yet implemented in Cloud Core.</span></u></li></ul>
 <p style="text-align: left;">In general, the solution will contain several Gateways at a time, and communication will be performed as shown on a picture below.</p>
 
-![Solution Gateways](/docs/images/gateway-roles.png)
+![Solution Gateways](../images/gateway-roles.png)
 
 <p style="text-align: left;"><span>Despite of all gateways using the same source code (docker image), several roles of a gateway exist:</span></p>
 <ul style="text-align: left;">
