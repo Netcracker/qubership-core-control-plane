@@ -38,6 +38,6 @@ jobs:
       maven-command: 'deploy'
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref }}
-      skip-docker: 'true'
+      skip-docker: true
     secrets: inherit
 

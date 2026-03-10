@@ -29,6 +29,6 @@ jobs:
       pom-file: 'httproute-generator/pom.xml'
       maven-command: 'verify'
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
-      skip-docker: 'true'
+      skip-docker: true
     secrets: inherit
 
