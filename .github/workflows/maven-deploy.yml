@@ -34,6 +34,7 @@ jobs:
     name: Maven deploy
     uses: Netcracker/qubership-core-infra/.github/workflows/generic-maven-build.yaml@v2.1.0
     with:
+      pom-file: 'httproute-generator/pom.xml'
       maven-command: 'deploy'
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref }}
