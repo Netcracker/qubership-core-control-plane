@@ -1,6 +1,6 @@
 package domain
 
-import "github.com/puzpuzpuz/xsync/v3"
+import "github.com/puzpuzpuz/xsync/v4"
 
 var (
 	runtimeIdByNameGen = newRuntimeIdByNameGenerator()
