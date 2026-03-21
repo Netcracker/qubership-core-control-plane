@@ -1,12 +1,12 @@
 module trace-service/trace-service
 
-go 1.25.7
+go 1.26.1
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.11
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.4.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.7.1
 	github.com/pkg/errors v0.9.1
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
