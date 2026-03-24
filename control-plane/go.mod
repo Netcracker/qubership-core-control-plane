@@ -1,13 +1,13 @@
 module github.com/netcracker/qubership-core-control-plane/control-plane/v2
 
-go 1.25.7
+go 1.26.1
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/envoyproxy/go-control-plane v0.14.0
-	github.com/envoyproxy/go-control-plane/envoy v1.36.0
+	github.com/envoyproxy/go-control-plane/envoy v1.37.0
 	github.com/fasthttp/websocket v1.5.12
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-errors/errors v1.5.1
@@ -22,9 +22,9 @@ require (
 	github.com/hashicorp/memberlist v0.5.4
 	github.com/hashicorp/serf v0.10.2
 	github.com/jackc/pgconn v1.14.3
-	github.com/jackc/pgx/v5 v5.8.0
+	github.com/jackc/pgx/v5 v5.9.1
 	github.com/jellydator/ttlcache/v3 v3.4.0
-	github.com/lib/pq v1.11.1
+	github.com/lib/pq v1.12.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mustafaturan/bus/v3 v3.0.3
 	github.com/mustafaturan/monoton/v3 v3.0.0
