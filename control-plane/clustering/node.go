@@ -77,7 +77,7 @@ func (n *Node) JoinMembersNetwork(record NodeInfo, role Role) error {
 	if role == Slave && len(n.serf.Members()) <= 1 {
 		_, err := n.serf.Join([]string{record.SWIMAddress()}, false)
 		if err != nil {
-			log.Errorf("Join members network failed", err)
+			log.Errorf("Join members network failed: %v", err)
 			return errors.Wrapf(err, "Join members network failed")
 		}
 	}
@@ -110,16 +110,16 @@ type logFilterWriter struct {
 func (l logFilterWriter) Write(p []byte) (n int, err error) {
 	msg := string(p)
 	if strings.Contains(msg, "[ERR]") {
-		l.logger.Error(msg)
+		l.logger.Error("%s", msg)
 		return -1, nil
 	} else if strings.Contains(msg, "[WARN]") {
-		l.logger.Warn(msg)
+		l.logger.Warn("%s", msg)
 		return -1, nil
 	} else if strings.Contains(msg, "[DEBUG]") {
-		l.logger.Debug(msg)
+		l.logger.Debug("%s", msg)
 		return -1, nil
 	} else {
-		l.logger.Info(msg)
+		l.logger.Info("%s", msg)
 		return -1, nil
 	}
 }

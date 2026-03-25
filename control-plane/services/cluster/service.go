@@ -143,7 +143,7 @@ func (s *Service) AddClusterDaoProvided(ctx context.Context, dao dao.Repository,
 
 		version, err := s.entityService.GetActiveDeploymentVersion(dao)
 		if err != nil {
-			logger.ErrorC(ctx, "can not get active deployment version: %v", e, err)
+			logger.ErrorC(ctx, "can not get active deployment version for endpoint %v: %v", e, err)
 			return err
 		}
 		initVersion, deployVersion, err := registration.ResolveVersions(s.dao, cluster.Name, "", version.Version)

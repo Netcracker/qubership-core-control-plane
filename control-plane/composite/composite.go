@@ -124,7 +124,7 @@ func (srv *Service) registerInBaselineWithRetry(timeout time.Duration) error {
 		response, err := rest.Client.DoRetryRequest(context.Background(), http.MethodPost, reqUrl, nil, log)
 		if err != nil {
 			err = errors.New(fmt.Sprintf("failed to register this namespace in composite with baseline %s: %v", srv.coreBaseNamespace, err))
-			log.Errorf(err.Error())
+			log.Errorf("%s", err.Error())
 			clustering.AppendFatal(err)
 		} else if response.StatusCode() == fasthttp.StatusOK || response.StatusCode() == fasthttp.StatusCreated {
 			log.Infof("Successfully registered this namespace in composite with baseline %s", srv.coreBaseNamespace)
@@ -132,7 +132,7 @@ func (srv *Service) registerInBaselineWithRetry(timeout time.Duration) error {
 			return nil
 		} else {
 			err := errors.New(fmt.Sprintf("unexpected response code when registering this namespace in composite with baseline %s: %v", srv.coreBaseNamespace, response.StatusCode()))
-			log.Errorf(err.Error())
+			log.Errorf("%s", err.Error())
 			fasthttp.ReleaseResponse(response)
 			clustering.AppendFatal(err)
 		}
@@ -183,7 +183,7 @@ func (srv *Service) syncDefaultTenant(context context.Context) error {
 	response, err := rest.Client.DoRequest(context, http.MethodPost, reqUrl, nil, log)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("failed to synchronize default tenant: %v", err))
-		log.ErrorC(context, err.Error())
+		log.ErrorC(context, "%s", err.Error())
 		return err
 	} else if response.StatusCode() == fasthttp.StatusOK {
 		log.InfoC(context, "Default tenant synchronized successfully.")

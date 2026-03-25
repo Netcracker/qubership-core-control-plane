@@ -104,7 +104,7 @@ func DoRetryRequest(logContext context.Context, method string, url string, data 
 		response, err := DoRequest(logContext, method, url, data, logger)
 		if err != nil {
 			errMsg = fmt.Sprintf("Retrying request %s %s after error:  %s", method, url, err)
-			logger.WarnC(logContext, errMsg)
+			logger.WarnC(logContext, "%s", errMsg)
 			continue
 		} else {
 			return response, nil
@@ -119,7 +119,7 @@ func DoRequest(logContext context.Context, method string, url string, data []byt
 	if err != nil {
 		fasthttp.ReleaseRequest(req)
 		errMsg = fmt.Sprintf("Secure %s request handler to %s failed with error: %s", method, url, err)
-		logger.WarnC(logContext, errMsg)
+		logger.WarnC(logContext, "%s", errMsg)
 		return nil, errors.New(errMsg)
 	}
 
@@ -128,12 +128,12 @@ func DoRequest(logContext context.Context, method string, url string, data []byt
 	fasthttp.ReleaseRequest(req)
 	if err != nil {
 		errMsg = fmt.Sprintf("Secure %s request to %s failed with error: %s", method, url, err)
-		logger.WarnC(logContext, errMsg)
+		logger.WarnC(logContext, "%s", errMsg)
 		fasthttp.ReleaseResponse(response)
 		return nil, errors.New(errMsg)
 	}
 	if response.StatusCode() >= fasthttp.StatusInternalServerError {
-		logger.WarnC(logContext, "Secure %s request to %s failed with 5xx http status code: %s", method, url, response.StatusCode())
+		logger.WarnC(logContext, "Secure %s request to %s failed with 5xx http status code: %d", method, url, response.StatusCode())
 		fasthttp.ReleaseResponse(response)
 		return nil, errors.New(errMsg)
 	} else {

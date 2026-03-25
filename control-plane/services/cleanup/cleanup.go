@@ -198,7 +198,7 @@ func (l localDevCleanupService) updateEnvoyConfig(nodeGroups []*domain.NodeGroup
 	for _, nodeGroup := range nodeGroups {
 		event := events.NewChangeEventByNodeGroup(nodeGroup.Name, dbChanges)
 		if err := l.eventBus.Publish(bus.TopicChanges, event); err != nil {
-			logger.Errorf("Cannot update %s nodeGroup at localDev cleanup. Do not update other nodeGroups")
+			logger.Errorf("Cannot update %s nodeGroup at localDev cleanup. Do not update other nodeGroups", nodeGroup.Name)
 			return fmt.Errorf("failed to publish changes for %s nodeGroup after localDev cleanup: %w", nodeGroup.Name, err)
 		}
 	}

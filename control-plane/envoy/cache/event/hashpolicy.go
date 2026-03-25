@@ -61,7 +61,7 @@ func (parser *changeEventParserImpl) updateEndpointHashPolicy(actions action.Act
 func (builder *compositeUpdateBuilder) updateRoute(routeId int32) {
 	route, err := builder.repo.FindRouteById(routeId)
 	if err != nil {
-		logger.Panicf("Failed to load route by id using DAO: %v")
+		logger.Panicf("Failed to load route by id using DAO: %v", err)
 	}
 	if route != nil { // if nil, route is deleted and its deletion is processed by domain.Route change event
 		builder.updateVirtualHost(route.VirtualHostId)

@@ -149,7 +149,7 @@ func testMigration(assert *asrt.Assertions, databaseName string, fail bool) {
 		migrationsWithFail := createTestMigrations(true)
 		if err := instance.Migrate(ctx, db, migrationsWithFail); err != nil {
 			if value, ok := err.(*gerrors.Error); ok {
-				logTest.Error(value.ErrorStack())
+				logTest.Error("%s", value.ErrorStack())
 			} else {
 				logTest.Errorf("constancy#Migrate failed with unexpected error: %v", err)
 			}
@@ -163,7 +163,7 @@ func testMigration(assert *asrt.Assertions, databaseName string, fail bool) {
 
 	if err := instance.Migrate(ctx, db, migrationsWithoutFail); err != nil {
 		if value, ok := err.(*gerrors.Error); ok {
-			logTest.Error(value.ErrorStack())
+			logTest.Error("%s", value.ErrorStack())
 		} else {
 			logTest.Errorf("constancy#Migrate failed with unexpected error: %v", err)
 		}

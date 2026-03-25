@@ -109,7 +109,7 @@ func (l *postgresListener) Close() {
 	}
 	if l.db != nil {
 		if err := l.db.Close; err != nil {
-			log.Warnf("Error in closing pg DB: %v", l.channel, err)
+			log.Warnf("Error in closing pg DB on channel %s: %v", l.channel, err)
 		}
 	}
 }

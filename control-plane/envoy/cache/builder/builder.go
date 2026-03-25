@@ -108,7 +108,7 @@ func (ecb *EnvoyConfigBuilderImpl) RegisterGateway(gateway *domain.NodeGroup) er
 		return nil
 	default:
 		msg := fmt.Sprintf("builder: unknown gateway type %s passed to register in EnvoyConfigBuilder", gateway.GatewayType)
-		logger.Errorf(msg)
+		logger.Errorf("%s", msg)
 		return errors.New(msg)
 	}
 }

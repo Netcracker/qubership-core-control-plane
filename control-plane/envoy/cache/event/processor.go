@@ -97,7 +97,7 @@ func (versionsMap nodeGroupEntityVersions) getVersion(nodeGroup string, envoyEnt
 			return version
 		}
 	}
-	logger.Debugf("Version for %s in nodeGroup %s is not specified, so this entity will not be updated in %s", envoyEntity, nodeGroup, nodeGroup)
+	logger.Debugf("Version for %v in nodeGroup %s is not specified, so this entity will not be updated in %s", envoyEntity, nodeGroup, nodeGroup)
 	return ""
 }
 

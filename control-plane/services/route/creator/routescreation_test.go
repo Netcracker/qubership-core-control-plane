@@ -128,7 +128,7 @@ func TestRouteWithRegexp(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, routes)
 	for _, route := range routes {
-		logger.Infof(route.RouteKey)
+		logger.Infof("%s", route.RouteKey)
 		assert.NotEmpty(t, route.Regexp)
 		assert.Empty(t, route.Prefix)
 		assert.True(t, strings.Contains(route.Regexp, "*"))

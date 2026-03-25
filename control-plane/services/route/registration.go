@@ -70,7 +70,7 @@ func (s *RegistrationService) RegisterRoutes(ctx context.Context, dao dao.Reposi
 			logger.Errorf("Failed to load or save nodeGroup %v to in memory storage: %v", newNodeGroup.Name, err)
 			return err
 		} else {
-			logger.DebugC(ctx, "Saved %s", newNodeGroup)
+			logger.DebugC(ctx, "Saved %v", newNodeGroup)
 		}
 	}
 
@@ -346,7 +346,7 @@ func validateWithDomainProducer(ctx context.Context, existsDomainsProducer func(
 	for endpoint := range endpoints {
 		if _, found := domains[endpoint]; found {
 			msg := fmt.Sprintf("Found loop in request data. Virtual host handle requests with Host: %s and has route with destination: %s at the same time", endpoint, endpoint)
-			logger.WarnC(ctx, msg)
+			logger.WarnC(ctx, "%s", msg)
 			return false, msg, nil
 		}
 	}
@@ -360,7 +360,7 @@ func validateWithDomainProducer(ctx context.Context, existsDomainsProducer func(
 	for endpoint := range endpoints {
 		if _, found := domains[endpoint]; found {
 			msg := fmt.Sprintf("Found loop in configuration data. Virtual host handle requests with Host: %s and has route with destination: %s at the same time", endpoint, endpoint)
-			logger.WarnC(ctx, msg)
+			logger.WarnC(ctx, "%s", msg)
 			return false, msg, nil
 		}
 	}
@@ -455,7 +455,7 @@ func (c RegistrationServiceContext) DeleteRoutes(nodeGroup, reqNamespace, reqVer
 		if err != nil {
 			return nil, err
 		}
-		logger.Debugf("v hosts for route config with id %s: %+v", routeConfig.Id, vHosts)
+		logger.Debugf("v hosts for route config with id %d: %+v", routeConfig.Id, vHosts)
 		for _, vHost := range vHosts {
 			deletedRoutes, err := c.DeleteRoutesByRawPrefixNamespaceVersion(vHost.Id, reqNamespace, reqVersion, rawPrefixes...)
 			if err != nil {

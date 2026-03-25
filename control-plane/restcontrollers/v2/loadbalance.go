@@ -54,7 +54,7 @@ func (c *LoadBalanceController) HandlePostLoadBalance(fiberCtx *fiber.Ctx) error
 
 	isDataValid, msg := c.validator.Validate(*data)
 	if !isDataValid {
-		logger.Error(msg)
+		logger.Error("%s", msg)
 		return restutils.RespondWithError(fiberCtx, http.StatusBadRequest, fmt.Sprintf("Error processing request body: %s", msg))
 	}
 

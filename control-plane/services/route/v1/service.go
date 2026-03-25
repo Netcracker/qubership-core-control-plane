@@ -90,7 +90,7 @@ func (s *Service) RegisterRoutes(ctx context.Context, nodeGroup string, routeReq
 	event := events.NewChangeEventByNodeGroup(nodeGroup, changes)
 	err = s.eventBus.Publish(bus.TopicChanges, event)
 	if err != nil {
-		logger.ErrorC(ctx, "Can't publish changes to eventBus for node group: \n %v", nodeGroup, err)
+		logger.ErrorC(ctx, "Can't publish changes to eventBus for node group %s: \n %v", nodeGroup, err)
 		return err
 	}
 	return nil
@@ -112,7 +112,7 @@ func (s *Service) DeleteCluster(clusterId int32) error {
 		return err
 	}
 	if cluster == nil {
-		logger.Errorf("Cluster does not exist for passed clusterId %v: %v", clusterId)
+		logger.Errorf("Cluster does not exist for passed clusterId %v", clusterId)
 		return ErrNoClusterExist
 	}
 	nodeGroups, err := s.storage.FindNodeGroupsByCluster(cluster)

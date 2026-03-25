@@ -228,7 +228,7 @@ func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
 
 	if err := instance.Migrate(ctx, db, migrations); err != nil {
 		if value, ok := err.(*gerrors.Error); ok {
-			log.ErrorC(ctx, value.ErrorStack())
+			log.ErrorC(ctx, "%s", value.ErrorStack())
 		} else {
 			log.ErrorC(ctx, "constancy#Migrate failed with unexpected error: %v", err)
 		}

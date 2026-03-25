@@ -83,7 +83,7 @@ func (v2 *BlueGreenController) HandleDeleteDeploymentVersionWithID(fiberCtx *fib
 	}
 	if deploymentVersion.Stage == domain.ActiveStage {
 		errorMsg := fmt.Sprintf("Deleting active deployment version %s is forbidden", version)
-		logger.ErrorC(ctx, errorMsg)
+		logger.ErrorC(ctx, "%s", errorMsg)
 		return restutils.RespondWithError(fiberCtx, http.StatusForbidden, errorMsg)
 	}
 	if dr.GetMode() == dr.Standby {

@@ -166,7 +166,7 @@ func (action *ListenerDeleteAction) Perform(original *cache.Snapshot) (*cache.Sn
 		var err error
 		original, err = NewGenericDeleteAction(action.listener.Name+"-tls", resource.ListenerType).Perform(original)
 		if err != nil {
-			logger.Errorf("Could not delete tls version of listener %s from envoy:\n %v", err)
+			logger.Errorf("Could not delete tls version of listener %s from envoy:\n %v", action.listener.Name, err)
 			return nil, err
 		}
 	}

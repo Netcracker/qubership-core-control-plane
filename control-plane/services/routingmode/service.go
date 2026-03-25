@@ -55,7 +55,7 @@ func (s *Service) UpdateRouteModeDetails() *Summary {
 
 	summary := &Summary{RouteKeys: make([]string, 0)}
 
-	logger.Debugf("namespacedCount=%s, versionedCount=%s", namespacedCount, versionedCount)
+	logger.Debugf("namespacedCount=%d, versionedCount=%d", namespacedCount, versionedCount)
 	if namespacedCount+versionedCount == 0 {
 		summary.RoutingMode = SIMPLE
 	} else if versionedCount > 0 && namespacedCount > 0 {

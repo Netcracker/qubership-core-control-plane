@@ -451,7 +451,6 @@ spec:
 	}
 }
 
-
 func Test_IT_LoadBalance_TCP_Connection_Idle_Timeout(t *testing.T) {
 	skipTestIfDockerDisabled(t)
 	assert := asrt.New(t)
@@ -478,7 +477,7 @@ spec:
     - http://test-service:8080
   connectionIdleTimeout: 10`)
 
-	runRequestsHttpConnectionTest(assert, 15 * time.Second)
+	runRequestsHttpConnectionTest(assert, 15*time.Second)
 
 	// cleanup
 	clusters, err := lib.GenericDao.FindAllClusters()
@@ -491,39 +490,39 @@ spec:
 }
 
 func runRequestsHttpConnectionTest(assert *asrt.Assertions, waitDuration time.Duration) {
-    url := internalGateway.Url+"/api/v1/test-service/lb-test"
-    doRequest := func() (connectionID string, err error) {
-        var connID string
-        req, _ := http.NewRequest("GET", url, nil)
+	url := internalGateway.Url + "/api/v1/test-service/lb-test"
+	doRequest := func() (connectionID string, err error) {
+		var connID string
+		req, _ := http.NewRequest("GET", url, nil)
 
-        trace := &httptrace.ClientTrace{
-            GotConn: func(info httptrace.GotConnInfo) {
-                connID = fmt.Sprintf("%p", info.Conn)
-            },
-        }
-        req = req.WithContext(httptrace.WithClientTrace(context.Background(), trace))
-        resp, err := http.DefaultClient.Do(req)
-        if err != nil {
-            return "", err
-        }
-        defer resp.Body.Close()
+		trace := &httptrace.ClientTrace{
+			GotConn: func(info httptrace.GotConnInfo) {
+				connID = fmt.Sprintf("%p", info.Conn)
+			},
+		}
+		req = req.WithContext(httptrace.WithClientTrace(context.Background(), trace))
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
 
-        return connID, nil
-    }
+		return connID, nil
+	}
 
-    connID1, err := doRequest()
-    if err != nil {
-        log.Info("First request error:", err)
-        return
-    }
+	connID1, err := doRequest()
+	if err != nil {
+		log.Info("First request error: %v", err)
+		return
+	}
 
-    time.Sleep(waitDuration)
+	time.Sleep(waitDuration)
 
-    connID2, err := doRequest()
-    if err != nil {
-        fmt.Println("Second request error:", err)
-        return
-    }
+	connID2, err := doRequest()
+	if err != nil {
+		fmt.Println("Second request error:", err)
+		return
+	}
 
-	assert.NotEqual(connID1, connID2)	
+	assert.NotEqual(connID1, connID2)
 }

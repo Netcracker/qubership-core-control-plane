@@ -736,7 +736,7 @@ func (s *ActiveDCsServiceImpl) deleteActiveDCsConfig(ctx context.Context, routeC
 			}
 			if activeActiveRouteUuid != "" {
 				if err := dao.DeleteRouteByUUID(activeActiveRouteUuid); err != nil {
-					log.Errorf("Failed to delete active-active balancing route with uuid %d, err: %v", activeActiveRouteUuid, err)
+					log.Errorf("Failed to delete active-active balancing route with uuid %s, err: %v", activeActiveRouteUuid, err)
 					return err
 				}
 			}

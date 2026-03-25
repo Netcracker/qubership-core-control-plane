@@ -82,7 +82,7 @@ func (c *V3ApiController) HandleGetRoutes(fiberCtx *fiber.Ctx) error {
 
 	page, err := c.service.GetRoutesPage(ctx, params)
 	if err != nil {
-		log.ErrorC(ctx, "Failed to make routes page with params '%+v' caused error: %v", err)
+		log.ErrorC(ctx, "Failed to make routes page with params '%+v' caused error: %v", params, err)
 		return err
 	}
 

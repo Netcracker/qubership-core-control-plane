@@ -21,9 +21,9 @@ type CpErrCodeError struct {
 
 func (e CpErrCodeError) Handle(ctx *fiber.Ctx) error {
 	if e.printStackTrace {
-		logger.ErrorC(ctx.UserContext(), errs.ToLogFormat(e))
+		logger.ErrorC(ctx.UserContext(), "%s", errs.ToLogFormat(e))
 	} else {
-		logger.ErrorC(ctx.UserContext(), errs.ToLogFormatWithoutStackTrace(e))
+		logger.ErrorC(ctx.UserContext(), "%s", errs.ToLogFormatWithoutStackTrace(e))
 	}
 	response := tmf.ErrToResponse(e, e.GetHttpCode())
 	return ctx.Status(e.GetHttpCode()).JSON(response)

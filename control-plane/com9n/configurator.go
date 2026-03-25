@@ -58,7 +58,7 @@ func (c *Configurator) SetUpNodesCommunication(info clustering.NodeInfo, role cl
 		}
 		err := c.receiver.StartReceiving(info.BusAddress())
 		if err != nil {
-			log.Errorf("Can't start receiver. Nodes communication is broken", err)
+			log.Errorf("Can't start receiver. Nodes communication is broken: %v", err)
 			return errors.Wrapf(err, "Can't start receiver. Nodes communication is broken")
 		}
 	case clustering.Master:
@@ -71,7 +71,7 @@ func (c *Configurator) SetUpNodesCommunication(info clustering.NodeInfo, role cl
 		if !c.sender.IsStarted() {
 			err := c.sender.StartSending(info)
 			if err != nil {
-				log.Errorf("Can't start sender. Nodes communication is broken", err)
+				log.Errorf("Can't start sender. Nodes communication is broken: %v", err)
 				return errors.Wrapf(err, "Can't start sender. Nodes communication is broken")
 			}
 		}

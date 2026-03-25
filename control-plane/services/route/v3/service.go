@@ -123,7 +123,7 @@ func (s *Service) RegisterRoutingConfig(ctx context.Context, regRequest dto.Rout
 		event := events.NewChangeEventByNodeGroup(gateway, changes)
 		err = s.bus.Publish(bus.TopicChanges, event)
 		if err != nil {
-			logger.ErrorC(ctx, "Can't publish changes to eventBus for node group: \n %v", gateway, err)
+			logger.ErrorC(ctx, "Can't publish changes to eventBus for node group %s: \n %v", gateway, err)
 			return err
 		}
 	}
@@ -176,7 +176,7 @@ func (s *Service) DeleteVirtualService(ctx context.Context, nodeGroup, virtualSe
 	})
 
 	if err != nil {
-		logger.ErrorC(ctx, "Error deleting virtual service %s for node group %s %+v: \n %v", virtualService, nodeGroup, err)
+		logger.ErrorC(ctx, "Error deleting virtual service %s for node group %s: %+v", virtualService, nodeGroup, err)
 		return err
 	}
 
@@ -184,7 +184,7 @@ func (s *Service) DeleteVirtualService(ctx context.Context, nodeGroup, virtualSe
 	event := events.NewChangeEventByNodeGroup(nodeGroup, changes)
 	err = s.bus.Publish(bus.TopicChanges, event)
 	if err != nil {
-		logger.ErrorC(ctx, "Can't publish changes to eventBus for node group: \n %v", nodeGroup, err)
+		logger.ErrorC(ctx, "Can't publish changes to eventBus for node group %s: \n %v", nodeGroup, err)
 		return err
 	}
 	return nil
@@ -247,7 +247,7 @@ func (s *Service) UpdateVirtualService(ctx context.Context, nodeGroup, virtualSe
 	})
 
 	if err != nil {
-		logger.ErrorC(ctx, "Error updating virtual service %s for node group %s %+v: \n %v", virtualServiceName, nodeGroup, err)
+		logger.ErrorC(ctx, "Error updating virtual service %s for node group %s: %+v", virtualServiceName, nodeGroup, err)
 		return err
 	}
 
@@ -255,7 +255,7 @@ func (s *Service) UpdateVirtualService(ctx context.Context, nodeGroup, virtualSe
 	event := events.NewChangeEventByNodeGroup(nodeGroup, changes)
 	err = s.bus.Publish(bus.TopicChanges, event)
 	if err != nil {
-		logger.ErrorC(ctx, "Can't publish changes to eventBus for node group: \n %v", nodeGroup, err)
+		logger.ErrorC(ctx, "Can't publish changes to eventBus for node group %s: \n %v", nodeGroup, err)
 		return err
 	}
 	return nil
@@ -315,7 +315,7 @@ func (s *Service) CreateVirtualService(ctx context.Context, nodeGroup string, vi
 	event := events.NewChangeEventByNodeGroup(nodeGroup, changes)
 	err = s.bus.Publish(bus.TopicChanges, event)
 	if err != nil {
-		logger.ErrorC(ctx, "Can't publish changes to eventBus for node group: \n %v", nodeGroup, err)
+		logger.ErrorC(ctx, "Can't publish changes to eventBus for node group %s: \n %v", nodeGroup, err)
 		return err
 	}
 	return nil
@@ -570,7 +570,7 @@ func (s *Service) DeleteRouteByUUID(ctx context.Context, routeUUID string) (*dom
 		}
 		if routesToDelete == nil || len(routesToDelete) != 1 {
 			err = &services.RouteUUIDMatchError{Err: fmt.Errorf("route does not exist or more than one route matches uuid: %s", routeUUID)}
-			logger.Errorf(err.Error())
+			logger.Errorf("%s", err.Error())
 			return nil, err
 		}
 		routeToDelete := routesToDelete[0]

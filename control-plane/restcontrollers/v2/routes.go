@@ -103,7 +103,7 @@ func (c *RoutesController) HandlePostRoutesWithNodeGroup(fiberCtx *fiber.Ctx) er
 	}
 	isDataValid, msg := c.validator.Validate(data, nodeGroup)
 	if !isDataValid {
-		logger.ErrorC(ctx, msg)
+		logger.ErrorC(ctx, "%s", msg)
 		return restutils.RespondWithError(fiberCtx, http.StatusBadRequest, msg)
 	}
 
@@ -150,7 +150,7 @@ func (c *RoutesController) HandleDeleteRoutesWithNodeGroup(fiberCtx *fiber.Ctx) 
 	var reqBody []dto.RouteDeleteRequest
 	err := json.Unmarshal(fiberCtx.Body(), &reqBody)
 	if err != nil {
-		logger.Errorf("Error occurred during unmarshalling request: %w", err)
+		logger.Errorf("Error occurred during unmarshalling request: %v", err)
 		return restutils.RespondWithError(fiberCtx, http.StatusBadRequest, fmt.Sprintf("Invalid request payload: %v", err))
 	}
 	var deletedRoutes []*domain.Route
@@ -167,7 +167,7 @@ func (c *RoutesController) HandleDeleteRoutesWithNodeGroup(fiberCtx *fiber.Ctx) 
 		deleted, err := c.service.DeleteRoutes(ctx, nodeGroup, delReq.Namespace, delReq.Version, deleteCriteria...)
 		deletedRoutes = append(deletedRoutes, deleted...)
 		if err != nil {
-			logger.Errorf("Error occurred during deleting routes: %w", err)
+			logger.Errorf("Error occurred during deleting routes: %v", err)
 			return restutils.RespondWithError(fiberCtx, http.StatusInternalServerError, err.Error())
 		}
 	}

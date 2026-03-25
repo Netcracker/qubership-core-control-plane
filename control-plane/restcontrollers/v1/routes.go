@@ -66,12 +66,12 @@ func (c *Controller) HandlePostRoutesWithNodeGroup(fiberCtx *fiber.Ctx) error {
 
 	if len(*data.Routes) == 0 {
 		msg := "Array of routes is empty"
-		logger.Error(msg)
+		logger.Error("%s", msg)
 		return restutils.RespondWithError(fiberCtx, http.StatusBadRequest, msg)
 	}
 	isDataValid, msg := c.validator.Validate(data, nodeGroupParam)
 	if !isDataValid {
-		logger.Error(msg)
+		logger.Error("%s", msg)
 		return restutils.RespondWithError(fiberCtx, http.StatusBadRequest, msg)
 	}
 	if dr.GetMode() == dr.Standby {

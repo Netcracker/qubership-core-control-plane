@@ -33,7 +33,7 @@ func (c *TlsController) HandleCetrificateDetails(fiberCtx *fiber.Ctx) error {
 		return restutils.ResponseOk(fiberCtx, response)
 	} else {
 		msg := fmt.Sprintf("Can't validate certificates: %v.", err)
-		logger.ErrorC(ctx, msg)
+		logger.ErrorC(ctx, "%s", msg)
 		return restutils.RespondWithError(fiberCtx, http.StatusInternalServerError, msg)
 	}
 }

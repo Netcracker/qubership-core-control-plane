@@ -86,7 +86,7 @@ func tuneConnAndReturnCancelFunc(ctx context.Context, conn *websocket.Conn, watc
 		cancelContext()
 		err := conn.Close()
 		if err != nil {
-			log.ErrorC(ctx, "Error In closing resource", err)
+			log.ErrorC(ctx, "Error In closing resource: %v", err)
 		}
 	}
 }

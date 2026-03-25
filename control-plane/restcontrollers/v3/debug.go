@@ -41,7 +41,7 @@ func (c *DebugController) HandleGetDump(fiberCtx *fiber.Ctx) error {
 		return restutils.RespondWithJson(fiberCtx, 200, snapshot)
 	} else {
 		msg := fmt.Sprintf("Can't take dump of in-memory data: %v.", err)
-		log.ErrorC(ctx, msg)
+		log.ErrorC(ctx, "%s", msg)
 		return restutils.RespondWithError(fiberCtx, http.StatusInternalServerError, msg)
 	}
 }
@@ -64,7 +64,7 @@ func (c *DebugController) HandleGetMeshDump(fiberCtx *fiber.Ctx) error {
 
 	if err != nil {
 		msg := fmt.Sprintf("Can't take dump of in-memory data: %v.", err)
-		log.ErrorC(ctx, msg)
+		log.ErrorC(ctx, "%s", msg)
 		return restutils.RespondWithError(fiberCtx, http.StatusInternalServerError, msg)
 	}
 
@@ -91,7 +91,7 @@ func (c *DebugController) HandleGetConfigValidation(fiberCtx *fiber.Ctx) error {
 	problem, err := c.service.ValidateConfig()
 	if err != nil {
 		msg := fmt.Sprintf("Can't validate config: %v.", err)
-		log.ErrorC(ctx, msg)
+		log.ErrorC(ctx, "%s", msg)
 		return restutils.RespondWithError(fiberCtx, http.StatusInternalServerError, msg)
 	}
 	return restutils.RespondWithJson(fiberCtx, 200, problem)

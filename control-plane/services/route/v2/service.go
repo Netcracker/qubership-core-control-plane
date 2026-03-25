@@ -148,7 +148,7 @@ func (s *Service) DeleteRouteByUUID(ctx context.Context, routeUUID string) (*dom
 		}
 		if routesToDelete == nil || len(routesToDelete) != 1 {
 			err = &services.RouteUUIDMatchError{Err: fmt.Errorf("route does not exist or more than one route matches uuid: %s", routeUUID)}
-			logger.ErrorC(ctx, err.Error())
+			logger.ErrorC(ctx, "%s", err.Error())
 			return nil, err
 		}
 		routeToDelete := routesToDelete[0]

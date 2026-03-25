@@ -179,7 +179,7 @@ func (s *Service) AddWasmFilter(ctx context.Context, nodeGroupId string, filters
 		listeners, err := dao.FindListenersByNodeGroupId(nodeGroupId)
 		if err != nil || len(listeners) == 0 {
 			errMsg := fmt.Sprintf("can not find listener with nodeGroupId=%s", nodeGroupId)
-			logger.ErrorC(ctx, errMsg)
+			logger.ErrorC(ctx, "%s", errMsg)
 			if err == nil {
 				err = errors.New(errMsg)
 			}
@@ -351,7 +351,7 @@ func (s *Service) DeleteLuaFilter(ctx context.Context, nodeGroupId string, filte
 			if err != nil {
 				return err
 			}
-	    }
+		}
 		return nil
 	})
 	if err != nil || len(changes) == 0 {
