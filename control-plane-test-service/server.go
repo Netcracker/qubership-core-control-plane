@@ -89,7 +89,7 @@ func main() {
 	}
 
 	logger.Info("Start https server on %s", httpsBind)
-	logger.Panic("can not start server: ", server.ListenAndServeTLS("localhost.crt", "localhost.key"))
+	logger.Panic("can not start server: %v", server.ListenAndServeTLS("localhost.crt", "localhost.key"))
 }
 
 func getEcdhCurves() []tls.CurveID {
