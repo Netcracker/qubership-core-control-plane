@@ -1,11 +1,11 @@
-FROM golang:1.26 AS build
+FROM --platform=$BUILDPLATFORM golang:1.26 AS build
 
 WORKDIR /app
 
 COPY control-plane/ .
 
 RUN go mod download
-RUN go build -o control-plane .
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o control-plane .
 
 FROM ghcr.io/netcracker/qubership-core-base:2.2.6 AS run
 
