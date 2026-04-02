@@ -24,18 +24,18 @@ require (
 	github.com/jackc/pgconn v1.14.3
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/jellydator/ttlcache/v3 v3.4.0
-	github.com/lib/pq v1.12.0
+	github.com/lib/pq v1.12.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mustafaturan/bus/v3 v3.0.3
 	github.com/mustafaturan/monoton/v3 v3.0.0
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.5.3
-	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.3.3
-	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.3.3
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.4.1
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.5.3
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.4.3
-	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.4.3
-	github.com/netcracker/qubership-core-lib-go/v3 v3.7.2
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.5.4
+	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.3.4
+	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.3.4
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.4.2
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.5.4
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.4.4
+	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.4.4
+	github.com/netcracker/qubership-core-lib-go/v3 v3.7.3
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
