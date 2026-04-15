@@ -1,5 +1,5 @@
 # Service Mesh Migration Guide
-**Cloud-Core Mesh → Istio + GatewayAPI HTTPRoute**
+**Cloud-Core Mesh → Istio**
 
 ---
 
@@ -7,16 +7,25 @@
 
 This guide walks you through migrating your service from the Cloud-Core mesh to Istio-based routing using Kubernetes GatewayAPI HTTPRoute custom resources. Follow the steps in order. Each step builds on the previous one.
 
+### Skills
+
+This guide relies on two AI skills that automate the bulk of the migration:
+
+| Skill | Purpose |
+|---|---|
+| [`qubership-mesh-to-istio`](skills/qubership-mesh-to-istio/SKILL.md) | Convert existing Helm mesh CRs (FacadeService, Gateway, RouteConfiguration) to Istio Gateway API resources |
+| [`httproute-from-code`](skills/httproute-from-code/SKILL.md) | Generate HTTPRoute CRs from Go/Java route registration source code |
+
 ---
 
 ## Step 1 — Migrate Existing Mesh CRs to HTTPRoute CRs
 
-Use the Cursor skill "Migrate Cloud-Core mesh CR to HTTPRoute CR" to automatically convert your existing mesh custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`) into GatewayAPI HTTPRoute manifests while keeping the chart deployable on both mesh types.
+Use the skill [`qubership-mesh-to-istio`](skills/qubership-mesh-to-istio/SKILL.md) to automatically convert your existing mesh custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`) into GatewayAPI HTTPRoute manifests while keeping the chart deployable on both mesh types.
 
 ### How to run
 
-1. Open Cursor IDE in your repository root.
-2. Run the slash command: `/migrate-cr-to-httproute <path-to-your-helm-chart>`
+1. Open your IDE in your repository root.
+2. Ask AI to migrate your Helm chart to Istio, e.g.: *"Migrate mesh CRs to Istio in `<path-to-your-helm-chart>`"*
 3. The skill will:
     - Wrap all original `FacadeService`, `Gateway`, and `RouteConfiguration` CRs in `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` guards
     - Generate new `-istio.yaml` files alongside each original (e.g. `gateway.yaml` → `gateway-istio.yaml`) wrapped in `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}`
@@ -41,7 +50,7 @@ After the skill runs, it prints a summary of items it could not migrate automati
 | `retries` configuration                                 | Not supported in HTTPRoute v1                       | Use an Istio `DestinationRule` or remove                                     |
 | Regex path matches                                      | HTTPRoute only supports `Exact`, `PathPrefix`       | Rewrite as prefix match or split into multiple routes                        |
 | Named helpers (`{{- include ... }}`) producing mesh CRs | Skill cannot rewrite helper output                  | Manually add CORE/ISTIO guards inside the helper                             |
-| Unresolved gateway references                           | Gateway type could not be determined from the chart | Re-run after confirming gateway type (ingress vs mesh) with the skill prompt |
+| Unresolved gateway references                           | Gateway type could not be determined from the chart | Re-run `qubership-mesh-to-istio` after confirming gateway type (ingress vs mesh) with the skill prompt |
 
 > **✅ Done when:** All `⚠ MANUAL REVIEW REQUIRED` comments are resolved and a Helm dry-run with `SERVICE_MESH_TYPE=Istio` renders valid HTTPRoute resources with no errors.
 ```bash
@@ -52,18 +61,18 @@ helm template . --set SERVICE_MESH_TYPE=Istio | grep -E 'kind: (HTTPRoute|Gatewa
 
 ## Step 2 — Generate HTTPRoute CRs from Route Registration Code
 
-Use the Cursor skill "Generate HTTPRoute CRs from Go or Java route registration code" to produce HTTPRoute manifests directly from your application source code. This ensures your code-defined routes are reflected in the cluster configuration.
+Use the skill [`httproute-from-code`](skills/httproute-from-code/SKILL.md) to produce HTTPRoute manifests directly from your application source code. This ensures your code-defined routes are reflected in the cluster configuration.
 
 ### How to run
 
-1. Open Cursor IDE.
+1. Open your IDE.
 2. Run the slash command: `/httproute-from-code <path>` pointing at your routes directory or file.
 3. The skill scans Go and Java files, detects route definitions, and outputs one HTTPRoute CR per RouteType.
 4. Generated files are saved to `k8s/routes/<microservice-name>-httproutes.yaml`.
 5. Review the summary table printed by the skill. Resolve any errors before continuing.
 6. Commit all modified and generated files to your branch.
 
-> **ℹ️ Tip:** You can run the skill against a single file or an entire directory.
+> **Tip:** You can run the skill against a single file or an entire directory.
 
 ---
 
@@ -229,9 +238,9 @@ Replace the old route-posting libraries with the new mesh-aware versions. The ne
 
 Before raising a PR, verify all of the following:
 
-- [ ] Cursor skill run: existing mesh CRs converted to HTTPRoute CRs
+- [ ] [`qubership-mesh-to-istio`](skills/qubership-mesh-to-istio/SKILL.md) skill run: existing mesh CRs converted to HTTPRoute CRs
 - [ ] Flagged features from Step 1.1 manually resolved
-- [ ] Cursor skill run: route registration code converted to HTTPRoute CRs
+- [ ] [`httproute-from-code`](skills/httproute-from-code/SKILL.md) skill run: route registration code converted to HTTPRoute CRs
 - [ ] Maven plugin added and local build passes (Java only)
 - [ ] `SERVICE_MESH_TYPE=Istio` set in Helm values / Deployment
 - [ ] All HTTPRoute CRs wrapped in a single `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` block

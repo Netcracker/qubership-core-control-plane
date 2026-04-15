@@ -34,9 +34,8 @@ old resources in `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` and new Istio r
 
 ### FacadeService Disposition
 
-`FacadeService` instances are **omitted** from the Istio output. 
-`FacadeService` is equal to Gateway of `mesh` type, but also it can be linked to exsting `Gateway` - by reference in `spec.gateway` field
-
+`FacadeService` instances are **omitted** from the Istio output.
+`FacadeService` is equal to Gateway of `mesh` type, but also it can be linked to existing `Gateway` - by reference in `spec.gateway` field
 
 ### RouteConfiguration Disposition
 
@@ -48,14 +47,19 @@ Parent ref kind (Gateway vs Service) is determined by the type of the referenced
 ## Target Model (Istio Ambient Mesh)
 
 All output resources use **Gateway API** (not Istio-native CRDs like `VirtualService`):
-→ See `references/mapping/*.md` for complete field-by-field rules.
+→ See reference files for complete field-by-field rules:
+
+- [facade-service-mapping.md](facade-service-mapping.md) — FacadeService → Service mapping
+- [gateway-mapping.md](gateway-mapping.md) — Gateway → Istio Gateway mapping
+- [route-configuration-mapping.md](route-configuration-mapping.md) — RouteConfiguration → HTTPRoute mapping
+- [labels.md](labels.md) — Common label resolution rules
 
 ---
 
 ## Step-by-Step Transformation Procedure
 
-Note: 
-  
+Note:
+
   1. Log each step in chat
 
 
@@ -90,7 +94,7 @@ kind: FacadeService
 
 For multi-document YAML files (separated by `---`): wrap each document individually.
 
-### Step 4 — Generate Istio  files
+### Step 4 — Generate Istio files
 
 Create a **new file** for each original, with `-istio` before the extension:
 
@@ -201,4 +205,7 @@ Items needing manual review:
 
 Read these before transforming — they contain schemas, field mappings, and full examples:
 
-- `references/mapping/*.md` — Field-by-field Core Mesh → Istio Gateway API mapping + output templates
+- [facade-service-mapping.md](facade-service-mapping.md) — FacadeService → Service
+- [gateway-mapping.md](gateway-mapping.md) — Gateway → Istio Gateway
+- [route-configuration-mapping.md](route-configuration-mapping.md) — RouteConfiguration → HTTPRoute
+- [labels.md](labels.md) — Common label resolution

@@ -1,16 +1,18 @@
 ---
-description: Generate Kubernetes GatewayAPI HTTPRoute CRs from Go or Java route registration code
-globs:
-  - "**/*.go"
-  - "**/*.java"
-alwaysApply: false
+name: httproute-from-code
+description: >
+  Generate Kubernetes GatewayAPI HTTPRoute CRs from Go or Java route registration code.
+  Use when the user runs /httproute-from-code, asks to generate HTTPRoute from source code,
+  convert route registrations to HTTPRoute YAML, or extract routes from Go/Java files.
+  Triggers on: httproute generation, route extraction, routeregistration, RouteEntry,
+  GatewayAPI from code, go routes to yaml, java routes to yaml.
 ---
 
 # Generate GatewayAPI HTTPRoute CRs from Go or Java route registration code
 
 ## Trigger
 
-Use this rule when the user runs:
+Use this skill when the user runs:
 
 /httproute-from-code <path>
 
@@ -488,4 +490,3 @@ GRPCRoute
 TCPRoute
 
 Only HTTPRoute.
-
