@@ -2,6 +2,10 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"sync/atomic"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	"github.com/hashicorp/go-memdb"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
@@ -15,9 +19,6 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/tlsmode"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"sync/atomic"
-	"testing"
 )
 
 type GeneratorMock struct {
@@ -68,6 +69,75 @@ func TestCommonConfiguration_CreateCommonConfiguration(t *testing.T) {
 	verifyRouteConfiguration(t, testable)
 	verifyRoutes(t, testable)
 	verifyChangesMaps(t, commonConfig, false)
+}
+
+func TestServiceMeshDetector_WrapRouteCreator(t *testing.T) {
+	tests := []struct {
+		name          string
+		envValue      string
+		gatewayName   string
+		shouldSkip    bool
+		creatorCalled bool
+	}{
+		{
+			name:          "Istio enabled - skip internal gateway",
+			envValue:      "istio",
+			gatewayName:   "internal",
+			shouldSkip:    true,
+			creatorCalled: false,
+		},
+		{
+			name:          "Istio enabled - skip private gateway",
+			envValue:      "istio",
+			gatewayName:   "private",
+			shouldSkip:    true,
+			creatorCalled: false,
+		},
+		{
+			name:          "No Istio - execute",
+			envValue:      "",
+			gatewayName:   "public",
+			shouldSkip:    false,
+			creatorCalled: true,
+		},
+		{
+			name:          "Other mesh type - execute",
+			envValue:      "Core",
+			gatewayName:   "internal",
+			shouldSkip:    false,
+			creatorCalled: true,
+		},
+	}
+
+	testable := dao.NewInMemDao(ram.NewStorage(), &GeneratorMock{}, []func([]memdb.Change) error{flushChangesToPersistenceStorage})
+	entityService := entity.NewService("v1")
+	deploymentVersion := domain.NewDeploymentVersion("v1", domain.ActiveStage)
+	vHostId := int32(0)
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue != "" {
+				os.Setenv("SERVICE_MESH_TYPE", tt.envValue)
+				defer os.Unsetenv("SERVICE_MESH_TYPE")
+			} else {
+				os.Unsetenv("SERVICE_MESH_TYPE")
+			}
+			
+			creatorCalled := false
+			creator := func(storage dao.Repository, entityService entity.ServiceInterface, virtualHostId int32, currentDeploymentVersion string,
+	initialDeploymentVersion string) error  {
+				creatorCalled = true
+				return nil
+			}
+
+			detector := NewServiceMeshDetector(logger)
+			wrappedCreator := detector.WrapRouteCreator(creator, tt.gatewayName)
+			
+			err := wrappedCreator(testable, entityService, vHostId, "", deploymentVersion.Version)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.creatorCalled, creatorCalled)
+		})
+	}
 }
 
 func TestCommonConfiguration_CreateSecuredCommonConfiguration(t *testing.T) {

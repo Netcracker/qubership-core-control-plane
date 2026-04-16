@@ -74,6 +74,33 @@ type defaultGatewayConfiguration struct {
 	secured                            bool
 }
 
+type ServiceMeshDetector struct {
+	logger logging.Logger
+}
+
+func NewServiceMeshDetector(logger logging.Logger) *ServiceMeshDetector {
+	return &ServiceMeshDetector{logger: logger}
+}
+
+func (d *ServiceMeshDetector) IsIstio() bool {
+	serviceMeshTypeEnv, ok := os.LookupEnv("SERVICE_MESH_TYPE")
+	return ok && strings.EqualFold(serviceMeshTypeEnv, "istio")
+}
+
+func (d *ServiceMeshDetector) WrapRouteCreator(creator func(storage dao.Repository, entityService entity.ServiceInterface, virtualHostId int32, currentDeploymentVersion string,
+	initialDeploymentVersion string) error, gatewayName string) func(storage dao.Repository, entityService entity.ServiceInterface, virtualHostId int32, currentDeploymentVersion string,
+	initialDeploymentVersion string) error {
+	if !d.IsIstio() {
+		return creator
+	}
+	
+	return func(storage dao.Repository, entityService entity.ServiceInterface, virtualHostId int32, currentDeploymentVersion string,
+	initialDeploymentVersion string) error {
+		d.logger.Infof("Service mesh type is set to istio, skipping %s gateway routes creation", gatewayName)
+		return nil
+	}
+}
+
 func NewCommonConfiguration(memStorage dao.Dao, entityService *entity.Service, secured bool) *CommonConfiguration {
 	return &CommonConfiguration{
 		memStorage:      memStorage,
@@ -140,6 +167,9 @@ func (config *CommonConfiguration) CreateCommonConfiguration() error {
 			port:        10050,
 		})
 	}
+
+    serviceMeshDetector := NewServiceMeshDetector(logger)
+
 	config.gateways = []*defaultGatewayConfiguration{
 		{
 			gatewayName:                        domain.InternalGateway,
@@ -148,7 +178,7 @@ func (config *CommonConfiguration) CreateCommonConfiguration() error {
 			bindHost:                           binder,
 			bindPort:                           "8080",
 			domain:                             "*",
-			createAndSaveGatewayRoutesFunction: createAndSaveInternalGatewayRoutes,
+			createAndSaveGatewayRoutesFunction: serviceMeshDetector.WrapRouteCreator(createAndSaveInternalGatewayRoutes, domain.InternalGateway),
 			secured:                            config.secured,
 		},
 		{
@@ -158,7 +188,7 @@ func (config *CommonConfiguration) CreateCommonConfiguration() error {
 			bindHost:                           binder,
 			bindPort:                           "8080",
 			domain:                             "*",
-			createAndSaveGatewayRoutesFunction: createAndSavePrivateGatewayRoutes,
+			createAndSaveGatewayRoutesFunction: serviceMeshDetector.WrapRouteCreator(createAndSavePrivateGatewayRoutes, domain.PrivateGateway),
 			secured:                            config.secured,
 		},
 		{
@@ -168,7 +198,7 @@ func (config *CommonConfiguration) CreateCommonConfiguration() error {
 			bindHost:                           binder,
 			bindPort:                           "8080",
 			domain:                             "*",
-			createAndSaveGatewayRoutesFunction: createAndSavePublicGatewayRoutes,
+			createAndSaveGatewayRoutesFunction: serviceMeshDetector.WrapRouteCreator(createAndSavePublicGatewayRoutes, domain.PublicGateway),
 			secured:                            config.secured,
 		},
 	}

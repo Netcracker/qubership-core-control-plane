@@ -1,9 +1,6 @@
 package config
 
 import (
-	"os"
-	"strings"
-
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
@@ -16,12 +13,6 @@ type createAndSaveGatewayRoutesFunction func(dao.Repository, entity.ServiceInter
 
 func createAndSaveInternalGatewayRoutes(storage dao.Repository, entityService entity.ServiceInterface, virtualHostId int32, currentDeploymentVersion string,
 	initialDeploymentVersion string) error {
-	if serviceMeshTypeEnv, ok := os.LookupEnv("SERVICE_MESH_TYPE"); ok {
-		if strings.EqualFold(serviceMeshTypeEnv, "istio") {
-			logger.Infof("Service mesh type is set to istio, skipping internal gateway routes creation")
-			return nil
-		}
-	}
 	routes := []*domain.Route{
 		/*Control Plane*/
 		newCommonRoute(virtualHostId, "route-cp", "/api/v1/routes", "/api/v1/routes/internal-gateway-service",
@@ -60,12 +51,6 @@ func createAndSaveInternalGatewayRoutes(storage dao.Repository, entityService en
 }
 
 func createAndSavePublicGatewayRoutes(storage dao.Repository, entityService entity.ServiceInterface, virtualHostId int32, currentDeploymentVersion string, initialDeploymentVersion string) error {
-	if serviceMeshTypeEnv, ok := os.LookupEnv("SERVICE_MESH_TYPE"); ok {
-		if strings.EqualFold(serviceMeshTypeEnv, "istio") {
-			logger.Infof("Service mesh type is set to istio, skipping public gateway routes creation")
-			return nil
-		}
-	}
 	routes := []*domain.Route{
 		/*Control Plane*/
 		newCommonRoute(virtualHostId, "route-cp", "/api/v1/routes", "/api/v1/routes/public-gateway-service",
@@ -87,12 +72,6 @@ func createAndSavePublicGatewayRoutes(storage dao.Repository, entityService enti
 }
 
 func createAndSavePrivateGatewayRoutes(storage dao.Repository, entityService entity.ServiceInterface, virtualHostId int32, currentDeploymentVersion string, initialDeploymentVersion string) error {
-	if serviceMeshTypeEnv, ok := os.LookupEnv("SERVICE_MESH_TYPE"); ok {
-		if strings.EqualFold(serviceMeshTypeEnv, "istio") {
-			logger.Infof("Service mesh type is set to istio, skipping private gateway routes creation")
-			return nil
-		}
-	}
 	routes := []*domain.Route{
 		/*Control Plane*/
 		newCommonRoute(virtualHostId, "route-cp", "/api/v1/routes", "/api/v1/routes/private-gateway-service",
