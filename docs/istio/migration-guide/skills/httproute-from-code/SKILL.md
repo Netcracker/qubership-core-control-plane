@@ -434,10 +434,10 @@ The `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` opens before the first CR a
 
 Separate multiple CRs with `---`.
 
-Suggested output file:
+Output file:
 
 ```
-k8s/routes/<microservice-name>-httproutes.yaml
+helm-templates/<service name>/source-code-httproutes.yaml
 ```
 
 ---
