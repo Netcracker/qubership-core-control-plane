@@ -46,12 +46,12 @@
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>route-registration-common</artifactId>
-            <version>7.1.0</version>
+            <version>7.1.3</version>
         </dependency>
         <dependency>
             <groupId>com.netcracker.cloud</groupId>
             <artifactId>route-registration-common-spring</artifactId>
-            <version>7.1.0</version>
+            <version>7.1.3</version>
         </dependency>
         <dependency>
             <groupId>jakarta.ws.rs</groupId>
@@ -73,7 +73,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.20.0</version>
+            <version>5.21.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
