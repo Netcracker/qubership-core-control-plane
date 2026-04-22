@@ -17,6 +17,8 @@ spec:
   parentRefs:
     - name: {{ .Values.INTERNAL_SERVICE_NAME}}
       kind: Service
+      group: ""
+      port: 8080
   rules:
     - matches:
         - path:
@@ -173,6 +175,8 @@ spec:
   parentRefs:
     - name: {{ .Values.INTERNAL_SERVICE_NAME}}
       kind: Service
+      group: ""
+      port: 8080
   rules:
     - matches:
         - path:
@@ -188,10 +192,10 @@ spec:
         - name: config-server
           port: 8080
 
+---
 # ==========================================
 # PUBLIC ROUTES
 # ==========================================
-
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -239,11 +243,10 @@ spec:
       backendRefs:
         - name: {{ .Values.SERVICE_NAME }}
           port: 8080
-
+---
 # ==========================================
 # PRIVATE ROUTES
 # ==========================================
-
 # Private routes - API v1/v2 and no API path
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
