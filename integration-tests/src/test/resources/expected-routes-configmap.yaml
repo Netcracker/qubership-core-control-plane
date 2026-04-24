@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: expected-routes
+  name: control-plane-expected-routes
 data:
   routes.json: |
     {

@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Slf4j
 @EnableExtension
-public class ControlPlaneRoutesIT {
+public class ExpectedRoutesIT {
 
     @PortForward(serviceName = @Value("internal-gateway-service"))
     protected static URL internalGateway;
@@ -56,7 +56,7 @@ public class ControlPlaneRoutesIT {
     
     protected static Map<String, List<String>> expectedRoutesMap;
     protected static ConfigMap routesConfigMap;
-    protected static String controlPlanePod;
+    protected static String executorPod;
 
     @BeforeAll
     public static void setUp() throws Exception {
@@ -84,31 +84,27 @@ public class ControlPlaneRoutesIT {
         loadExpectedRoutesFromConfigMap();
         
         if (!pods.getItems().isEmpty()) {
-            controlPlanePod = pods.getItems().get(0).getMetadata().getName();
-            log.info("Control-plane pod: {}", controlPlanePod);
+            executorPod = pods.getItems().get(0).getMetadata().getName();
+            log.info("Executor pod: {}", executorPod);
         }
 
         log.info("Internal gateway URL: {}", internalGateway);
-        log.info("Private gateway URL: {}", privateGateway);
         log.info("Public gateway URL: {}", publicGateway);
         log.info("Test namespace: {}", namespace);
         log.info("Loaded {} routes for internal gateway", expectedRoutesMap.get("internal").size());
-        log.info("Loaded {} routes for private gateway", expectedRoutesMap.get("private").size());
         log.info("Loaded {} routes for public gateway", expectedRoutesMap.get("public").size());
+        log.info("Loaded {} routes for private gateway", expectedRoutesMap.get("private").size());
     }
 
-    /**
-     * Executes command in control-plane pod and returns output
-     */
-    private static String execInControlPlane(String... command) throws Exception {
+    private static String executeInClusterPod(String... command) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         
-        log.info("Executing in pod {}: {}", controlPlanePod, String.join(" ", command));
+        log.info("Executing in pod {}: {}", executorPod, String.join(" ", command));
         
         try (ExecWatch execWatch = kubernetesClient.pods()
                 .inNamespace(namespace)
-                .withName(controlPlanePod)
+                .withName(executorPod)
                 .writingOutput(out)
                 .writingError(err)
                 .exec(command)) {
@@ -129,14 +125,11 @@ public class ControlPlaneRoutesIT {
         }
     }
 
-    /**
-     * Executes curl to internal gateway and returns status code
-     */
     private static int curlInternalStatusCode(String path) throws Exception {
         String url = String.format("http://internal-gateway-service.%s.svc.cluster.local:8080%s", namespace, path);
         log.info("Curling: {}", url);
         
-        String result = execInControlPlane("curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", url);
+        String result = executeInClusterPod("curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", url);
         
         if (result == null || result.trim().isEmpty()) {
             log.error("Empty response from curl for path: {}", path);
@@ -150,14 +143,6 @@ public class ControlPlaneRoutesIT {
             return 999;
         }
     }
-
-    /**
-     * Executes curl to internal gateway and returns full response
-     */
-    private static String curlInternalWithBody(String path) throws Exception {
-        String url = String.format("http://internal-gateway-service.%s.svc.cluster.local:8080%s", namespace, path);
-        return execInControlPlane("curl", "-s", url);
-    }
     
     @BeforeEach
     public void createRoutesConfigMap() {
@@ -168,64 +153,51 @@ public class ControlPlaneRoutesIT {
                     .inNamespace(namespace)
                     .resource(routesConfigMap)
                     .createOrReplace();
-            log.info("Created/Updated ConfigMap 'expected-routes' in namespace {}", namespace);
+            log.info("Created/Updated ConfigMap 'control-plane-expected-routes' in namespace {}", namespace);
         }
     }
     
     private static void loadExpectedRoutesFromConfigMap() throws IOException {
-        // First try to get from Kubernetes (if already exists)
         ConfigMap existingCm = kubernetesClient.configMaps()
                 .inNamespace(namespace)
-                .withName("expected-routes")
+                .withName("control-plane-expected-routes")
                 .get();
         
         if (existingCm != null && existingCm.getData() != null) {
             log.info("Loading expected routes from existing ConfigMap in cluster");
             expectedRoutesMap = parseRoutesFromConfigMap(existingCm);
         } else {
-            // Load from classpath resource
             log.info("Loading expected routes from classpath resource");
             expectedRoutesMap = loadRoutesFromResource();
         }
     }
     
     private static ConfigMap loadConfigMapFromResource() {
-        try (InputStream is = ControlPlaneRoutesIT.class.getResourceAsStream("/expected-routes.yaml")) {
+        try (InputStream is = ExpectedRoutesIT.class.getResourceAsStream("/expected-routes-configmap.yaml")) {
             if (is == null) {
-                log.warn("expected-routes.yaml not found, creating default ConfigMap");
-                return createDefaultConfigMap();
+                log.warn("expected-routes-configmap.yaml not found");
+                return null;
             }
             
-            // Load as ConfigMap from YAML
             return kubernetesClient.configMaps()
                     .load(is)
                     .item();
         } catch (IOException e) {
             log.error("Failed to load ConfigMap from resource", e);
-            return createDefaultConfigMap();
+            return null;
         }
     }
     
     private static Map<String, List<String>> loadRoutesFromResource() throws IOException {
-        // Try JSON format first
-        try (InputStream is = ControlPlaneRoutesIT.class.getResourceAsStream("/expected-routes.json")) {
+        try (InputStream is = ExpectedRoutesIT.class.getResourceAsStream("/expected-routes-configmap.yaml")) {
             if (is != null) {
-                return objectMapper.readValue(is, new TypeReference<Map<String, List<String>>>() {});
-            }
-        }
-        
-        // Try YAML format
-        try (InputStream is = ControlPlaneRoutesIT.class.getResourceAsStream("/expected-routes.yaml")) {
-            if (is != null) {
-                // Parse YAML ConfigMap
                 ConfigMap cm = kubernetesClient.configMaps().load(is).item();
                 return parseRoutesFromConfigMap(cm);
             }
         }
         
-        // Return default routes if no resource found
         log.warn("No routes resource found, using default routes");
-        return getDefaultRoutes();
+        return new java.util.HashMap<>();
     }
     
     private static Map<String, List<String>> parseRoutesFromConfigMap(ConfigMap cm) {
@@ -242,7 +214,6 @@ public class ControlPlaneRoutesIT {
                 }
             }
             
-            // Check for individual route lists per gateway
             for (String gateway : List.of("internal", "private", "public")) {
                 String key = gateway + "-routes";
                 if (cm.getData().containsKey(key)) {
@@ -257,74 +228,9 @@ public class ControlPlaneRoutesIT {
             }
         }
         
-        // Fill missing gateways with defaults
-        if (!routes.containsKey("internal")) {
-            routes.put("internal", getDefaultInternalRoutes());
-        }
-        if (!routes.containsKey("private")) {
-            routes.put("private", getDefaultPrivateRoutes());
-        }
-        if (!routes.containsKey("public")) {
-            routes.put("public", getDefaultPublicRoutes());
-        }
-        
         return routes;
-    }
-    
-    private static ConfigMap createDefaultConfigMap() {
-        ConfigMap cm = new ConfigMap();
-        cm.setMetadata(new io.fabric8.kubernetes.api.model.ObjectMeta());
-        cm.getMetadata().setName("expected-routes");
-        cm.setData(new java.util.HashMap<>());
-        
-        try {
-            cm.getData().put("routes.json", objectMapper.writeValueAsString(getDefaultRoutes()));
-        } catch (IOException e) {
-            log.error("Failed to create default routes JSON", e);
-        }
-        
-        return cm;
-    }
-    
-    private static Map<String, List<String>> getDefaultRoutes() {
-        Map<String, List<String>> routes = new java.util.HashMap<>();
-        routes.put("internal", getDefaultInternalRoutes());
-        routes.put("private", getDefaultPrivateRoutes());
-        routes.put("public", getDefaultPublicRoutes());
-        return routes;
-    }
-    
-    private static List<String> getDefaultInternalRoutes() {
-        return List.of(
-            "/api/v1/routes",
-            "/api/v1/routes/test",
-            "/api/v2/control-plane/routing/details",
-            "/api/v3/control-plane/routing/details",
-            "/health"
-        );
-    }
-    
-    private static List<String> getDefaultPrivateRoutes() {
-        return List.of(
-            "/api/v1/routes",
-            "/api/v1/control-plane/routes/clusters",
-            "/api/v2/control-plane/routes",
-            "/api/v3/control-plane/routing/details",
-            "/health"
-        );
-    }
-    
-    private static List<String> getDefaultPublicRoutes() {
-        return List.of(
-            "/api/v1/routes",
-            "/api/v3/control-plane/ui",
-            "/health"
-        );
     }
 
-    /**
-     * Provides test cases for route validation from ConfigMap
-     */
     static Stream<Arguments> routeTestCasesFromConfigMap() {
         List<Arguments> arguments = new ArrayList<>();
         
@@ -335,7 +241,6 @@ public class ControlPlaneRoutesIT {
             }
         }
         
-        // Add negative test cases
         arguments.add(Arguments.of("internal", "/non-existent-route-12345", 404));
         arguments.add(Arguments.of("private", "/non-existent-route-67890", 404));
         arguments.add(Arguments.of("public", "/non-existent-route-abcde", 404));
@@ -343,37 +248,20 @@ public class ControlPlaneRoutesIT {
         return arguments.stream();
     }
 
-    @ParameterizedTest(name = "Internal via exec: {0}")
-    @MethodSource("internalRoutesSource")
-    @DisplayName("Test internal gateway routes via exec from control-plane")
-    void testInternalRouteViaExec(String path) throws Exception {
-        int code = curlInternalStatusCode(path);
-        log.info("Internal {} -> {}", path, code);
-        
-        // 405 Method Not Allowed - acceptable (route exists)
-        if (code == 405) {
-            log.info("Route exists but method not allowed");
-            return;
-        }
-        
-        assertTrue(code < 500, "Route should be accessible, got: " + code);
-    }
-
-    static Stream<String> internalRoutesSource() {
-        return Stream.of(
-            "/api/v1/routes",
-            "/api/v1/routes/test",
-            "/api/v2/control-plane/routing/details",
-            "/api/v3/control-plane/routing/details",
-            "/health"
-        );
-    }
-
     @ParameterizedTest(name = "[{0}] {1}")
     @MethodSource("routeTestCasesFromConfigMap")
     @DisplayName("Test routes via port-forward")
-    void testRoutesFromConfigMap(String gatewayType, String path, int expectedStatus) throws IOException {
-        if ("internal".equals(gatewayType)) {
+    void testRoutesFromConfigMap(String gatewayType, String path, int expectedStatus) throws Exception  {
+        if ("internal".equals(gatewayType))  {
+            int code = curlInternalStatusCode(path);
+            log.info("Internal {} -> {}", path, code);
+            
+            if (code == 405) {
+                log.info("Route exists but method not allowed");
+                return;
+            }
+            
+            assertTrue(code < 500, "Route should be accessible, got: " + code);
             return;
         }
         
@@ -408,13 +296,6 @@ public class ControlPlaneRoutesIT {
     @DisplayName("Verify all expected routes are configured")
     void verifyAllRoutesAccessible() throws Exception {
         List<String> failedRoutes = new ArrayList<>();
-        
-        for (String route : getDefaultInternalRoutes()) {
-            int code = curlInternalStatusCode(route);
-            if (code >= 500) {
-                failedRoutes.add(String.format("internal:%s (status %d)", route, code));
-            }
-        }
         
         for (Map.Entry<String, List<String>> entry : expectedRoutesMap.entrySet()) {
             String gatewayType = entry.getKey();
