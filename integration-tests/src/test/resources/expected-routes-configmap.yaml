@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: control-plane-expected-routes
+data:
+  routes.json: |
+    {
+      "internal": [
+        "/api/v1/routes",
+        "/api/v1/routes/test",
+        "/api/v2/control-plane/routing/details",
+        "/api/v3/control-plane/routing/details",
+        "/api/v3/control-plane/active-active",
+        "/api/v3/control-plane/composite-platform/namespaces",
+        "/api/v3/control-plane/versions/microservices",
+        "/api/v3/control-plane/versions/registry",
+        "/api/v3/control-plane/rate-limits",
+        "/api/v3/control-plane/http-filters",
+        "/api/v3/control-plane/gateways/specs",
+        "/health"
+      ],
+      "private": [
+        "/api/v1/routes",
+        "/api/v1/control-plane/routes/clusters",
+        "/api/v1/control-plane/routes/route-configs",
+        "/api/v2/control-plane/routes",
+        "/api/v2/control-plane/routing/details",
+        "/api/v2/control-plane/versions",
+        "/api/v2/control-plane/versions/watch",
+        "/api/v2/control-plane/promote/1",
+        "/api/v2/control-plane/rollback",
+        "/api/v2/control-plane/endpoints",
+        "/api/v2/control-plane/load-balance",
+        "/api/v3/control-plane/routing/details",
+        "/api/v3/control-plane/versions",
+        "/api/v3/control-plane/versions/microservices",
+        "/api/v3/control-plane/versions/watch",
+        "/api/v3/control-plane/promote/1",
+        "/api/v3/control-plane/rollback",
+        "/api/v3/control-plane/endpoints",
+        "/api/v3/control-plane/load-balance",
+        "/api/v3/control-plane/rate-limits",
+        "/api/v3/control-plane/http-filters",
+        "/api/v3/control-plane/gateways/specs",
+        "/api/v3/control-plane/routes",
+        "/api/v3/control-plane/domains",
+        "/api/v3/control-plane/config",
+        "/api/v3/control-plane/apply-config",
+        "/health"
+      ],
+      "public": [
+        "/api/v1/routes",
+        "/api/v3/control-plane/ui/clusters",
+        "/health"
+      ]
+    }
