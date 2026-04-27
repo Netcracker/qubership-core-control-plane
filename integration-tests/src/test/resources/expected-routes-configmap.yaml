@@ -7,7 +7,6 @@ data:
     {
       "internal": [
         "/api/v1/routes",
-        "/api/v1/routes/test",
         "/api/v2/control-plane/routing/details",
         "/api/v3/control-plane/routing/details",
         "/api/v3/control-plane/active-active",
