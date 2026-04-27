@@ -22,7 +22,7 @@ require (
 	github.com/hashicorp/memberlist v0.5.4
 	github.com/hashicorp/serf v0.10.2
 	github.com/jackc/pgconn v1.14.3
-	github.com/jackc/pgx/v5 v5.9.1
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/mapstructure v1.5.0
