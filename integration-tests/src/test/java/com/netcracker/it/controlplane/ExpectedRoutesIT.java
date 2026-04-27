@@ -262,11 +262,11 @@ public class ExpectedRoutesIT {
             }
             
             if (expectedStatus == 200) {
-                assertTrue(response.code() != 404,
+                assertTrue(code != 404,
                     String.format("Route %s on %s gateway should be accessible, got %d", 
-                        path, gatewayType, response.code()));
+                        path, gatewayType, code));
             } else {
-                assertEquals(expectedStatus, response.code(),
+                assertEquals(expectedStatus, code,
                     String.format("Route %s on %s gateway returned unexpected status", path, gatewayType));
             }
             return;
