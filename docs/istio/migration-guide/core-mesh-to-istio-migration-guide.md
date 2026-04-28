@@ -80,11 +80,45 @@ Replace the old route-posting libraries versions with the new mesh-aware version
     <version>7.1.0<!-- should be >=7.1.0 --></version>
 </dependency>
 
+OR 
+
 <dependency>
     <groupId>com.netcracker.cloud</groupId>
-    <artifactId>route-registration-restclient</artifactId>
-    <version>TODO</version>
+    <artifactId>route-registration-resttemplate</artifactId>
+    <version>7.1.0<!-- should be >=7.1.0 --></version>
 </dependency>
+```
+
+Using rest libraries BOM
+
+```xml
+ <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.netcracker.cloud</groupId>
+                <artifactId>rest-libraries-bom</artifactId>
+                <version>7.1.0<!-- should be >=7.1.0 --></version>
+                <scope>import</scope>
+                <type>pom</type>
+            </dependency>
+        </dependencies>
+</dependencyManagement>
+```
+
+Using common BOM
+
+```xml
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.netcracker.cloud</groupId>
+                <artifactId>cloud-core-java-bom</artifactId>
+                <version>12.0.2<!-- should be >=12.0.2 --></version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 ```
 
 #### Quarkus
@@ -93,9 +127,28 @@ Replace the old route-posting libraries versions with the new mesh-aware version
 <dependency>
     <groupId>com.netcracker.cloud.quarkus</groupId>
     <artifactId>routes-registrator</artifactId>
-    <version>9.1.0<!-- should be >=9.1.0 -->></version>
+    <version>9.1.0<!-- should be >=9.1.0 --></version>
 </dependency>
 ```
+
+Using BOM
+
+```xml
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.netcracker.cloud</groupId>
+                <artifactId>cloud-core-quarkus-bom-publish</artifactId>
+                <version>9.1.0<!-- should be >=9.1.0 --></version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+
+```
+
 
 ### Go — update your go.mod
 
