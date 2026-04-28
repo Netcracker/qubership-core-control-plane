@@ -437,7 +437,7 @@ Separate multiple CRs with `---`.
 Output file:
 
 ```
-helm-templates/<service name>/source-code-httproutes.yaml
+helm-templates/<service name>/templates/source-code-httproutes.yaml
 ```
 
 ---

@@ -22,9 +22,9 @@ Input fields → Output fields:
         namespace         string             OMIT
         gateways          []string           → spec.parentRefs          refer to parentRef resolution
         listenerPort      int                → spec.parentRef[].port   
-        tlsSupported      bool               OMIT
+        tlsSupported      bool               OMIT ⚠ flag for MANUAL REVIEW if non-empty
         virtualServices   []VirtualService   → one HTTPRoute per entry
-        overridden        bool               OMIT
+        overridden        bool               OMIT ⚠ flag for MANUAL REVIEW if non-empty
 
 ### HTTPRoute name resolution
 
@@ -118,11 +118,11 @@ spec:
   name                string               → HTTPRoute name suffix when multiple VSes exist
   hosts               []string             → parentRef Service names (mesh routes) + spec.hostnames[]
                                              normalize each
-  rateLimit           string               OMIT  ⚠ flag for manual review if non-empty
+  rateLimit           string               OMIT  ⚠ flag for MANUAL REVIEW if non-empty
   addHeaders          []HeaderDefinition   → RequestHeaderModifier filter add[] (virtualService-level)
   removeHeaders       []string             → RequestHeaderModifier filter remove[] (virtualService-level)
   routeConfiguration  RouteConfig          → HTTPRoute rules[]
-  overridden          bool                 OMIT
+  overridden          bool                 OMIT  ⚠ flag for MANUAL REVIEW if non-empty
 
 
 ### HTTPRoute.spec.hostnames resolution
@@ -136,7 +136,7 @@ spec:
 ```
 
 #### Host normalization
-  IF host = `*` - ignore it, do not propagate to spec.hostnames[]. If `*` occurs in east-west Route - manual review required
+  IF host = `*` - ignore it, do not propagate to spec.hostnames[]. If `*` occurs in east-west Route - MANUAL REVIEW required
   ELSE IF host contains ".":
     result = host.split(".")[0]
     e.g. "my-svc.namespace"    → "my-svc"
@@ -170,13 +170,13 @@ spec:
   JSON key       Go type         Transformation
   ──────────────────────────────────────────────────────────────────────────────────
   endpoint       string          → parse host + port for HTTPRoute.spec.rules[].backendRefs[].name and .port
-  cluster        string          OMIT
-  tlsSupported   bool            OMIT
-  tlsEndpoint    string          OMIT
-  httpVersion    *int32          OMIT
-  tlsConfigName  string          OMIT
-  circuitBreaker CircuitBreaker  OMIT
-  tcpKeepalive   *TcpKeepalive   OMIT
+  cluster        string          OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  tlsSupported   bool            OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  tlsEndpoint    string          OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  httpVersion    *int32          OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  tlsConfigName  string          OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  circuitBreaker CircuitBreaker  OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  tcpKeepalive   *TcpKeepalive   OMIT ⚠ flag for MANUAL REVIEW if non-empty
 
 #### Endpoint to backendRef resolution
 
@@ -218,12 +218,12 @@ Output:
   addHeaders      []HeaderDefinition → RequestHeaderModifier add[] (rule-level, merged with VS-level)
   removeHeaders   []string           → RequestHeaderModifier remove[] (rule-level, merged with VS-level)
   timeout         *int64             → timeouts.request: "<value>ms"  (value is milliseconds)
-  allowed         *bool              OMIT
-  idleTimeout     *int64             OMIT  ⚠ flag for manual review if non-nil
-  statefulSession *StatefulSession   OMIT  ⚠ flag for manual review if non-nil
-  rateLimit       string             OMIT  ⚠ flag for manual review if non-empty
-  deny            *bool              OMIT  ⚠ flag for manual review if non-nil
-  luaFilter       string             OMIT  ⚠ flag for manual review if non-empty
+  allowed         *bool              OMIT  ⚠ flag for MANUAL REVIEW if non-nil
+  idleTimeout     *int64             OMIT  ⚠ flag for MANUAL REVIEW if non-nil
+  statefulSession *StatefulSession   OMIT  ⚠ flag for MANUAL REVIEW if non-nil
+  rateLimit       string             OMIT  ⚠ flag for MANUAL REVIEW if non-empty
+  deny            *bool              OMIT  ⚠ flag for MANUAL REVIEW if non-nil
+  luaFilter       string             OMIT  ⚠ flag for MANUAL REVIEW if non-empty
 
 ---
 
@@ -261,30 +261,9 @@ Output:
 
 ---
 
-### StatefulSession  (all fields — OMIT, flag for manual review)
+### StatefulSession  (all fields — OMIT, flag for MANUAL REVIEW)
 
   version, namespace, cluster, hostname, gateways, port,
   enabled, cookie, route, overridden
   → No Gateway API HTTPRoute equivalent.
   → Add comment: # ⚠ MANUAL REVIEW: statefulSession has no Gateway API equivalent
-
----
-
-### Fields to OMIT in all Istio output
-
-  RoutingConfigRequestV3:   namespace, listenerPort, tlsSupported, overridden
-  VirtualService:           rateLimit (⚠), overridden
-  RouteConfig:              version
-  RouteDestination:         cluster, tlsSupported, tlsEndpoint, httpVersion,
-                            tlsConfigName, circuitBreaker, tcpKeepalive
-  Rule:                     allowed, idleTimeout (⚠), statefulSession (⚠),
-                            rateLimit (⚠), deny (⚠), luaFilter (⚠)
-
-### Fields to OMIT in all Istio output
-
-  routeConfiguration.version
-  rules[].allowed
-  destination.cluster
-  spec.env (on any CR)
-  spec.allowVirtualHosts
-  spec.gateway (on Gateway CR)
