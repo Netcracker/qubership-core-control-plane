@@ -1,0 +1,599 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+# ==========================================
+# INTERNAL ROUTES
+# ==========================================
+# Internal routes - control-plane
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: '{{ .Values.SERVICE_NAME }}-internal-routes'
+  labels:
+    app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
+    app.kubernetes.io/component: gateway-routes
+    app.kubernetes.io/part-of: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  parentRefs:
+    - name: {{ .Values.INTERNAL_SERVICE_NAME}}
+      kind: Service
+      group: ""
+      port: 8080
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v1/routes"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v1/routes/internal-gateway-service"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v2/control-plane/routing/details"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/routing/details"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/routing/details"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/active-active"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/active-active"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/composite-platform/namespaces"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/composite-platform/namespaces"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/versions/microservices"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/versions/microservices"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/versions/registry"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/versions/registry"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/rate-limits"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/rate-limits"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/http-filters"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/http-filters"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/gateways/specs"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/gateways/specs"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/health"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+
+---
+# Internal routes - config-server
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: config-server-internal-routes
+  labels:
+    app.kubernetes.io/name: config-server
+    app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
+    app.kubernetes.io/component: gateway-routes
+    app.kubernetes.io/part-of: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  parentRefs:
+    - name: {{ .Values.INTERNAL_SERVICE_NAME}}
+      kind: Service
+      group: ""
+      port: 8080
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v1/config-server"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/"
+      backendRefs:
+        - name: config-server
+          port: 8080
+
+---
+# ==========================================
+# PUBLIC ROUTES
+# ==========================================
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: '{{ .Values.SERVICE_NAME }}-public-routes'
+  labels:
+    app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
+    app.kubernetes.io/component: gateway-routes
+    app.kubernetes.io/part-of: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  parentRefs:
+    - name: {{ .Values.ISTIO_PUBLIC_GATEWAY_NAME }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v1/routes"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v1/routes/public-gateway-service"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/ui"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/ui"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/health"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+---
+# ==========================================
+# PRIVATE ROUTES
+# ==========================================
+# Private routes - API v1/v2 and no API path
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: '{{ .Values.SERVICE_NAME }}-private-routes'
+  labels:
+    app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
+    app.kubernetes.io/component: gateway-routes
+    app.kubernetes.io/part-of: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  parentRefs:
+    - name: {{ .Values.ISTIO_PRIVATE_GATEWAY_NAME }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v1/routes"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v1/routes/private-gateway-service"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v1/control-plane/routes/clusters"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v1/routes/clusters"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v1/control-plane/routes/route-configs"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v1/routes/route-configs"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/health"
+        - path:
+            type: PathPrefix
+            value: "/api/v2/control-plane/routes"
+        - path:
+            type: PathPrefix
+            value: "/api/v2/control-plane/routing/details"
+        - path:
+            type: PathPrefix
+            value: "/api/v2/control-plane/versions"
+        - path:
+            type: PathPrefix
+            value: "/api/v2/control-plane/versions/watch"
+        - path:
+            type: PathPrefix
+            value: "/api/v2/control-plane/promote"
+        - path:
+            type: PathPrefix
+            value: "/api/v2/control-plane/rollback"
+        - path:
+            type: PathPrefix
+            value: "/api/v2/control-plane/endpoints"
+        - path:
+            type: PathPrefix
+            value: "/api/v2/control-plane/load-balance"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+
+---
+# Private routes - API v3
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: '{{ .Values.SERVICE_NAME }}-private-routes-v3'
+  labels:
+    app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
+    app.kubernetes.io/component: gateway-routes
+    app.kubernetes.io/part-of: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  parentRefs:
+    - name: {{ .Values.ISTIO_PRIVATE_GATEWAY_NAME }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/routing/details"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/routing/details"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/versions"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/versions"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/versions/microservices"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/versions/microservices"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/versions/watch"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/versions/watch"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/promote"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/promote"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/rollback"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/rollback"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/endpoints"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/endpoints"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/load-balance"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/load-balance"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/rate-limits"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/rate-limits"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/http-filters"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/http-filters"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/gateways/specs"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/gateways/specs"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/routes"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/routes"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/domains"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/domains"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/config"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/config"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+    
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/apply-config"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/apply-config"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
+
+---
+# Private routes - API v3 with regex RegularExpressionRewrite requires gateway-api v1.1+
+#         - path:
+#            type: RegularExpression
+#            value: "/api/v3/control-plane/([^/]+)/([^/]+)(/.*)"
+
+---
+# Private routes - Config server
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: config-server-private-routes
+  labels:
+    app.kubernetes.io/name: config-server
+    app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
+    app.kubernetes.io/component: gateway-routes
+    app.kubernetes.io/part-of: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  parentRefs:
+    - name: {{ .Values.ISTIO_PRIVATE_GATEWAY_NAME }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v1/config-server"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/"
+      backendRefs:
+        - name: config-server
+          port: 8080
+{{- end }}
