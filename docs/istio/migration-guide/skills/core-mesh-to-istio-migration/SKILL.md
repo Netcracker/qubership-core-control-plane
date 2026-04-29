@@ -135,7 +135,7 @@ Log update:
 After this step, verify:
 
 ```bash
-helm template <chart> --set SERVICE_MESH_TYPE=Istio | grep -E 'kind: (HTTPRoute|Gateway)'
+helm dependency update && helm template <chart> --set SERVICE_MESH_TYPE=Istio | grep -E 'kind: (HTTPRoute|Gateway)'
 ```
 
 The command must succeed and return matching lines. Log the command and its
@@ -231,11 +231,11 @@ each. If the desired runtime mesh for an environment is unclear, keep the defaul
      - `<outputFile>` pointing inside the chart templates directory, defaulting
        to `<chart>/templates/annotations-httproutes.yaml`.
      - `<backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>`.
-  4. Run `mvn clean compile` if available in the environment. Log exit code.
+  4. Run `mvn -q clean compile` if available in the environment. Log exit code.
      If it fails, add a **Needs review** entry with the error summary.
 
 Log update:
-- **Done:** `pom.xml` edited or plugin already present; `mvn clean compile` exit code.
+- **Done:** `pom.xml` edited or plugin already present; `mvn -q clean compile` exit code.
 - **Skipped:** non-Java service or no route-registration annotations.
 - **Needs review:** any default value that could not be confirmed from project files.
 
@@ -267,7 +267,7 @@ Log update:
 4. Run the negative-test dry-run:
 
    ```bash
-   helm template <chart> --set SERVICE_MESH_TYPE=Core | grep 'kind: HTTPRoute'
+   helm dependency update && helm template <chart> --set SERVICE_MESH_TYPE=Core | grep 'kind: HTTPRoute'
    ```
 
    Expected output: empty. Record the command and exit status.
