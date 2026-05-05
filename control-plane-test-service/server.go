@@ -12,8 +12,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
-	"strconv"
 )
 
 var (
@@ -35,13 +33,10 @@ func main() {
 	app.Get("/private_key", privateKeyHandler)
 	app.All("/api/v1/custom-response-headers", customResponseHeadersHandler)
 	app.Post("/api/v1/bus/topics/:topic", busPublishHandler)
+	app.Get("/api/v1/delay/:seconds", delayHandler) 
 	app.All("/*", jsonTraceHandler)
-    app.Get("/api/v1/delay/:seconds", func(c *fiber.Ctx) error {
-        secs, _ := strconv.Atoi(c.Params("seconds"))
-        time.Sleep(time.Duration(secs) * time.Second)
-        return c.SendStatus(200)
-    })
-	
+
+
 	httpPort := configloader.GetOrDefaultString("http.server.bind", ":8080")
 	go func() {
 		err := app.Listen(httpPort)

@@ -2,14 +2,17 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+	"trace-service/trace-service/bus"
+	"trace-service/trace-service/domain"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
-	"net/http"
-	"os"
-	"strings"
-	"trace-service/trace-service/bus"
-	"trace-service/trace-service/domain"
 )
 
 var PodId = uuid.New().String()
@@ -118,6 +121,15 @@ func jsonTraceHandler(c *fiber.Ctx) error {
 
 	logger.Infof("Responding with %+v %+v %+v %+v", response.ServiceName, response.ServerHost, response.Method, response.Path)
 	return RespondWithJson(c, http.StatusOK, &response)
+}
+
+func delayHandler(c *fiber.Ctx) error {
+    secs, err := strconv.Atoi(c.Params("seconds"))
+    if err != nil || secs < 0 {
+        return c.Status(http.StatusBadRequest).JSON(map[string]string{"error": "invalid seconds"})
+    }
+    time.Sleep(time.Duration(secs) * time.Second)
+    return c.Status(http.StatusOK).JSON(map[string]string{"status": "ok"})
 }
 
 func ExtractRequestHeaders(c *fiber.Ctx) http.Header {
