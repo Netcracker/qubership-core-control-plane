@@ -571,12 +571,19 @@ spec:
         - name: {{ .Values.SERVICE_NAME }}
           port: 8080
 
----
-# Private routes - API v3 with regex RegularExpressionRewrite requires gateway-api v1.1+
-#         - path:
-#            type: RegularExpression
-#            value: "/api/v3/control-plane/([^/]+)/([^/]+)(/.*)"
-
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/api/v3/control-plane/"
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/api/v3/"
+      backendRefs:
+        - name: {{ .Values.SERVICE_NAME }}
+          port: 8080
 ---
 # Private routes - Config server
 apiVersion: gateway.networking.k8s.io/v1
