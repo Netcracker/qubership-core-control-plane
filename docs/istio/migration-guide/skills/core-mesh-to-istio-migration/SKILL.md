@@ -223,6 +223,7 @@ each. If the desired runtime mesh for an environment is unclear, keep the defaul
      - `<groupId>org.qubership.cloud.core</groupId>`
      - `<artifactId>httproutes-generator-maven-plugin</artifactId>`
      - `<version>0.0.1-SNAPSHOT</version>`
+     - `<phase>generate-resources</phase>`
      - `<goal>generate-routes</goal>`
      - `<packages>` resolved from `src/main/java/...`. If ambiguous, set
        `com.example` and add a **Needs review** entry.

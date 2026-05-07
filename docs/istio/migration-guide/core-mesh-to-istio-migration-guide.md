@@ -248,6 +248,7 @@ This plugin scans compiled classes for routing annotations - and generates equiv
             <version>0.0.1-SNAPSHOT</version>
             <executions>
                 <execution>
+                    <phase>generate-resources</phase>
                     <goals>
                         <goal>generate-routes</goal>
                     </goals>

@@ -25,6 +25,7 @@ Add the plugin to your `pom.xml`:
             <version>1.0.0</version>
             <executions>
                 <execution>
+                    <phase>generate-resources</phase>
                     <goals>
                         <goal>generate-routes</goal>
                     </goals>
