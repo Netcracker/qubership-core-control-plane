@@ -40,3 +40,8 @@ K8S_SERVICE_TYPE: 'CLUSTER_IP'
 ECDH_CURVES: 'P-256,P-384'
 CONSUL_ENABLED: false
 CONSUL_URL: ''
+
+ISTIO_PUBLIC_GATEWAY_NAME: 'public-gateway'
+ISTIO_PRIVATE_GATEWAY_NAME: 'private-gateway'
+INTERNAL_SERVICE_NAME: "internal-gateway-service"
+SERVICE_MESH_TYPE: 'Core' # Options: Core, Istio

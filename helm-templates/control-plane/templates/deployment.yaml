@@ -212,6 +212,8 @@ spec:
                 - name: EGRESS_REQUEST_HEADERS_TO_REMOVE
                   value: '{{ .Values.EGRESS_REQUEST_HEADERS_TO_REMOVE }}'
                 {{- end }}
+                - name: SERVICE_MESH_TYPE
+                  value: '{{ .Values.SERVICE_MESH_TYPE }}'
                 resources:
                     requests:
                         cpu: '{{ .Values.CPU_REQUEST }}'
