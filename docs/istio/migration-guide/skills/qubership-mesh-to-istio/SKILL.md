@@ -154,7 +154,21 @@ Sequence:
 
 ### Step 6 — Update values.yaml
 
-Add SERVICE_MESH_TYPE = Core to the end of values.yaml. Update values.schema.json accordingly
+* Add `SERVICE_MESH_TYPE = Core` to the end of values.yaml. 
+* Update values.schema.json accordingly with exact description
+
+```json
+    "SERVICE_MESH_TYPE": {
+      "$id": "#/properties/SERVICE_MESH_TYPE",
+      "type": "string",
+      "title": "The SERVICE_MESH_TYPE schema",
+      "description": "Service mesh type. Use `Core` for Cloud Core Mesh or `Istio` for Istio Ambient Mesh.",
+      "enum": ["Istio", "Core"],
+      "default": "Core",
+      "internal": true
+    }
+```
+
 
 ### Step 7 — Preserve Helm templating
 
