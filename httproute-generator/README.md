@@ -25,7 +25,6 @@ Add the plugin to your `pom.xml`:
             <version>1.0.0</version>
             <executions>
                 <execution>
-                    <phase>generate-resources</phase>
                     <goals>
                         <goal>generate-routes</goal>
                     </goals>
@@ -79,7 +78,7 @@ public class UserController {
 Run Maven build:
 
 ```bash
-mvn clean compile
+mvn clean process-classes
 ```
 
 Generated `gateway-httproutes.yaml`:
@@ -108,6 +107,8 @@ metadata:
 spec:
   parentRefs:
   - name: internal-gateway-service
+    kind: Service
+    group: ''
   rules:
   - matches:
     - path:

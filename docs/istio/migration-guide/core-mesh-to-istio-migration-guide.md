@@ -245,7 +245,6 @@ This plugin scans compiled classes for routing annotations - and generates equiv
             <version>0.0.1-SNAPSHOT</version>
             <executions>
                 <execution>
-                    <phase>generate-resources</phase>
                     <goals>
                         <goal>generate-routes</goal>
                     </goals>
@@ -267,7 +266,7 @@ This plugin scans compiled classes for routing annotations - and generates equiv
 After adding the plugin, run a local build to confirm it passes:
 
 ```bash
-mvn clean compile
+mvn clean process-classes
 ```
 
 ---
