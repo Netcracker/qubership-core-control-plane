@@ -221,9 +221,9 @@ Generate ONE HTTPRoute CR per RouteType present in the source.
 
 | RouteType | CR name suffix | parentRefs | rules[] contains |
 |---|---|---|---|
-| `Public` | `-public-routes` | public-gateway, private-gateway, internal-gateway | Public routes only |
-| `Private` | `-private-routes` | private-gateway, internal-gateway | Private routes only |
-| `Internal` | `-internal-routes` | internal-gateway | Internal routes only |
+| `Public` | `-public-routes` | public-gateway, private-gateway, internal-gateway-service | Public routes only |
+| `Private` | `-private-routes` | private-gateway, internal-gateway-service | Private routes only |
+| `Internal` | `-internal-routes` | internal-gateway-service | Internal routes only |
 | `Mesh` | `-mesh-routes` | gateway field value | Mesh routes only |
 | `Facade` | `-facade-routes` | `{{ .Values.SERVICE_NAME }}` | Facade routes only |
 
@@ -247,9 +247,9 @@ Route C  From=/api/v1/admin    To=/admin    RouteType=Internal
 Produces THREE CRs:
 
 ```
-<name>-public-routes    parentRefs: [public, private, internal]  rules: [Route A]
-<name>-private-routes   parentRefs: [private, internal]          rules: [Route B]
-<name>-internal-routes  parentRefs: [internal]                   rules: [Route C]
+<name>-public-routes    parentRefs: [public-gateway, private-gateway, internal-gateway-service]  rules: [Route A]
+<name>-private-routes   parentRefs: [private-gateway, internal-gateway-service]                  rules: [Route B]
+<name>-internal-routes  parentRefs: [internal-gateway-service]                                   rules: [Route C]
 ```
 
 ### Deduplication within a CR
@@ -373,6 +373,22 @@ all implementations.
 ## Step 10 — Generate HTTPRoute
 
 Generate one CR per RouteType. Wrap ALL CRs together in a single Istio conditional block.
+
+### ParentRef resolution
+
+Resolve every target gateway name to a Gateway API `parentRefs` entry before rendering:
+
+| Target | Rendered parentRef |
+|---|---|
+| `public-gateway` | `- name: public-gateway` |
+| `private-gateway` | `- name: private-gateway` |
+| `internal-gateway-service` | `- name: internal-gateway-service` with `kind: Service` and `group: ''` |
+
+Do not render `kind` or `group` for `public-gateway` or `private-gateway`; they
+use the Gateway API defaults. Always render `kind: Service` and `group: ''` for
+`internal-gateway-service`, because it is a Service parentRef for east-west
+traffic through the waypoint path.
+
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 apiVersion: gateway.networking.k8s.io/v1
@@ -384,7 +400,9 @@ spec:
   parentRefs:
     - name: public-gateway
     - name: private-gateway
-    - name: internal-gateway
+    - name: internal-gateway-service
+      kind: Service
+      group: ''
   rules:
     - matches:
         - path:
@@ -408,7 +426,9 @@ metadata:
 spec:
   parentRefs:
     - name: private-gateway
-    - name: internal-gateway
+    - name: internal-gateway-service
+      kind: Service
+      group: ''
   rules:
     - matches:
         - path:
