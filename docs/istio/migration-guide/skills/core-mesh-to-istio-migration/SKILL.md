@@ -6,9 +6,10 @@ description: >
   declarative mesh CRs to Gateway API resources, migrates route-registration
   libraries, wires SERVICE_MESH_TYPE, adds the Java HTTPRoute generator when
   needed, generates HTTPRoutes from Go/Java route registration code, validates
-  Istio guards, and maintains MIGRATION_LOG.md. Use when the user asks to run a
-  full Istio migration, migrate Core Mesh to Istio, migrate to Istio Ambient
-  Mesh, or execute the migration guide end-to-end.
+  Istio guards, and maintains MIGRATION_LOG.md. Use when the user runs
+  /core-mesh-to-istio-migration, asks to run a full Istio migration, migrate
+  Core Mesh to Istio, migrate to Istio Ambient Mesh, or execute the migration
+  guide end-to-end.
 ---
 
 # Core Mesh → Istio — Full Migration Orchestrator
@@ -16,6 +17,19 @@ description: >
 This skill runs the complete migration described in the guide.
 It is an **orchestrator**: the heavy lifting lives in two atomic sub-skills, and this
 skill coordinates them, performs the remaining steps, and keeps an auditable log.
+
+## Trigger
+
+Use this skill when the user runs:
+
+/core-mesh-to-istio-migration <path>
+
+Examples:
+
+/core-mesh-to-istio-migration mesh-test-service-go
+/core-mesh-to-istio-migration helm-templates/my-service
+/core-mesh-to-istio-migration .
+
 
 ## Sub-skills invoked
 
@@ -140,7 +154,7 @@ block a correct migration:
 |------|-----------------|
 | `RouteConfiguration.spec.tlsSupported` / `.overridden` non-empty | RouteConfiguration CR |
 | `VirtualService.rateLimit` / `.overridden` non-empty | VirtualService CR |
-| `RouteDestination.cluster` / `.tlsSupported` / `.tlsEndpoint` / `.tlsConfigName` / `.httpVersion` / `.circuitBreaker` / `.tcpKeepalive` non-empty | RouteConfiguration CR |
+| `RouteDestination.tlsSupported` / `.tlsEndpoint` / `.tlsConfigName` / `.httpVersion` / `.circuitBreaker` / `.tcpKeepalive` non-empty | RouteConfiguration CR |
 | `Rule.rateLimit` / `.luaFilter` non-empty | RouteConfiguration CR |
 | `Rule.allowed` / `.deny` / `.idleTimeout` / `.statefulSession` non-nil | RouteConfiguration CR |
 | `FacadeService` with no port defined | FacadeService CR |
@@ -199,14 +213,13 @@ Log update:
 - **Needs review:** every item from the sub-skill's "Items needing manual review".
 
 **Validation:**
-
 ```bash
-helm dependency update && helm template <chart> --set SERVICE_MESH_TYPE=Istio \
+helm dependency update;
+helm template <chart> --set SERVICE_MESH_TYPE=Istio \
   | grep -E 'kind: (HTTPRoute|Gateway)'
 ```
 
-Expected: command exits 0 and returns at least one matching line. Record the
-command and exit code in the **Commands run** table. If it fails, apply the
+Expected: the command returns at least one matching line. If it fails, apply the
 [Error policy](#error-policy--read-before-executing-any-step).
 
 ### Step 1.1 — Log manually handle flagged features
@@ -310,7 +323,6 @@ in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
      - `<groupId>org.qubership.cloud.core</groupId>`
      - `<artifactId>httproutes-generator-maven-plugin</artifactId>`
      - `<version>0.0.1-SNAPSHOT</version>`
-     - `<phase>generate-resources</phase>`
      - `<goal>generate-routes</goal>`
      - `<packages>` resolved from `src/main/java/...`. If ambiguous, set
        `com.example` and add a **Needs review** entry.
@@ -321,7 +333,7 @@ in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
      - `<backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>`.
   2. **Confirm `<outputFile>`** is set to a path inside the Helm chart templates
      directory (see above). This file must be committed to the branch.
-  3. **Build the project** to generate the output file. Run `mvn -q clean compile`
+  3. **Build the project** to generate the output file. Run `mvn -q clean process-classes`
      if Maven is available in the environment. Record the exit code in
      **Commands run**. If Maven is not available, log under **Skipped**
      ("mvn not available in environment") and continue. If Maven is available
@@ -334,7 +346,7 @@ in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
   5. Log the committed file path under **Done**.
 
 Log update:
-- **Done:** `pom.xml` edited; `mvn -q clean compile` exit code (if run); generated
+- **Done:** `pom.xml` edited; `mvn -q clean process-classes` exit code (if run); generated
   output file path committed.
 - **Skipped:** non-Java service, no route-registration annotations, or Maven
   not available in the environment.
@@ -362,12 +374,13 @@ last run), log under **Done** ("already present") and skip.
    - Add a **Needs review** entry: "Microservice name could not be resolved —
      file renamed to `.incomplete`; set the correct name and rename before
      merging."
-4. **Commit all generated files** to the branch. Remind the user:
+4. Do not make any inference for `source-code-httproutes.yaml` - besides what `httproute-from-code` skill does. 
+5. **Commit all generated files** to the branch. Remind the user:
    > The generated `source-code-httproutes.yaml` must stay committed. Any time
    > route registration code changes, rerun the `httproute-from-code` skill and
    > commit the updated output before raising a PR.
-5. Copy the sub-skill's summary table into the log.
-6. For every row where `Skipped = yes` or the skill emitted an `ERROR:` section,
+6. Copy the sub-skill's summary table into the log.
+7. For every row where `Skipped = yes` or the skill emitted an `ERROR:` section,
    add a **Needs review** entry.
 
 ### Step 2.5 — Verify all HTTPRoutes are wrapped in Istio conditionals
@@ -430,7 +443,7 @@ Close with a plain-language summary telling the user:
    review section, highlighting structural blockers that could change runtime
    behaviour — `RouteConfiguration.spec.tlsSupported` / `.overridden`,
    `rateLimit`, `VirtualService.overridden`, `*` hosts on east-west routes,
-   `RouteDestination` TLS / `cluster` / `httpVersion` / `circuitBreaker` /
+   `RouteDestination` TLS / `httpVersion` / `circuitBreaker` /
    `tcpKeepalive`, `Rule.allowed` / `.deny`, `Rule.statefulSession`,
    `Rule.idleTimeout`, `Rule.luaFilter`, `FacadeService` with no port,
    unresolved gateways, helper-produced CRs, placeholder library versions, and
