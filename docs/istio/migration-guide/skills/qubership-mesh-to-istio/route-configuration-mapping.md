@@ -170,7 +170,7 @@ spec:
   JSON key       Go type         Transformation
   ──────────────────────────────────────────────────────────────────────────────────
   endpoint       string          → parse host + port for HTTPRoute.spec.rules[].backendRefs[].name and .port
-  cluster        string          OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  cluster        string          ignore, mo review required
   tlsSupported   bool            OMIT ⚠ flag for MANUAL REVIEW if non-empty
   tlsEndpoint    string          OMIT ⚠ flag for MANUAL REVIEW if non-empty
   httpVersion    *int32          OMIT ⚠ flag for MANUAL REVIEW if non-empty
