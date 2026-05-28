@@ -59,3 +59,8 @@ envoy.proxy:
     warnsize: 150
   connection:
     per_connection_buffer_limit_megabytes: 10
+
+security:
+  m2m:
+    kubernetes:
+      enabled: true
