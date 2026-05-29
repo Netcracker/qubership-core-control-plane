@@ -1,6 +1,6 @@
 module github.com/netcracker/qubership-core-control-plane/control-plane/v2
 
-go 1.26.2
+go 1.26.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
@@ -28,14 +28,14 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mustafaturan/bus/v3 v3.0.3
 	github.com/mustafaturan/monoton/v3 v3.0.0
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.6.3
-	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.4.3
-	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.3.8
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.6.4
+	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.4.5-0.20260528222631-a14038b4573b
+	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.3.10-0.20260528233316-a05fd7e63019
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.5.3
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.5.8
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.5.3
-	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.4.8
-	github.com/netcracker/qubership-core-lib-go/v3 v3.9.1
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.5.9
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.5.5-0.20260528215157-96912d649aa0
+	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.4.9
+	github.com/netcracker/qubership-core-lib-go/v3 v3.10.1-0.20260528143816-818ca60ac93f
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
@@ -74,13 +74,14 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.3.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/spec v0.20.4 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
+	github.com/go-pkgz/expirable-cache/v3 v3.1.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gofiber/adaptor/v2 v2.2.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
@@ -104,7 +105,7 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/klauspost/compress v1.18.2 // indirect
+	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
 	github.com/knadh/koanf/v2 v2.3.4 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -117,6 +118,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect
+	github.com/morikuni/aec v1.1.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
@@ -141,7 +143,7 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.51.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
 	go.opentelemetry.io/contrib/propagators/b3 v1.42.0 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.43.0 // indirect
