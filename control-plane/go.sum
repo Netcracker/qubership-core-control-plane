@@ -433,8 +433,8 @@ github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.5.3 h1:6bgk2YSNSWGI
 github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.5.3/go.mod h1:WE01QOjKWQBt4xJcY1PyhTjNT8cTdtn7EH7q/D67IH4=
 github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.4.8 h1:rK4iVnABRdezpGit9UgO63+uarbyRKWWSX31yoxY1Lo=
 github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.4.8/go.mod h1:xIzbwqi2O6k+BrlAVg0PiBoY33e53VH2G108w4KDplU=
-github.com/netcracker/qubership-core-lib-go/v3 v3.9.1 h1:Cz3NrT5kWYLVQciOZt0Rz4FHergTuIYLe3Nf5xu/edw=
-github.com/netcracker/qubership-core-lib-go/v3 v3.9.1/go.mod h1:REJ6332XpbP4n20tnCrkJ2iNxgzoo0H6SEf5NHIKRvg=
+github.com/netcracker/qubership-core-lib-go/v3 v3.10.0 h1:8Wr93SkwxwFTJNVWPAMTNsKMucOFDZY96RfaTSbXVRQ=
+github.com/netcracker/qubership-core-lib-go/v3 v3.10.0/go.mod h1:REJ6332XpbP4n20tnCrkJ2iNxgzoo0H6SEf5NHIKRvg=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/npillmayer/nestext v0.1.3/go.mod h1:h2lrijH8jpicr25dFY+oAJLyzlya6jhnuG+zWp9L0Uk=
 github.com/oklog/run v1.0.0/go.mod h1:dlhp/R75TPv97u0XWUtDeV/lRKWPKSdTuV0TZvrmrQA=
