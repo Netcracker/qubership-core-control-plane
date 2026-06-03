@@ -1,0 +1,9 @@
+apiVersion: v2
+name: ratelimit
+description: RateLimit Service for Istio Gateway
+type: application
+version: 0.1.0
+appVersion: 1.0.0
+maintainers:
+  - name: Platform Team
+    email: platform@example.com

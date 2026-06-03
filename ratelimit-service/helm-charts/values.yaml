@@ -1,0 +1,146 @@
+
+replicaCount: 1
+
+namespace: core-1-core
+
+image:
+  repository: ghcr.io/netcracker/ratelimit
+  tag: feat-ratelimit-snapshot
+  pullPolicy: IfNotPresent
+
+config:
+  redis:
+    addr: "redis.core-1-core.svc.cluster.local:6379"
+    password: ""
+    db: 0
+  separator: "|"
+  domain: "auth_limit"
+  rateLimits:
+    default:
+      limit: 60
+      window: "minute"
+      algorithm: fixed_window
+    rules:
+      - name: api_strict
+        pattern: "/api/v1/.*"
+        limit: 1000
+        window: "minute"
+        algorithm: fixed_window
+        priority: 50
+        # Optional layered limit: stricter per-(path, user_id) cap on top of
+        # the outer per-path cap above. The inner rule MUST have higher
+        # priority than the outer one to win when both match.
+        perUser:
+          limit: 10
+          window: "minute"
+          algorithm: fixed_window
+          priority: 100
+      - name: burst_allowed
+        pattern: "/health"
+        limit: 100
+        window: "second"
+        algorithm: fixed_window
+      - name: test_endpoint
+        pattern: "/test"
+        limit: 2
+        window: "second"
+        algorithm: fixed_window
+      - name: test_endpoint_fixed
+        pattern: "/fixed"
+        limit: 2
+        window: "second"
+        algorithm: fixed_window
+      - name: test_endpoint_sliding
+        pattern: "/sliding"
+        limit: 2
+        window: "second"
+        algorithm: sliding_log
+
+grpc:
+  port: 8081
+
+api:
+  port: 8082
+  auth:
+    enabled: false
+    key: ""
+
+metrics:
+  enabled: true
+  port: 9090
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+envoyFilter:
+  enabled: true
+  name: gateway-ratelimit
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: public-gateway
+
+podDisruptionBudget:
+  enabled: false 
+  minAvailable: 1
+  
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+monitoring:
+  enabled: true
+
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+  podMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+    annotations: {}
+  prometheusRule:
+    enabled: true
+    labels: {}
+    annotations: {}
+    rules:
+      - alert: RateLimitHighRejectionRate
+        expr: rate(ratelimit_checks_total{result="rejected"}[5m]) / rate(ratelimit_checks_total[5m]) > 0.1
+        for: 5m
+        severity: warning
+        annotations:
+          summary: "High rate limit rejection rate"
+          description: "Rate limit rejection rate is above 10% for the last 5 minutes"
+      - alert: RateLimitViolatingUsersHigh
+        expr: ratelimit_violating_users_total > 10
+        for: 5m
+        severity: warning
+        annotations:
+          summary: "Many users exceeding rate limits"
+          description: "{{ $value }} users are currently exceeding rate limits"
+      - alert: RateLimitOperatorDown
+        expr: up{job="ratelimit"} == 0
+        for: 1m
+        severity: critical
+        annotations:
+          summary: "RateLimit Operator is down"
+          description: "RateLimit Operator pod has been down for more than 1 minute"
+      - alert: RateLimitRedisDown
+        expr: ratelimit_redis_operations_total{status="error"} > 0
+        for: 1m
+        severity: critical
+        annotations:
+          summary: "Redis connection issues"
+          description: "RateLimit Operator cannot connect to Redis"
+  grafanaDashboard:
+    enabled: true
+
+autoscaling:
+  enabled: false

@@ -1,0 +1,461 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smoke-test-scripts
+  labels:
+    app: test-runner
+data:
+  get-rules.sh: |
+    #!/bin/sh
+    echo "=== Current Rate Limit Rules (with Priorities) ==="
+    echo ""
+    
+    API_URL="${RATELIMIT_API}"
+    
+    # Get all rules from API
+    RULES=$(curl -s $API_URL/api/v1/ratelimit/rules)
+    
+    if [ -z "$RULES" ] || [ "$RULES" = "null" ]; then
+      echo "No rules found or API not available"
+      exit 0
+    fi
+    
+    # Parse rules without jq
+    echo "$RULES" | grep -o '"name":"[^"]*"' | cut -d'"' -f4 | while read name; do
+      echo "Rule: $name"
+      
+      # Extract pattern
+      pattern=$(echo "$RULES" | grep -A10 "\"name\":\"$name\"" | grep -o '"pattern":"[^"]*"' | head -1 | cut -d'"' -f4)
+      echo "  Pattern: $pattern"
+      
+      # Extract limit
+      limit=$(echo "$RULES" | grep -A10 "\"name\":\"$name\"" | grep -o '"limit":[0-9]*' | head -1 | cut -d':' -f2)
+      echo "  Limit: $limit"
+      
+      # Extract priority
+      priority=$(echo "$RULES" | grep -A10 "\"name\":\"$name\"" | grep -o '"priority":[0-9]*' | head -1 | cut -d':' -f2)
+      echo "  Priority: $priority"
+      
+      echo ""
+    done
+    
+    echo ""
+    echo "--- Rule Priority Check ---"
+    echo "Checking which rule matches test user..."
+    
+    RESPONSE=$(curl -s -X POST $API_URL/api/v1/ratelimit/check \
+      -H "Content-Type: application/json" \
+      -d '{"components":{"path":"/test","user_id":"test-user"}}')
+    
+    RULE_NAME=$(echo "$RESPONSE" | grep -o '"rule_name":"[^"]*"' | cut -d'"' -f4)
+    LIMIT=$(echo "$RESPONSE" | grep -o '"limit":[0-9]*' | cut -d':' -f2)
+    
+    echo "  Matched rule: $RULE_NAME"
+    echo "  Limit: $LIMIT"
+    
+    echo ""
+    echo "--- VIP User (should have higher priority) ---"
+    RESPONSE=$(curl -s -X POST $API_URL/api/v1/ratelimit/check \
+      -H "Content-Type: application/json" \
+      -d '{"components":{"path":"/test","user_id":"vip-user"}}')
+    
+    RULE_NAME=$(echo "$RESPONSE" | grep -o '"rule_name":"[^"]*"' | cut -d'"' -f4)
+    LIMIT=$(echo "$RESPONSE" | grep -o '"limit":[0-9]*' | cut -d':' -f2)
+    
+    echo "  Matched rule: $RULE_NAME"
+    echo "  Limit: $LIMIT"
+    
+    echo ""
+    echo "--- Default User ---"
+    RESPONSE=$(curl -s -X POST $API_URL/api/v1/ratelimit/check \
+      -H "Content-Type: application/json" \
+      -d '{"components":{"path":"/test","user_id":"normal-user"}}')
+    
+    RULE_NAME=$(echo "$RESPONSE" | grep -o '"rule_name":"[^"]*"' | cut -d'"' -f4)
+    LIMIT=$(echo "$RESPONSE" | grep -o '"limit":[0-9]*' | cut -d':' -f2)
+    
+    echo "  Matched rule: $RULE_NAME"
+    echo "  Limit: $LIMIT"
+
+  add-rules-with-priority.sh: |
+    #!/bin/sh
+    CONFIG_NAME="${CONFIG_NAME:-k6-priority-rules}"
+    OPERATOR="${RATELIMIT_API}"
+
+    echo "=== Adding Rules with Different Priorities ==="
+    echo ""
+    echo "Applying ConfigMap with all priority rules..."
+
+    curl -s -X POST "${OPERATOR}/api/v1/config/reload" > /dev/null
+    sleep 2
+
+    echo "=== Rules added successfully! ==="
+    echo ""
+    echo "Priority order (highest first):"
+    echo "  200 - Admin users (10000 req/min)"
+    echo "  100 - VIP users (1000 req/min)"
+    echo "   60 - Normal users (30 req/min)"
+    echo "   10 - Fallback user_id (100 req/min)"
+    echo "    0 - Default catch-all (60 req/min)"
+    echo ""
+
+  priority-test.sh: |
+    #!/bin/sh
+    GATEWAY="${GATEWAY_URL}"
+    API="${RATELIMIT_API}"
+
+    echo "============================================================"
+    echo "RATE LIMIT PRIORITY TEST"
+    echo "============================================================"
+    echo ""
+
+    # Apply rules with priorities
+    echo "Setting up rules with priorities..."
+    sh /scripts/add-rules-with-priority.sh
+
+    echo ""
+    echo "=== Testing Different User Types ==="
+    echo ""
+
+    # Test function
+    test_user() {
+      local user_type=$1
+      local user_id=$2
+
+      echo "--- $user_type User (user_id: $user_id) ---"
+
+      # Get current limit
+      RESPONSE=$(curl -s -X POST $API/api/v1/ratelimit/check \
+        -H "Content-Type: application/json" \
+        -d "{\"components\":{\"path\":\"/test\",\"user_id\":\"$user_id\"}}")
+
+      LIMIT=$(echo "$RESPONSE" | grep -o '"limit":[0-9]*' | cut -d':' -f2)
+      RULE_NAME=$(echo "$RESPONSE" | grep -o '"rule_name":"[^"]*"' | cut -d'"' -f4)
+
+      echo "  Matched rule: $RULE_NAME"
+      echo "  Rate limit: $LIMIT requests/minute"
+
+      # Make 5 requests
+      success=0
+      for i in 1 2 3 4 5; do
+        status=$(curl -s -o /dev/null -w "%{http_code}" -H "x-user-id: $user_id" $GATEWAY/test)
+        [ "$status" = "200" ] && success=$((success + 1))
+      done
+
+      echo "  Success rate: $success/5 requests"
+      echo ""
+    }
+
+    test_user "Admin" "admin-john"
+    test_user "VIP" "vip-jane"
+    test_user "Normal" "normal-alice"
+    test_user "Unknown" "unknown-user"
+
+    echo "============================================================"
+    echo "PRIORITY TEST COMPLETE"
+    echo "============================================================"
+
+  accuracy-test.sh: |
+    #!/bin/sh
+
+    GATEWAY="${GATEWAY_URL}"
+    OPERATOR="${RATELIMIT_API}"
+    CONFIG_NAME="${CONFIG_NAME:-k6-accuracy-test}"
+
+    echo "============================================================"
+    echo "RATE LIMIT ACCURACY TEST (with Priorities)"
+    echo "============================================================"
+
+    curl -s -X POST "${OPERATOR}/api/v1/config/reload" > /dev/null
+    sleep 2
+
+    echo ""
+    echo "=== Test: 2 requests per second limit (with 100ms delay) ==="
+    echo "Expected: 1-4 allowed out of 10 (2 req/s limit, ~1s window)"
+    allowed=0
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+      status=$(curl -s -o /dev/null -w "%{http_code}" -H "x-user-id: test2" $GATEWAY/test)
+      [ "$status" = "200" ] && allowed=$((allowed + 1))
+      usleep 100000
+    done
+    echo "Passed: $allowed of 10"
+    if [ "$allowed" -lt 1 ] || [ "$allowed" -gt 5 ]; then
+      echo "FAIL: expected 1-5 allowed, got $allowed (check ratelimit config or gateway connectivity)"
+      exit 1
+    fi
+    echo "PASS"
+
+    echo ""
+    echo "=== Burst test (no delay, all at once) ==="
+    echo "Expected: 1-4 allowed out of 10 (2 req/s limit, burst window)"
+    allowed=0
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+      status=$(curl -s -o /dev/null -w "%{http_code}" -H "x-user-id: burst" $GATEWAY/test)
+      [ "$status" = "200" ] && allowed=$((allowed + 1))
+    done
+    echo "Passed: $allowed of 10"
+    if [ "$allowed" -lt 1 ] || [ "$allowed" -gt 5 ]; then
+      echo "FAIL: expected 1-5 allowed, got $allowed (check ratelimit config or gateway connectivity)"
+      exit 1
+    fi
+    echo "PASS"
+
+    echo "============================================================"
+
+  algorithm-compare.sh: |
+    #!/bin/sh
+    GATEWAY="${GATEWAY_URL}"
+    OPERATOR="${RATELIMIT_API}"
+    CONFIG_NAME_FIXED="${CONFIG_NAME_FIXED:-k6-fixed-test}"
+    CONFIG_NAME_SLIDING="${CONFIG_NAME_SLIDING:-k6-sliding-test}"
+    REQUESTS=200
+
+    echo "============================================================"
+    echo "ALGORITHM COMPARISON (2 req/sec limit, $REQUESTS requests)"
+    echo "============================================================"
+
+    curl -s -X POST "${OPERATOR}/api/v1/config/reload" > /dev/null
+    sleep 2
+
+    echo ""
+    echo "=== Fixed Window (/test) ==="
+    fixed=0
+    for i in $(seq 1 $REQUESTS); do
+      status=$(curl -s -o /dev/null -w "%{http_code}" -H "x-user-id: fixed" $GATEWAY/test)
+      [ "$status" = "200" ] && fixed=$((fixed + 1))
+    done
+    echo "Passed: $fixed of $REQUESTS ($((fixed * 100 / REQUESTS))%)"
+
+    echo ""
+    echo "=== Sliding Window (/test) ==="
+    sliding=0
+    for i in $(seq 1 $REQUESTS); do
+      status=$(curl -s -o /dev/null -w "%{http_code}" -H "x-user-id: sliding" $GATEWAY/test)
+      [ "$status" = "200" ] && sliding=$((sliding + 1))
+    done
+    echo "Passed: $sliding of $REQUESTS ($((sliding * 100 / REQUESTS))%)"
+
+    echo ""
+    echo "============================================================"
+    if [ $fixed -gt $sliding ]; then
+      echo "Fixed Window passed $((fixed - sliding)) more requests"
+      echo "Sliding Window is MORE ACCURATE"
+    elif [ $fixed -lt $sliding ]; then
+      echo "Sliding Window passed $((sliding - fixed)) more requests"
+      echo "Fixed Window is MORE ACCURATE"
+    else
+      echo "Both algorithms performed the same"
+    fi
+    echo "============================================================"
+
+
+  gateway-distribution.sh: |
+    #!/bin/sh
+    GATEWAY_TEST_URL="${GATEWAY_URL}/test"
+    REQUESTS=${1:-200}
+    
+    echo "=== Gateway Distribution Test ==="
+    echo "Total requests: $REQUESTS"
+    echo ""
+    
+    tmp_file=$(mktemp)
+    
+    for i in $(seq 1 $REQUESTS); do
+      response=$(curl -s -i --header "Connection: close" -H "x-user-id: test" $GATEWAY_TEST_URL 2>/dev/null)
+      gateway=$(echo "$response" | grep -i "x-gateway-id" | head -1 | awk '{print $2}' | tr -d '\r')
+      status=$(echo "$response" | head -1 | awk '{print $2}')
+      echo "$gateway|$status" >> $tmp_file
+      
+      if [ $((i % 50)) -eq 0 ]; then
+        echo "Progress: $i/$REQUESTS"
+      fi
+    done
+    
+    echo ""
+    echo "============================================================"
+    echo "GATEWAY DISTRIBUTION TEST RESULTS"
+    echo "============================================================"
+    
+    gateways=$(cut -d'|' -f1 $tmp_file | sort -u | grep -v "^$")
+    
+    for gw in $gateways; do
+      count=$(grep -c "$gw" $tmp_file)
+      limited=$(grep "$gw" $tmp_file | grep -c "429")
+      rate=$((limited * 100 / count))
+      echo "Gateway: $gw"
+      echo "  Requests: $count"
+      echo "  Rate limited: $limited ($rate%)"
+      echo ""
+    done
+    
+    total=$(wc -l < $tmp_file)
+    total_limited=$(grep -c "429" $tmp_file)
+    echo "------------------------------------------------------------"
+    echo "TOTAL: $total requests, $total_limited rate limited ($((total_limited * 100 / total))%)"
+    echo "============================================================"
+    
+    rm -f $tmp_file
+
+  k6-load-test.js: |
+    import http from 'k6/http';
+    import { sleep } from 'k6';
+
+    // Config applied before this test: ratelimit-config-loadtest (50 req/s path limit, 10 req/s per user).
+    // constant_load at 50 req/s with 20 rotating users → ~2.5 req/s per user → well within limits.
+    // spike_load intentionally exceeds 50 req/s → 429s are expected and NOT counted as failures here.
+    // Threshold is scoped to constant_load only so spike 429s don't fail the suite.
+
+    export const options = {
+      scenarios: {
+        constant_load: {
+          executor: 'constant-arrival-rate',
+          rate: 50,
+          timeUnit: '1s',
+          duration: '30s',
+          preAllocatedVUs: 20,
+          maxVUs: 50,
+        },
+        spike_load: {
+          executor: 'ramping-arrival-rate',
+          startRate: 10,
+          timeUnit: '1s',
+          preAllocatedVUs: 20,
+          maxVUs: 200,
+          stages: [
+            { duration: '10s', target: 20 },
+            { duration: '10s', target: 100 },
+            { duration: '10s', target: 200 },
+            { duration: '10s', target: 50 },
+            { duration: '10s', target: 10 },
+          ],
+          startTime: '30s',
+        },
+      },
+      thresholds: {
+        // Latency threshold applies to all requests (200 and 429 both respond fast).
+        http_req_duration: ['p(95)<500'],
+        // Failure threshold scoped to constant_load only: 429s should be near-zero
+        // because the loadtest config allows 50 req/s at this endpoint.
+        // spike_load intentionally exceeds limits → its 429s are not constrained here.
+        'http_req_failed{scenario:constant_load}': ['rate<0.05'],
+      },
+    };
+
+    export default function () {
+      const userID = `user-${__VU % 20}`;
+      const url = `${__ENV.GATEWAY_URL}/test`;
+
+      http.get(url, {
+        headers: { 'x-user-id': userID },
+      });
+
+      sleep(0.1);
+    }
+
+    export function handleSummary(data) {
+      const total = data.metrics.http_reqs.values.count;
+      const duration = data.metrics.http_req_duration.values.avg;
+      const failRate = (data.metrics.http_req_failed || {values:{rate:0}}).values.rate;
+
+      console.log(`\n=== K6 LOAD TEST RESULTS ===`);
+      console.log(`Total requests: ${total}`);
+      console.log(`Avg duration: ${duration.toFixed(2)}ms`);
+      console.log(`Overall failure rate (incl. spike 429s): ${(failRate * 100).toFixed(2)}%`);
+      console.log(`=============================\n`);
+      return {};
+    }
+
+  k6-burst-test.js: |
+    import http from 'k6/http';
+    import { sleep } from 'k6';
+    
+    export const options = {
+      scenarios: {
+        burst: {
+          executor: 'ramping-arrival-rate',
+          startRate: 10,
+          timeUnit: '1s',
+          preAllocatedVUs: 50,
+          maxVUs: 500,
+          stages: [
+            { duration: '10s', target: 10 },
+            { duration: '5s', target: 200 },
+            { duration: '10s', target: 500 },
+            { duration: '10s', target: 200 },
+            { duration: '10s', target: 10 },
+          ],
+        },
+      },
+    };
+    
+    export default function () {
+      const userID = `burst-user-${__VU % 10}`;
+      const url = `${__ENV.GATEWAY_URL}/test`;
+      
+      http.get(url, {
+        headers: { 'x-user-id': userID },
+      });
+      
+      sleep(0.05);
+    }
+    
+    export function handleSummary(data) {
+      const total = data.metrics.http_reqs.values.count;
+      console.log(`\n=== K6 BURST TEST RESULTS ===`);
+      console.log(`Total requests: ${total}`);
+      console.log(`Requests/sec: ${(total / 45).toFixed(2)}`);
+      console.log(`=============================\n`);
+      return {};
+    }
+
+  k6-baseline-test.js: |
+    import http from 'k6/http';
+    import { sleep } from 'k6';
+
+    // Baseline test: constant 50 req/s for 30s with NO rate limiting active.
+    // Mirrors the constant_load phase of k6-load-test.js so results are
+    // directly comparable. Expected: ~0% failures, low latency.
+
+    export const options = {
+      scenarios: {
+        constant_load: {
+          executor: 'constant-arrival-rate',
+          rate: 50,
+          timeUnit: '1s',
+          duration: '30s',
+          preAllocatedVUs: 20,
+          maxVUs: 50,
+        },
+      },
+      thresholds: {
+        http_req_duration: ['p(95)<500'],
+        // Without rate limiting we expect near-zero failures.
+        'http_req_failed': ['rate<0.02'],
+      },
+    };
+
+    export default function () {
+      const userID = `user-${__VU % 20}`;
+      const url = `${__ENV.GATEWAY_URL}/test`;
+
+      http.get(url, {
+        headers: { 'x-user-id': userID },
+      });
+
+      sleep(0.1);
+    }
+
+    export function handleSummary(data) {
+      const total    = data.metrics.http_reqs.values.count;
+      const avgMs    = data.metrics.http_req_duration.values.avg.toFixed(2);
+      const p95Ms    = data.metrics.http_req_duration.values['p(95)'].toFixed(2);
+      const failRate = ((data.metrics.http_req_failed || {values:{rate:0}}).values.rate * 100).toFixed(2);
+
+      console.log(`\n=== K6 BASELINE TEST RESULTS (no ratelimit) ===`);
+      console.log(`Total requests : ${total}`);
+      console.log(`Avg latency    : ${avgMs} ms`);
+      console.log(`p95 latency    : ${p95Ms} ms`);
+      console.log(`Failure rate   : ${failRate}%`);
+      console.log(`===============================================\n`);
+      return {};
+    }

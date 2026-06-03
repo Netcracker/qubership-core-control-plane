@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl-test-runner
+  labels:
+    app: curl-test-runner
+spec:
+  containers:
+  - name: curl
+    image: curlimages/curl:latest
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo "=== Curl Test Runner Ready ==="
+        echo "RATELIMIT_API : $RATELIMIT_API"
+        echo "GATEWAY_URL   : $GATEWAY_URL"
+        tail -f /dev/null
+    env:
+    # Namespace is injected from pod metadata so URLs stay namespace-agnostic.
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: RATELIMIT_API
+      value: "http://ratelimit-service.$(POD_NAMESPACE).svc.cluster.local:8082"
+    - name: GATEWAY_URL
+      value: "http://public-gateway-istio.$(POD_NAMESPACE).svc.cluster.local:8080"
+    volumeMounts:
+    - name: scripts
+      mountPath: /scripts
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+  volumes:
+  - name: scripts
+    configMap:
+      name: smoke-test-scripts
+      defaultMode: 0755

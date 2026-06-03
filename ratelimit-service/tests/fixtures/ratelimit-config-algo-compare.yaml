@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-fixed-test
+  labels:
+    rate-limit-config: "true"
+    app: ratelimit-k6-smoke
+data:
+  config.yaml: |
+    domain: auth_limit
+    separator: "|"
+    descriptors:
+      - key: user_id
+        value_regex: "fixed"
+        rate_limit:
+          unit: second
+          requests_per_unit: 2
+        algorithm: fixed_window
+        priority: 50
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-sliding-test
+  labels:
+    rate-limit-config: "true"
+    app: ratelimit-k6-smoke
+data:
+  config.yaml: |
+    domain: auth_limit
+    separator: "|"
+    descriptors:
+      - key: user_id
+        value_regex: "sliding"
+        rate_limit:
+          unit: second
+          requests_per_unit: 2
+        algorithm: sliding_log
+        priority: 50

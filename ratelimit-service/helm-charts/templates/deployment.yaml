@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratelimit
+  labels:
+    app: ratelimit
+    version: {{ .Values.image.tag }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: ratelimit
+  template:
+    metadata:
+      labels:
+        app: ratelimit
+        version: {{ .Values.image.tag }}
+      annotations:
+        prometheus.io/scrape: "{{ .Values.metrics.enabled }}"
+        prometheus.io/port: "{{ .Values.metrics.port }}"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: ratelimit
+      containers:
+      - name: operator
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - -v=4
+        ports:
+        - containerPort: {{ .Values.api.port }}
+          name: api
+        - containerPort: {{ .Values.metrics.port }}
+          name: metrics
+        - containerPort: 8081
+          name: grpc
+        env:
+        - name: GRPC_PORT
+          value: "8081"
+        - name: API_PORT
+          value: {{ .Values.api.port | quote }}
+        - name: METRICS_PORT
+          value: {{ .Values.metrics.port | quote }}
+        - name: REDIS_ADDR
+          value: {{ .Values.config.redis.addr | quote }}
+        - name: REDIS_PASSWORD
+          value: {{ .Values.config.redis.password | quote }}
+        - name: REDIS_DB
+          value: {{ .Values.config.redis.db | quote }}
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: API_KEY
+          value: {{ .Values.api.auth.key | quote }}
+        - name: ENABLE_API_AUTH
+          value: {{ .Values.api.auth.enabled | quote }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: api
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: api
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: api
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 30
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: ratelimit-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

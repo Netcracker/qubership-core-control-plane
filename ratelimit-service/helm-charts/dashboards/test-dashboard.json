@@ -1,0 +1,243 @@
+{
+  "title": "RateLimit Service - Load Test Demo",
+  "description": "Real-time rate limiting metrics for burst and two-user tests",
+  "tags": ["ratelimit", "istio", "load-test"],
+  "timezone": "browser",
+  "refresh": "5s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "📊 Rate Limit Overview",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum(ratelimit_requests_total)", "legendFormat": "Total" },
+        { "expr": "sum(ratelimit_requests_total{result=\"allowed\"})", "legendFormat": "Allowed" },
+        { "expr": "sum(ratelimit_requests_total{result=\"rejected\"})", "legendFormat": "Rejected" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "🔥 Current Load (Requests per Second)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 4, "y": 0 },
+      "targets": [
+        { "expr": "rate(ratelimit_requests_total[5s])", "legendFormat": "Total RPS" },
+        { "expr": "rate(ratelimit_requests_total{result=\"allowed\"}[5s])", "legendFormat": "Allowed RPS" },
+        { "expr": "rate(ratelimit_requests_total{result=\"rejected\"}[5s])", "legendFormat": "Rejected RPS" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineInterpolation": "linear", "showPoints": "never" }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "🚫 Rate Limit Rejection Rate (%)",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "(sum(ratelimit_requests_total{result=\"rejected\"}) / sum(ratelimit_requests_total)) * 100",
+          "legendFormat": "Rejection %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 30 },
+              { "color": "red", "value": 60 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "👥 Two Users Test - Rate Limit Comparison",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(ratelimit_requests_total{key=~\".*good-user.*\", result=\"allowed\"}[10s]))",
+          "legendFormat": "Good User - Allowed"
+        },
+        {
+          "expr": "sum(rate(ratelimit_requests_total{key=~\".*good-user.*\", result=\"rejected\"}[10s]))",
+          "legendFormat": "Good User - Rejected"
+        },
+        {
+          "expr": "sum(rate(ratelimit_requests_total{key=~\".*bad-user.*\", result=\"allowed\"}[10s]))",
+          "legendFormat": "Bad User - Allowed"
+        },
+        {
+          "expr": "sum(rate(ratelimit_requests_total{key=~\".*bad-user.*\", result=\"rejected\"}[10s]))",
+          "legendFormat": "Bad User - Rejected"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": "/Bad.*Rejected/" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "title": "📈 Burst Test - Rate Limit Spike Detection",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(ratelimit_requests_total[5s])",
+          "legendFormat": "Total Requests"
+        },
+        {
+          "expr": "rate(ratelimit_requests_total{result=\"rejected\"}[5s])",
+          "legendFormat": "Rate Limited"
+        },
+        {
+          "expr": "rate(ratelimit_requests_total{result=\"allowed\"}[5s])",
+          "legendFormat": "Allowed"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 30,
+            "stacking": { "mode": "normal" }
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "⏱️ Request Latency (P95)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(ratelimit_request_duration_seconds_bucket[1m])) by (le))", "legendFormat": "P95 Latency" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 7,
+      "title": "🎯 Violating Users (Currently Rate Limited)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 16 },
+      "targets": [
+        { "expr": "ratelimit_violating_users_total", "legendFormat": "Violating Users" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "⚡ Redis Operations (per second)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 16 },
+      "targets": [
+        { "expr": "rate(ratelimit_redis_operations_total[10s])", "legendFormat": "{{operation}} - {{status}}" }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "🏷️ Top Violating Users",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (key) (rate(ratelimit_requests_total{result=\"rejected\"}[1m])))",
+          "legendFormat": "{{key}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "red", "value": null }] }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "📋 Live Rate Limit Events",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "targets": [
+        {
+          "expr": "{job=\"ratelimit-service\"} |~ \"rate limit|exceeded|violating\"",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "dedupStrategy": "none",
+        "enableLogDetails": true
+      }
+    }
+  ],
+  "time": { "from": "now-15m", "to": "now" },
+  "annotations": {
+    "list": [
+      {
+        "name": "Load Test Start",
+        "datasource": "grafana",
+        "expr": "rate(ratelimit_requests_total[1m]) > 10",
+        "tagKeys": "test",
+        "titleFormat": "Load test detected",
+        "textFormat": "Rate limit activity started"
+      },
+      {
+        "name": "Rate Limit Spike",
+        "datasource": "grafana",
+        "expr": "rate(ratelimit_requests_total{result=\"rejected\"}[1m]) > 50",
+        "color": "red",
+        "titleFormat": "Rate limit spike",
+        "textFormat": "High rejection rate detected"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "interval",
+        "label": "Refresh Interval",
+        "type": "interval",
+        "query": "5s,10s,30s,1m",
+        "current": { "value": "5s" }
+      }
+    ]
+  }
+}

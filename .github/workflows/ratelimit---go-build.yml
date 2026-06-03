@@ -1,0 +1,25 @@
+name: '[Ratelimit] Go build'
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'ratelimit-service/**'
+
+permissions:
+  contents: read
+  pull-requests: read
+  packages: write
+
+concurrency:
+  group: ci-ratelimit-build-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  docker-build:
+    if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
+    uses: Netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v2.1.0
+    with:
+      dry-run: false
+      config-filename: "ratelimit---docker-dev-config.json"

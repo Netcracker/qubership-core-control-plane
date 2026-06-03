@@ -10,3 +10,7 @@
 *.exe
 control-plane/control-plane.code-workspace
 control-plane/.vscode/settings.json
+ratelimit-service/docs/checklists/**
+ratelimit-service/coverage.*
+ratelimit-service/.tmp/**
+ratelimit-service/docs/backlog/**

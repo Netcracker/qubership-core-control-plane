@@ -1,0 +1,10 @@
+{
+  "components" : [
+    {
+      "name": "ratelimit",
+      "file": "ratelimit-service/Dockerfile",
+      "context": "./ratelimit-service"
+    }
+  ],
+  "platforms" : "linux/amd64"
+}

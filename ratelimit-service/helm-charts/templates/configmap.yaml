@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ratelimit-config
+  labels:
+    app: ratelimit
+    rate-limit-config: "true"
+data:
+  config.yaml: |
+    domain: {{ .Values.config.domain | default "auth_limit" }}
+    separator: {{ .Values.config.separator | default "|" | quote }}
+    descriptors:
+      {{- if .Values.config.rateLimits.default }}
+      - key: ""
+        rate_limit:
+          unit: {{ .Values.config.rateLimits.default.window | default "minute" }}
+          requests_per_unit: {{ .Values.config.rateLimits.default.limit | default 60 }}
+        algorithm: {{ .Values.config.rateLimits.default.algorithm | default "fixed_window" }}
+        priority: 0
+      {{- end }}
+      {{- range .Values.config.rateLimits.rules }}
+      - key: path
+        value_regex: {{ .pattern | quote }}
+        rate_limit:
+          unit: {{ .window | default "minute" }}
+          requests_per_unit: {{ .limit }}
+        algorithm: {{ .algorithm | default "fixed_window" }}
+        priority: {{ .priority | default 50 }}
+        {{- if .perUser }}
+        descriptors:
+          - key: user_id
+            rate_limit:
+              unit: {{ .perUser.window | default "minute" }}
+              requests_per_unit: {{ .perUser.limit }}
+            algorithm: {{ .perUser.algorithm | default "fixed_window" }}
+            priority: {{ .perUser.priority | default 100 }}
+        {{- end }}
+      {{- end }}

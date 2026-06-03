@@ -1,0 +1,31 @@
+# tests/fixtures/ratelimit-config-layered.yaml
+#
+# Layered rate-limit configuration used by composite-limits tests.
+#
+# Semantics:
+#   - Outer descriptor (path=/api/v1/orders) limits 1000 req/min across ALL
+#     callers of that path. This is the global protection for the endpoint.
+#   - Inner descriptor (user_id=anything) limits 10 req/min per (path, user_id)
+#     pair, with HIGHER priority — so when a request has both path and user_id
+#     in its key, the inner rule wins.
+#
+# Anonymous requests (no user_id component) match only the outer rule and
+# share the 1000/min quota; per-user requests are isolated by user_id in the
+# Redis key, so each user has their own 10/min counter.
+
+domain: auth_limit
+descriptors:
+  - key: path
+    value: /api/v1/orders
+    rate_limit:
+      unit: minute
+      requests_per_unit: 1000
+    algorithm: fixed_window
+    priority: 50
+    descriptors:
+      - key: user_id
+        rate_limit:
+          unit: minute
+          requests_per_unit: 10
+        algorithm: fixed_window
+        priority: 100

@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ratelimit-config
+data:
+  config.yaml: |
+    domain: auth_limit
+    descriptors:
+
+      - key: user_id
+        rate_limit:
+          unit: minute
+          requests_per_unit: 200
+      
+
+      - key: path
+        value: "/api/public"
+        rate_limit:
+          unit: second
+          requests_per_unit: 50
+      
+      - key: path
+        value: "/api/health"
+        rate_limit:
+          unit: second
+          requests_per_unit: 100

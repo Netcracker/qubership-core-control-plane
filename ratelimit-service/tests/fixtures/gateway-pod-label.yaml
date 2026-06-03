@@ -1,0 +1,24 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: gateway-pod-label
+  namespace: core-1-core
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: public-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.lua
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+          inline_code: |
+            function envoy_on_response(response_handle)
+              local pod_name = os.getenv("HOSTNAME") or "unknown"
+              response_handle:headers():add("x-gateway-id", pod_name)
+            end

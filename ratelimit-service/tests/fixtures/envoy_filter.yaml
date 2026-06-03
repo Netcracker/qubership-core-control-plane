@@ -1,0 +1,74 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: gateway-ratelimit
+  labels:
+    app: ratelimit
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: public-gateway
+  configPatches:
+  # Cluster for rate limit service
+  - applyTo: CLUSTER
+    patch:
+      operation: ADD
+      value:
+        name: ratelimit_cluster
+        type: STRICT_DNS
+        connect_timeout: 0.5s
+        typed_extension_protocol_options:
+          envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+            "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+            explicit_http_config:
+              http2_protocol_options: {}
+        load_assignment:
+          cluster_name: ratelimit_cluster
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: ratelimit-service.core-1-core.svc.cluster.local
+                    port_value: 8081
+
+  # Rate limit filter - simplified match
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.ratelimit
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit
+          domain: auth_limit
+          failure_mode_deny: false
+          rate_limit_service:
+            grpc_service:
+              envoy_grpc:
+                cluster_name: ratelimit_cluster
+
+  # Rate limit actions
+  - applyTo: HTTP_ROUTE
+    match:
+      context: GATEWAY
+    patch:
+      operation: MERGE
+      value:
+        typed_per_filter_config:
+          envoy.filters.http.ratelimit:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimitPerRoute
+            domain: auth_limit
+            rate_limits:
+            - actions:
+              - request_headers:
+                  header_name: ":path"
+                  descriptor_key: path
+              - request_headers:
+                  header_name: "x-user-id"
+                  descriptor_key: user_id
+            - actions:
+              - request_headers:
+                  header_name: ":path"
+                  descriptor_key: path

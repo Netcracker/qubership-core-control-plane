@@ -1,0 +1,13 @@
+{{- if .Values.monitoring.grafanaDashboard.enabled }}
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: ratelimit-service-dashboard2
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: ratelimit
+spec:
+  name: ratelimit-service.json
+  json: |
+    {{ .Files.Get "dashboards/test-dashboard.json" | nindent 4 }}
+{{- end }}

@@ -1,0 +1,26 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ratelimit
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: ratelimit
+    {{- toYaml .Values.monitoring.serviceMonitor.labels | nindent 4 }}
+  {{- with .Values.monitoring.serviceMonitor.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: ratelimit
+  endpoints:
+  - port: metrics
+    interval: {{ .Values.monitoring.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout }}
+    path: /metrics
+  namespaceSelector:
+    matchNames:
+    - {{ .Values.namespace }}
+{{- end }}

@@ -1,0 +1,73 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: loadtest-routes
+spec:
+  parentRefs:
+  - name: public-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /test
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /get
+    backendRefs:
+    - name: httpbin
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /burst
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /get
+    backendRefs:
+    - name: httpbin
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /spike
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /get
+    backendRefs:
+    - name: httpbin
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /fixed
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /get
+    backendRefs:
+    - name: httpbin
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /sliding
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /get
+    backendRefs:
+    - name: httpbin
+      port: 8080

@@ -1,0 +1,94 @@
+name: Ratelimit smoke test
+run-name: "Ratelimit smoke [${{ inputs.ratelimit-image-tag || 'latest' }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      core-bootstrap-branch:
+        description: 'Branch of core-bootstrap repo'
+        required: false
+        default: 'main'
+        type: string
+      istio-repo-branch:
+        description: 'Branch of the Istio repo'
+        required: false
+        default: 'main'
+        type: string
+      ratelimit-image-tag:
+        description: 'Docker image tag for ratelimit service'
+        required: false
+        default: 'latest'
+        type: string
+      namespace:
+        description: 'Kubernetes namespace for ratelimit'
+        required: false
+        default: 'core-1-core'
+        type: string
+      skip-install:
+        description: 'Skip ratelimit installation (already deployed)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  smoke:
+    name: "Smoke (baseline → install → scenarios → report)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Setup Kind cluster and deploy Cloud Core
+        uses: ./.github/actions/setup-kind-with-cloud-core
+        with:
+          core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
+          install-istio: true
+          istio-repo-branch: ${{ inputs.istio-repo-branch || 'main' }}
+          install-maas: false
+          facade-operator-tag: latest
+          ingress-gateway-tag: latest
+          control-plane-tag: latest
+          paas-mediation-tag: latest
+          dbaas-agent-tag: latest
+          core-operator-tag: latest
+          config-server-tag: latest
+          site-management-tag: latest
+          test-branch: main
+          mesh-type: Core
+
+      - name: Run ratelimit smoke test
+        id: smoke
+        env:
+          NAMESPACE:       ${{ inputs.namespace || 'core-1-core' }}
+          HELM_IMAGE_TAG:  ${{ inputs.ratelimit-image-tag || 'latest' }}
+          HELM_IMAGE_REPO: ghcr.io/netcracker/ratelimit
+          HELM_RELEASE:    ratelimit
+          HELM_CHART:      ./helm-charts
+          SKIP_INSTALL:    ${{ (inputs.skip-install && 'true') || 'false' }}
+          RESULTS_DIR:     ${{ runner.temp }}/ratelimit-smoke-results
+          CI:              "true"
+        run: |
+          bash tests/smoke/run-integration-test.sh
+          echo "results_dir=${RESULTS_DIR}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish comparison report to job summary
+        if: always()
+        run: |
+          REPORT="${{ steps.smoke.outputs.results_dir }}/comparison-report.md"
+          if [ -f "$REPORT" ]; then
+            cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## ⚠️ Smoke report not generated" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload smoke results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratelimit-smoke-results-${{ github.run_id }}
+          path: ${{ steps.smoke.outputs.results_dir }}/
+          retention-days: 30
+          if-no-files-found: warn

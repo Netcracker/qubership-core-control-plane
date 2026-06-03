@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ratelimit-config
+data:
+  config.yaml: |
+    domain: auth_limit
+    descriptors:
+      - key: path
+        value: "/test"
+        descriptors:
+        - key: user_id
+          rate_limit:
+            unit: minute
+            requests_per_unit: 2
