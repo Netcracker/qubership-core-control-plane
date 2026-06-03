@@ -1,5 +1,5 @@
 ---
-name: qubership-mesh-to-istio
+name: core-mesh-crs-to-gatewayapi
 description: >
   Transform Qubership Cloud Core Mesh Helm templates to Istio Ambient Mesh equivalents.
   Use this skill whenever the user asks to migrate, convert, transform, or upgrade Helm charts
@@ -150,7 +150,37 @@ Sequence:
 2. Process all FacadeService CRs
 3. List in chat all resolved gateways: mesh gateways (from FacadeService or Gateway mesh) and ingress/egress gateways (from Gateway CRs).
 4. Process all RouteConfiguration CRs using the resolved list plus user-provided types for any previously unresolved gateways.
+5. Sort each HTTPRoute's `rules[]` by path specificity using the shared procedure
+   in [shared/path-specificity-sorting.md](../shared/path-specificity-sorting.md)
+   (sort on each rule's `match.prefix` / `match.path` / `match.regExp` value).
 
+
+### Step 5c — Detect the service backend reference
+
+While processing `RouteConfiguration` CRs, collect the backend reference of the
+migrated service so downstream tooling (code-generated HTTPRoutes, Maven plugin)
+can reuse the **same** `name` / `port`. This relies on the assumption that **one
+migrated chart contains only routes for its own service**, so every self-route
+destination resolves to the same backend.
+
+Procedure:
+
+1. From every `RouteDestination.endpoint` (see
+   [route-configuration-mapping.md](route-configuration-mapping.md) →
+   "Endpoint to backendRef resolution"), collect the parsed `(name, port)` pairs.
+2. Exclude destinations whose `name` is a well-known platform gateway service
+   (`public-gateway-service`, `private-gateway-service`, `internal-gateway-service`,
+   `egress-gateway`) — these are not the service's own backend.
+3. Determine the result:
+   - **Exactly one distinct `(name, port)` remains** → that is the detected
+     `backendRefName` / `backendRefPort`. Preserve Helm expressions verbatim
+     (e.g. `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`).
+   - **No destinations** (e.g. no `RouteConfiguration` CRs) or **more than one
+     distinct backend** → report `backendRefName` / `backendRefPort` as
+     **unresolved** and explain why (none found / conflicting values listed).
+
+Report the result in the Output Summary (see "Detected backend reference").
+Do not ask the user here — resolution/prompting is the orchestrator's job.
 
 ### Step 6 — Update values.yaml
 
@@ -190,6 +220,7 @@ After generating all files, verify:
 - [ ] All `ingress`, `egress` type Gateways, gateway with name `egress-gateway` produce a Gateway
 - [ ] `RouteConfiguration` → HTTPRoute parentRefs correctly use Gateway or Service kind
 - [ ] No hardcoded values where Helm expressions existed
+- [ ] Each HTTPRoute's `rules[]` are sorted by path specificity (most specific first) per [shared/path-specificity-sorting.md](../shared/path-specificity-sorting.md)
 - [ ] YAML is valid (no unclosed blocks, correct indentation)
 - [ ] `⚠ MANUAL REVIEW REQUIRED` comments added for every encountered unsupported/omitted field (see list below)
 
@@ -199,19 +230,14 @@ When the listed field is non-empty / non-nil on the source CR, omit it from the 
 
 | Source | Field | Trigger |
 |---|---|---|
-| `RouteConfiguration.spec` | `tlsSupported` | non-empty |
 | `RouteConfiguration.spec` | `overridden` | non-empty |
 | `VirtualService` | `rateLimit` | non-empty |
 | `VirtualService` | `overridden` | non-empty |
 | `VirtualService.hosts[]` | `*` host | appears on an east-west (mesh) route |
 | `RouteDestination` | `cluster` | non-empty |
-| `RouteDestination` | `tlsSupported` | non-empty |
-| `RouteDestination` | `tlsEndpoint` | non-empty |
 | `RouteDestination` | `httpVersion` | non-empty |
-| `RouteDestination` | `tlsConfigName` | non-empty |
 | `RouteDestination` | `circuitBreaker` | non-empty |
 | `RouteDestination` | `tcpKeepalive` | non-empty |
-| `RouteV3.Rule` | `allowed` | non-nil |
 | `RouteV3.Rule` | `idleTimeout` | non-nil |
 | `RouteV3.Rule` | `statefulSession` | non-nil |
 | `RouteV3.Rule` | `rateLimit` | non-empty |
@@ -237,14 +263,19 @@ Resources transformed:
   Gateway/mesh              → omitted, east-west HTTPRoute only (<N> instances)
   RouteConfiguration        → HTTPRoute (<N> instances)
 
+Detected backend reference (for code-generated HTTPRoutes / Maven plugin):
+  backendRefName: <name or "unresolved">
+  backendRefPort: <port or "unresolved">
+  # if unresolved, state why: no RouteConfiguration destinations found
+  #                           | conflicting backends: <list of name:port>
+
 Items needing manual review:
   <list every omitted `⚠ MANUAL REVIEW REQUIRED` — one line per hit, e.g.:
-   - tlsSupported / overridden on RouteConfiguration <name>
    - rateLimit / overridden on VirtualService <name>
    - '*' host on east-west RouteConfiguration <name>
-   - cluster / tlsSupported / tlsEndpoint / tlsConfigName / httpVersion /
+   - cluster / httpVersion /
      circuitBreaker / tcpKeepalive on RouteDestination of <name>
-   - allowed / deny / idleTimeout / statefulSession / rateLimit / luaFilter
+   - deny / idleTimeout / statefulSession / rateLimit / luaFilter
      on Rule <path> of <name>
    - FacadeService <name> has no port defined
    - helper {{- include "<name>" }} produces mesh CRs — guards added manually
@@ -260,3 +291,4 @@ Read these before transforming — they contain schemas, field mappings, and ful
 - [gateway-mapping.md](gateway-mapping.md) — Gateway → Istio Gateway
 - [route-configuration-mapping.md](route-configuration-mapping.md) — RouteConfiguration → HTTPRoute
 - [labels.md](labels.md) — Common label resolution
+- [../shared/path-specificity-sorting.md](../shared/path-specificity-sorting.md) — Sort HTTPRoute `rules[]` by path specificity (shared with `httproute-from-code`)

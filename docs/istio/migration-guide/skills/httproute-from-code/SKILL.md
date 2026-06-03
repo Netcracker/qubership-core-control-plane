@@ -24,6 +24,34 @@ Examples:
 
 ---
 
+## Inputs / parameters
+
+Besides `<path>`, this skill accepts two optional `backendRefs` parameters. They
+control the `backendRefs[].name` and `backendRefs[].port` emitted in every
+generated rule. When invoked by the
+[`core-mesh-to-istio-migration`](../core-mesh-to-istio-migration/SKILL.md)
+orchestrator, these are passed in already resolved — either detected from the
+existing mesh CRs by the `core-mesh-crs-to-gatewayapi` skill or provided by the user.
+
+| Parameter | Controls | Default |
+|---|---|---|
+| `backendRefName` | `backendRefs[].name` in every rule | `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` |
+| `backendRefPort` | `backendRefs[].port` in every rule | `8080` |
+
+Resolution rules:
+
+- If a value is provided by the caller (or the orchestrator), use it verbatim for
+  **all** generated CRs — do not infer per-route values.
+- If not provided, propose the default to the user and ask for confirmation
+  before generating. When running standalone with no opportunity to ask, use the
+  defaults and note the used values in the summary.
+- `backendRefName` is used as-is, including Helm template expressions such as
+  `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`.
+- `backendRefPort` must be a positive integer. If a non-integer value is given,
+  stop with an `ERROR:` (see Error handling).
+
+---
+
 ## Step 1 — Discover files and detect language
 
 Resolve <path>:
@@ -247,9 +275,9 @@ Route C  From=/api/v1/admin    To=/admin    RouteType=Internal
 Produces THREE CRs:
 
 ```
-<name>-public-routes    parentRefs: [public-gateway, private-gateway, internal-gateway-service]  rules: [Route A]
-<name>-private-routes   parentRefs: [private-gateway, internal-gateway-service]                  rules: [Route B]
-<name>-internal-routes  parentRefs: [internal-gateway-service]                                   rules: [Route C]
+<name>-source-code-public-routes    parentRefs: [public-gateway, private-gateway, internal-gateway-service]  rules: [Route A]
+<name>-source-code-private-routes   parentRefs: [private-gateway, internal-gateway-service]                  rules: [Route B]
+<name>-source-code-internal-routes  parentRefs: [internal-gateway-service]                                   rules: [Route C]
 ```
 
 ### Deduplication within a CR
@@ -318,55 +346,11 @@ Rule: divisible by 60000 → `Xm`, divisible by 1000 → `Xs`, else → `Xms`.
 Before generating the CR, sort all collected routes so that the most specific
 `from` paths appear first in `rules[]`.
 
-### Specificity ordering rules
-
-1. Count path segments (split by `/`, ignore empty):
-   `/api/v1/users/profile` → 4 segments  
-   `/api/v1/users` → 3 segments  
-   `/api` → 1 segment
-
-2. More segments = higher specificity = appears first.
-
-3. Tie-break by path length (longer string first).
-
-4. Tie-break by lexicographic order (ascending) for stable output.
-
-### Example — input order does not matter, output is always sorted
-
-Input routes (any order):
-```
-/api/v1/mesh-test-service-go/1234   → 4 segments
-/api/v1/mesh-test-service-go        → 3 segments
-/api/v1                             → 2 segments
-/api                                → 1 segment
-```
-
-Sorted output in rules[]:
-```yaml
-rules:
-  - matches:
-      - path:
-          type: PathPrefix
-          value: /api/v1/mesh-test-service-go/1234   # 4 segments — first
-  - matches:
-      - path:
-          type: PathPrefix
-          value: /api/v1/mesh-test-service-go         # 3 segments
-  - matches:
-      - path:
-          type: PathPrefix
-          value: /api/v1                              # 2 segments
-  - matches:
-      - path:
-          type: PathPrefix
-          value: /api                                 # 1 segment — last
-```
-
-### Why this matters
-GatewayAPI spec defines that more specific prefix matches win regardless of
-order, but not all gateway implementations (Envoy, Nginx, Istio) respect this
-consistently. Sorting longest-prefix-first ensures correct behaviour across
-all implementations.
+Apply the shared procedure in
+[`../shared/path-specificity-sorting.md`](../shared/path-specificity-sorting.md)
+— sort on each rule's `from` path. That file defines the segment-count ordering,
+tie-breaks, a worked example, and why ordering matters across gateway
+implementations.
 
 ---
 
@@ -380,29 +364,44 @@ Resolve every target gateway name to a Gateway API `parentRefs` entry before ren
 
 | Target | Rendered parentRef |
 |---|---|
-| `public-gateway` | `- name: public-gateway` |
-| `private-gateway` | `- name: private-gateway` |
+| `public-gateway` | `- name: public-gateway` with `kind: Gateway` and `group: gateway.networking.k8s.io` |
+| `private-gateway` | `- name: private-gateway` with `kind: Gateway` and `group: gateway.networking.k8s.io` |
 | `internal-gateway-service` | `- name: internal-gateway-service` with `kind: Service` and `group: ''` |
 
-Do not render `kind` or `group` for `public-gateway` or `private-gateway`; they
-use the Gateway API defaults. Always render `kind: Service` and `group: ''` for
-`internal-gateway-service`, because it is a Service parentRef for east-west
-traffic through the waypoint path.
+Always render `kind` and `group` fields for all parentRefs.
+
+### BackendRef resolution
+
+Every rule's `backendRefs` entry uses the resolved input parameters (see
+[Inputs / parameters](#inputs--parameters)):
+
+- `name:` ← `backendRefName` (default `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`)
+- `port:` ← `backendRefPort` (default `8080`)
+
+`group: ''`, `kind: Service`, and `weight: 1` are constant. The same
+`backendRefName` / `backendRefPort` apply to every rule across every CR — they
+are migration-wide, not per-route. The examples below use the defaults; substitute
+the confirmed values when they differ.
 
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: <microservice-name>-public-routes
+  name: <microservice-name>-source-code-public-routes
   namespace: {{ .Values.NAMESPACE }}
 spec:
   parentRefs:
-    - name: public-gateway
-    - name: private-gateway
-    - name: internal-gateway-service
+    - group: gateway.networking.k8s.io    
+      kind: Gateway
+      name: public-gateway
+    - group: gateway.networking.k8s.io    
+      kind: Gateway    
+      name: private-gateway
+    - group: ''
       kind: Service
-      group: ''
+      name: internal-gateway-service
+
   rules:
     - matches:
         - path:
@@ -415,20 +414,25 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /api/v1
       backendRefs:
-        - name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
+        - group: ''
+          kind: Service
+          name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
           port: 8080
+          weight: 1
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: <microservice-name>-private-routes
+  name: <microservice-name>-source-code-private-routes
   namespace: {{ .Values.NAMESPACE }}
 spec:
   parentRefs:
-    - name: private-gateway
-    - name: internal-gateway-service
+    - group: gateway.networking.k8s.io    
+      kind: Gateway    
+      name: private-gateway
+    - group: ''
       kind: Service
-      group: ''
+      name: internal-gateway-service
   rules:
     - matches:
         - path:
@@ -441,8 +445,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /api/v1/private
       backendRefs:
-        - name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
+        - group: ''
+          kind: Service
+          name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
           port: 8080
+          weight: 1
 {{- end }}
 ```
 
@@ -477,6 +484,13 @@ helm-templates/<service name>/templates/source-code-httproutes.yaml
 
 Note: summary rows reflect sorted order (most specific first).
 
+Also report the `backendRefs` values applied to all rules:
+
+```
+backendRefName: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}   (detected | user-provided | default)
+backendRefPort: 8080                                     (detected | user-provided | default)
+```
+
 ---
 
 ## Error handling
@@ -488,6 +502,7 @@ Stop and report if:
 - RouteType conflicts with explicit gateway value
 - Java constructor argument types are ambiguous
 - No routes detected in any file
+- `backendRefPort` is provided but is not a positive integer
 
 Error format:
 
@@ -501,6 +516,8 @@ reason: RouteEntry missing 'from' field
 ---
 
 ## Non-goals
+
+Do NOT modify source code - it is readonly input for HTTPRoute generation
 
 Do NOT generate:
 

@@ -5,25 +5,52 @@
 
 ## Overview
 
-This guide walks you through migrating your service from the Cloud-Core mesh to Istio. Follow the steps in order. Each step builds on the previous one.
+This guide covers migrating your service from the Cloud-Core mesh to Istio.
 
-### Skills
+There are **two ways** to perform the migration. Pick one:
 
-This guide relies on AI skills that automate the bulk of the migration:
+### Option A — Run the orchestrator skill (recommended)
+
+Let the [`core-mesh-to-istio-migration`](skills/core-mesh-to-istio-migration/SKILL.md)
+orchestrator skill drive the entire migration end-to-end. It runs every step
+below in order, delegates to the two atomic skills, validates the result, and
+maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items so nothing
+is missed.
+
+1. Open your IDE in your repository root.
+2. Ask AI to run the migration, e.g.: *"Run the core-mesh-to-istio migration on `<path-to-your-helm-chart>`"* (or invoke `/core-mesh-to-istio-migration <path>`).
+3. Answer any questions it asks (chart path, source-code path, language), then
+   review `MIGRATION_LOG.md` — especially every **Needs review** entry — before
+   raising a PR.
+
+This is the preferred path: it is faster, applies the steps consistently, and
+produces an auditable log.
+
+### Option B — Follow this guide manually
+
+Work through the steps below yourself, in order (each builds on the previous).
+Along the way you can still invoke the two atomic skills to automate individual
+steps, or do the edits by hand. Choose this path when you want full control,
+need to run a single step in isolation, or are migrating something the
+orchestrator cannot fully handle.
+
+### Skills used by both options
 
 | Skill | Purpose |
 |---|---|
-| [`core-mesh-to-istio-migration`](skills/core-mesh-to-istio-migration/SKILL.md) | **Orchestrator** — runs the full migration end-to-end, delegates to the two skills below, and maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items |
-| [`qubership-mesh-to-istio`](skills/qubership-mesh-to-istio/SKILL.md) | Convert existing Helm mesh CRs (FacadeService, Gateway, RouteConfiguration) to Istio Gateway API resources |
+| [`core-mesh-to-istio-migration`](skills/core-mesh-to-istio-migration/SKILL.md) | **Orchestrator** (Option A) — runs the full migration end-to-end, delegates to the two skills below, and maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items |
+| [`core-mesh-crs-to-gatewayapi`](skills/core-mesh-crs-to-gatewayapi/SKILL.md) | Convert existing Helm mesh CRs (FacadeService, Gateway, RouteConfiguration) to Istio Gateway API resources |
 | [`httproute-from-code`](skills/httproute-from-code/SKILL.md) | Generate HTTPRoute CRs from Go/Java route registration source code |
 
-**Recommended:** run the orchestrator skill (`core-mesh-to-istio-migration`) and let it drive the steps below. The two atomic skills remain available if you prefer to run a single step in isolation.
+> The rest of this guide documents the individual steps. With **Option A** the
+> orchestrator performs them for you; with **Option B** you follow them
+> manually. Either way, finish with the [Final Checklist](#final-checklist).
 
 ---
 
 ## Step 1 — Migrate declarative routes - existing Mesh CRs to HTTPRoute CRs
 
-Use the skill [`qubership-mesh-to-istio`](skills/qubership-mesh-to-istio/SKILL.md) to automatically convert your existing mesh custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`) into GatewayAPI HTTPRoute manifests while keeping the chart deployable on both mesh types.
+Use the skill [`core-mesh-crs-to-gatewayapi`](skills/core-mesh-crs-to-gatewayapi/SKILL.md) to automatically convert your existing mesh custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`) into GatewayAPI HTTPRoute manifests while keeping the chart deployable on both mesh types.
 
 ### How to run
 
@@ -324,14 +351,43 @@ helm template . --set SERVICE_MESH_TYPE=Core | grep 'kind: HTTPRoute'
 
 ---
 
+## Step 2.6 — Detect Duplicate HTTPRoute Rules
+
+Once all HTTPRoutes exist — both those converted from declarative mesh CRs
+(Step 1) and those generated from route registration code (Step 2.4 / the Maven
+plugin) — the same route can end up defined twice. A common case: a route is
+declared in a `RouteConfiguration` CR **and** also registered in application
+code, so both pipelines emit a rule for it.
+
+Scan all Istio-guarded HTTPRoutes and flag any **duplicate rules** — two or more
+rules that share **at least one common parent** (`parentRefs[]` entry:
+`group` + `kind` + `name`) **and** have **equal match parameters** (path match
+`type` + `value`, plus any `headers` / `queryParams` / `method`). Compare
+`{{ .Values.* }}` expressions as literal text.
+
+These duplicates are **not removed automatically** — deleting the wrong copy can
+silently change routing behaviour. For each duplicate group, record a manual
+review item listing:
+
+- the shared parent(s) and the match value,
+- every file + HTTPRoute name (and rule) that contributes a copy,
+- which source should remain authoritative (the `RouteConfiguration` CR or the
+  registration code) so you can remove the redundant rule before merging.
+
+Routes that share the same match but target only **different** parents are not
+duplicates and need no action.
+
+---
+
 ## Final Checklist
 
 Before raising a PR, verify all of the following:
 
-- [ ] [`qubership-mesh-to-istio`](skills/qubership-mesh-to-istio/SKILL.md) skill run: existing mesh CRs converted to HTTPRoute CRs
+- [ ] [`core-mesh-crs-to-gatewayapi`](skills/core-mesh-crs-to-gatewayapi/SKILL.md) skill run: existing mesh CRs converted to HTTPRoute CRs
 - [ ] Flagged features from Step 1.1 manually resolved
 - [ ] New mesh-aware libraries replace old route-posting libraries
 - [ ] `SERVICE_MESH_TYPE=Istio` set in Helm values / Deployment
 - [ ] Maven plugin added and local build passes (Java only)
 - [ ] [`httproute-from-code`](skills/httproute-from-code/SKILL.md) skill run: route registration code converted to HTTPRoute CRs
 - [ ] All HTTPRoute CRs wrapped in a `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` block
+- [ ] HTTPRoutes scanned for duplicate rules (same parent + equal match); duplicates resolved or flagged for review

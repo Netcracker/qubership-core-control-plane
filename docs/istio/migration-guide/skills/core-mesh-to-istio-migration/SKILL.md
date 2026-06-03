@@ -35,7 +35,7 @@ Examples:
 
 | Sub-skill                                                                           | Used in step | Purpose                                                        |
 | ----------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------- |
-| [`qubership-mesh-to-istio`](../qubership-mesh-to-istio/SKILL.md)                    | Step 1       | Convert existing Helm mesh CRs to Gateway + HTTPRoute          |
+| [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md)            | Step 1       | Convert existing Helm mesh CRs to Gateway + HTTPRoute          |
 | [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
 
 **How to invoke a sub-skill:** read its `SKILL.md` in full and execute its steps
@@ -54,6 +54,32 @@ Before starting any step, confirm or ask the user for:
 4. **Build system** — Maven (Java) or `go.mod` (Go). Needed for Step 2.
 
 If any is missing, ask before proceeding. Do not guess the chart path.
+
+### Backend reference (`backendRefName` / `backendRefPort`) — do NOT ask up front
+
+The `backendRefs[].name` and `backendRefs[].port` applied to generated HTTPRoutes
+are **migration-wide** values, but they are **not** collected at orchestrator
+start. Resolve them as follows:
+
+1. **Step 1** invokes [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md),
+   which detects the service's own backend `name`/`port` from the existing mesh
+   `RouteConfiguration` destinations (one migrated service contains only routes
+   for itself) and reports them in its output as `backendRefName` /
+   `backendRefPort`.
+2. **If Step 1 resolved both values** → capture them, record them in
+   `MIGRATION_LOG.md` (under **Done**), and reuse them in **Step 2.3** and
+   **Step 2.4** without prompting.
+3. **If Step 1 could not resolve them** (no declarative mesh CRs, ambiguous /
+   conflicting destinations, or Step 1 was skipped) → ask the user **explicitly**
+   at the point they are first needed (Step 2.3 for Java, Step 2.4 otherwise),
+   proposing the defaults `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` and `8080`.
+   Do not ask earlier than necessary.
+
+Once resolved (detected or user-provided), the same values MUST be:
+- passed to the Maven plugin config in **Step 2.3** (`<backendRefVal>` and
+  `<servicePort>` respectively), and
+- propagated to the [`httproute-from-code`](../httproute-from-code/SKILL.md)
+  sub-skill in **Step 2.4** so the generated `backendRefs` match.
 
 ---
 
@@ -124,6 +150,7 @@ Language: <Go | Java | Go+Java>
 | 2.3  | Add Maven plugin (Java only)                | pending     |       |
 | 2.4  | Generate HTTPRoute CRs from code            | pending     |       |
 | 2.5  | Verify HTTPRoutes are Istio-guarded         | pending     |       |
+| 2.6  | Detect duplicate HTTPRoute rules            | pending     |       |
 
 ## Commands run
 
@@ -152,11 +179,11 @@ block a correct migration:
 
 | Item | Example location |
 |------|-----------------|
-| `RouteConfiguration.spec.tlsSupported` / `.overridden` non-empty | RouteConfiguration CR |
+| `RouteConfiguration.spec.overridden` non-empty | RouteConfiguration CR |
 | `VirtualService.rateLimit` / `.overridden` non-empty | VirtualService CR |
-| `RouteDestination.tlsSupported` / `.tlsEndpoint` / `.tlsConfigName` / `.httpVersion` / `.circuitBreaker` / `.tcpKeepalive` non-empty | RouteConfiguration CR |
+| `RouteDestination.httpVersion` / `.circuitBreaker` / `.tcpKeepalive` non-empty | RouteConfiguration CR |
 | `Rule.rateLimit` / `.luaFilter` non-empty | RouteConfiguration CR |
-| `Rule.allowed` / `.deny` / `.idleTimeout` / `.statefulSession` non-nil | RouteConfiguration CR |
+| `Rule.deny` / `.idleTimeout` / `.statefulSession` non-nil | RouteConfiguration CR |
 | `FacadeService` with no port defined | FacadeService CR |
 | Named `{{- include }}` helpers producing mesh CRs | Helm templates |
 | `*` host on an east-west route | Generated HTTPRoute |
@@ -194,7 +221,7 @@ already containing `kind: HTTPRoute` guarded by
 step already exists, log all affected files under **Done** ("already present")
 and skip to Step 1.1.
 
-1. Invoke the sub-skill [`qubership-mesh-to-istio`](../qubership-mesh-to-istio/SKILL.md)
+1. Invoke the sub-skill [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md)
    with the chart path.
 2. That skill will: wrap originals in `SERVICE_MESH_TYPE=Core` guards, generate
    `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`, convert
@@ -207,9 +234,17 @@ and skip to Step 1.1.
    Log each decision under **Needs review** → move to **Done** once applied.
 4. Copy the sub-skill's output summary (modified / generated files, transformed
    resource counts, manual-review list) into the log.
+5. **Capture the detected backend reference.** Read the `backendRefName` /
+   `backendRefPort` reported in the sub-skill's "Detected backend reference"
+   output. If both are resolved, record them in the log (under **Done**) as the
+   migration-wide backend reference to reuse in Step 2.3 / Step 2.4. If the
+   sub-skill reports them as unresolved, note that they must be asked from the
+   user when first needed (see
+   [Backend reference](#backend-reference-backendrefname--backendrefport--do-not-ask-up-front)).
 
 Log update:
-- **Done:** every file in `Files modified` and `Files generated`.
+- **Done:** every file in `Files modified` and `Files generated`; the detected
+  `backendRefName` / `backendRefPort` (if resolved).
 - **Needs review:** every item from the sub-skill's "Items needing manual review".
 
 **Validation:**
@@ -326,11 +361,15 @@ in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
      - `<goal>generate-routes</goal>`
      - `<packages>` resolved from `src/main/java/...`. If ambiguous, set
        `com.example` and add a **Needs review** entry.
-     - `<servicePort>` read from `application.yaml` / `application.properties`
-       (`server.port`) or default to `8080` and add a **Needs review** entry.
+     - `<servicePort>` set to the resolved **`backendRefPort`** — detected by
+       Step 1, or asked from the user here (default `8080`) if Step 1 did not
+       resolve it. Do not silently re-read `server.port`.
      - `<outputFile>` pointing inside the chart templates directory, defaulting
        to `<chart>/templates/annotations-httproutes.yaml`.
-     - `<backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>`.
+     - `<backendRefVal>` set to the resolved **`backendRefName`** — detected by
+       Step 1, or asked from the user here (default
+       `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`) if Step 1 did not resolve it,
+       e.g. `<backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>`.
   2. **Confirm `<outputFile>`** is set to a path inside the Helm chart templates
      directory (see above). This file must be committed to the branch.
   3. **Build the project** to generate the output file. Run `mvn -q clean process-classes`
@@ -351,7 +390,9 @@ Log update:
 - **Skipped:** non-Java service, no route-registration annotations, or Maven
   not available in the environment.
 - **Needs review:** any default value that could not be confirmed from project
-  files (`<packages>`, `<servicePort>`).
+  files (`<packages>`). `<servicePort>` / `<backendRefVal>` come from the
+  `backendRefPort` / `backendRefName` resolved in Step 1 (or asked from the
+  user) and do not need review.
 
 ### Step 2.4 — Generate HTTPRoute CRs from route registration code
 
@@ -360,7 +401,11 @@ content matches what the sub-skill would generate (no source-code changes since
 last run), log under **Done** ("already present") and skip.
 
 1. Invoke sub-skill [`httproute-from-code`](../httproute-from-code/SKILL.md) with
-   the source-code path.
+   the source-code path **and** the resolved `backendRefName` / `backendRefPort`
+   (detected by Step 1, or asked from the user if still unresolved — propose the
+   defaults `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080`). The sub-skill uses
+   these for every generated `backendRefs[].name` / `backendRefs[].port` so the
+   code-generated routes match the Maven-plugin output from Step 2.3.
 2. That skill scans Go (`*.go`) and Java (`*.java`) files, extracts
    `routeregistration.Route` / `RouteEntry` definitions, groups by `RouteType`,
    and emits one HTTPRoute CR per type to
@@ -412,6 +457,48 @@ and exit code in **Commands run**.
   **Needs review** and apply the
   [Error policy](#error-policy--read-before-executing-any-step).
 
+### Step 2.6 — Detect duplicate HTTPRoute rules
+
+After all HTTPRoutes exist (Step 1 conversions + Step 2.3 annotations +
+Step 2.4 code generation), the same route can be emitted twice — e.g. a route
+declared in a `RouteConfiguration` CR **and** registered in code. Duplicate
+rules with the same parent and identical match are ambiguous and **must not be
+auto-removed** (deleting the wrong one can change runtime behaviour). Flag them
+for the user instead.
+
+**Idempotency check:** if a previous run already logged the duplicate-rule
+findings and no HTTPRoute files changed since, log under **Done**
+("already checked") and skip.
+
+1. Collect every HTTPRoute rule across all generated/modified files guarded by
+   `SERVICE_MESH_TYPE=Istio` (`-istio.yaml`, `annotations-httproutes.yaml`,
+   `source-code-httproutes.yaml`, and any inline HTTPRoutes).
+2. For each rule, build a comparison key from:
+   - the **parent** — every `parentRefs[]` entry it belongs to
+     (`group` + `kind` + `name`), and
+   - the **match parameters** — the normalized `matches[]`: path `type` + `value`,
+     plus any `headers[]` / `queryParams[]` / `method`.
+   Resolve `{{ .Values.* }}` expressions textually (compare the literal template
+   string); do not attempt to render Helm.
+3. A **duplicate** is two or more rules that share **at least one common parent**
+   AND have an **equal match key**. Rules that share a match but target only
+   different parents are NOT duplicates.
+4. For every duplicate group, add **one Needs review** entry containing:
+   - the shared parent(s) and the match value,
+   - every file + HTTPRoute `metadata.name` (and rule index) that contributes a
+     copy,
+   - suggested action: "Two routes resolve to the same parent and match —
+     confirm which source is authoritative and remove the redundant rule (often
+     a route present both in a `RouteConfiguration` CR and in registration
+     code)."
+5. **Do not modify any file.** This step only reports.
+6. If no duplicates are found → log under **Done** ("no duplicate HTTPRoute
+   rules detected").
+
+Log update:
+- **Done:** "duplicate-rule scan complete — N groups found" (or none).
+- **Needs review:** one entry per duplicate group (see above).
+
 ---
 
 ## Final checklist and hand-off
@@ -430,6 +517,7 @@ at least one **Done** entry and zero unresolved **Needs review** entries:
 - [x/ ] Maven plugin added and local build passes (Java only)
 - [x/ ] HTTPRoute CRs generated from route registration code
 - [x/ ] All HTTPRoute CRs wrapped in the Istio conditional
+- [x/ ] HTTPRoutes scanned for duplicate rules (same parent + equal match)
 
 Open items (require user review):
 - <list all remaining "Needs review" entries from MIGRATION_LOG.md>
@@ -441,12 +529,13 @@ Close with a plain-language summary telling the user:
 2. **What was skipped and why** (reference the Skipped section).
 3. **What requires careful human review before merging** (enumerate the Needs
    review section, highlighting structural blockers that could change runtime
-   behaviour — `RouteConfiguration.spec.tlsSupported` / `.overridden`,
+   behaviour — `RouteConfiguration.spec.overridden`,
    `rateLimit`, `VirtualService.overridden`, `*` hosts on east-west routes,
-   `RouteDestination` TLS / `httpVersion` / `circuitBreaker` /
-   `tcpKeepalive`, `Rule.allowed` / `.deny`, `Rule.statefulSession`,
+   `RouteDestination` / `httpVersion` / `circuitBreaker` /
+   `tcpKeepalive`, `Rule.deny`, `Rule.statefulSession`,
    `Rule.idleTimeout`, `Rule.luaFilter`, `FacadeService` with no port,
-   unresolved gateways, helper-produced CRs, placeholder library versions, and
+   unresolved gateways, helper-produced CRs, placeholder library versions,
+   duplicate HTTPRoute rules from Step 2.6 (same parent + equal match), and
    any `.incomplete` files from Step 2.4).
 4. The recommended validation commands the user should run locally before pushing:
 
@@ -467,7 +556,7 @@ Close with a plain-language summary telling the user:
 - **Never skip the log.** If the log file cannot be written, stop and report.
 - **Never invent values.** Versions, package names, ports, microservice names —
   if unknown, add a **Needs review** entry instead of guessing.
-- **Never bypass a sub-skill's user prompt.** If `qubership-mesh-to-istio` asks
+- **Never bypass a sub-skill's user prompt.** If `core-mesh-crs-to-gatewayapi` asks
   about an unresolved gateway, forward the question before proceeding.
 - **Never run destructive commands.** Do not push, tag, or delete branches. Do
   not modify git config.
