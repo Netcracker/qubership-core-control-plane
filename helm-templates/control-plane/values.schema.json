@@ -217,6 +217,18 @@
       ],
       "internal": true
     },
+    "MAX_REQUEST_HEADERS_KB": {
+      "$id": "#/properties/MAX_REQUEST_HEADERS_KB",
+      "$ref": "#/definitions/integerOrString",
+      "description": "Maximum size of request headers in KiB for Envoy listeners. Set to a positive value to override Envoy default (60 KiB). 0 means use Envoy default.",
+      "default": 0,
+      "examples": [
+        128
+      ],
+      "envSpecific": true,
+      "internal": true,
+      "title": "The MAX_REQUEST_HEADERS_KB schema"
+    },
     "IMAGE_REPOSITORY": {
       "$id": "#/properties/IMAGE_REPOSITORY",
       "type": "string",
