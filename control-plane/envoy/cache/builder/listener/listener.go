@@ -2,7 +2,6 @@ package listener
 
 import (
 	"encoding/json"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +32,7 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/builder/common"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/tlsmode"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
+	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -49,28 +49,27 @@ const accessLogFormat = "[%START_TIME(%FT%T.%3f)%] [INFO] [request_id=%REQ(X-REQ
 	"Access-Control-Allow-Origin: %RESP(Access-Control-Allow-Origin)%\n"
 const listenerTlsPort = 8443
 
-var (
-	logger              logging.Logger
-	maxRequestHeadersKb uint32
-)
+var logger logging.Logger
 
 func init() {
 	logger = logging.GetLogger("EnvoyConfigBuilder#listener")
-	resolveMaxRequestHeadersKb()
 }
 
-func resolveMaxRequestHeadersKb() {
-	if value, exists := os.LookupEnv("MAX_REQUEST_HEADERS_KB"); exists {
+func resolveMaxRequestHeadersKb() uint32 {
+	if value := configloader.GetOrDefaultString("max.request.headers.kb", ""); value != "" {
 		if parsed, err := strconv.ParseUint(value, 10, 32); err == nil {
-			if parsed > 8192 {
+			if parsed == 0 {
+				logger.Debugf("MAX_REQUEST_HEADERS_KB value '0'; using Envoy default")
+			} else if parsed > 8192 {
 				logger.Errorf("MAX_REQUEST_HEADERS_KB value '%s' exceeds Envoy max of 8192 KiB, using Envoy default", value)
 			} else {
-				maxRequestHeadersKb = uint32(parsed)
+				return uint32(parsed)
 			}
 		} else {
 			logger.Errorf("Invalid MAX_REQUEST_HEADERS_KB value '%s': %v; using Envoy default", value, err)
 		}
 	}
+	return 0
 }
 
 //go:generate mockgen -source=listener.go -destination=../../../../test/mock/envoy/cache/builder/listener/stub_listener.go -package=mock_listener
@@ -221,7 +220,7 @@ func buildBaseHttpConnectionManager(listenerRouteConfigName, defaultHost, statPr
 			},
 		},
 	}
-	if maxRequestHeadersKb > 0 {
+	if maxRequestHeadersKb := resolveMaxRequestHeadersKb(); maxRequestHeadersKb > 0 {
 		manager.MaxRequestHeadersKb = &wrappers.UInt32Value{Value: maxRequestHeadersKb}
 	}
 	return manager, nil
