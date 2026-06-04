@@ -2,6 +2,9 @@ package listener
 
 import (
 	"fmt"
+	"os"
+	"testing"
+
 	listenerV3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	managerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -10,8 +13,6 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/builder/common"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
 )
 
 func TestGatewayListenerBuilder_BuildListener(t *testing.T) {
@@ -118,9 +119,7 @@ func verifyHttpConnManagerFilter(t *testing.T, httpConnManager *managerv3.HttpCo
 
 func TestMaxRequestHeadersKb_NotSet(t *testing.T) {
 	os.Unsetenv("MAX_REQUEST_HEADERS_KB")
-	maxRequestHeadersKb = 0
-	defer func() { maxRequestHeadersKb = 0 }()
-	resolveMaxRequestHeadersKb()
+	configloader.Init(configloader.EnvPropertySource())
 
 	manager, err := buildBaseHttpConnectionManager("test-routes", "localhost", "test")
 	assert.Nil(t, err)
@@ -130,9 +129,7 @@ func TestMaxRequestHeadersKb_NotSet(t *testing.T) {
 func TestMaxRequestHeadersKb_Set(t *testing.T) {
 	os.Setenv("MAX_REQUEST_HEADERS_KB", "128")
 	defer os.Unsetenv("MAX_REQUEST_HEADERS_KB")
-	maxRequestHeadersKb = 0
-	resolveMaxRequestHeadersKb()
-	defer func() { maxRequestHeadersKb = 0 }()
+	configloader.Init(configloader.EnvPropertySource())
 
 	manager, err := buildBaseHttpConnectionManager("test-routes", "localhost", "test")
 	assert.Nil(t, err)
@@ -143,9 +140,7 @@ func TestMaxRequestHeadersKb_Set(t *testing.T) {
 func TestMaxRequestHeadersKb_Zero(t *testing.T) {
 	os.Setenv("MAX_REQUEST_HEADERS_KB", "0")
 	defer os.Unsetenv("MAX_REQUEST_HEADERS_KB")
-	maxRequestHeadersKb = 0
-	resolveMaxRequestHeadersKb()
-	defer func() { maxRequestHeadersKb = 0 }()
+	configloader.Init(configloader.EnvPropertySource())
 
 	manager, err := buildBaseHttpConnectionManager("test-routes", "localhost", "test")
 	assert.Nil(t, err)
@@ -155,11 +150,41 @@ func TestMaxRequestHeadersKb_Zero(t *testing.T) {
 func TestMaxRequestHeadersKb_Invalid(t *testing.T) {
 	os.Setenv("MAX_REQUEST_HEADERS_KB", "invalid")
 	defer os.Unsetenv("MAX_REQUEST_HEADERS_KB")
-	maxRequestHeadersKb = 0
-	resolveMaxRequestHeadersKb()
-	defer func() { maxRequestHeadersKb = 0 }()
+	configloader.Init(configloader.EnvPropertySource())
 
 	manager, err := buildBaseHttpConnectionManager("test-routes", "localhost", "test")
 	assert.Nil(t, err)
 	assert.Nil(t, manager.MaxRequestHeadersKb)
+}
+
+func TestMaxRequestHeadersKb_ExceedsMax(t *testing.T) {
+	os.Setenv("MAX_REQUEST_HEADERS_KB", "8193")
+	defer os.Unsetenv("MAX_REQUEST_HEADERS_KB")
+	configloader.Init(configloader.EnvPropertySource())
+
+	manager, err := buildBaseHttpConnectionManager("test-routes", "localhost", "test")
+	assert.Nil(t, err)
+	assert.Nil(t, manager.MaxRequestHeadersKb)
+}
+
+func TestGatewayListenerBuilder_BuildListener_WithMaxRequestHeadersKb(t *testing.T) {
+	os.Setenv("MAX_REQUEST_HEADERS_KB", "128")
+	defer os.Unsetenv("MAX_REQUEST_HEADERS_KB")
+	configloader.Init(configloader.EnvPropertySource())
+
+	builder := NewGatewayListenerBuilder(common.NewEnvoyProxyProperties())
+	domainListener := &domain.Listener{
+		Id:                     1,
+		Name:                   "test-listener",
+		BindHost:               "0.0.0.0",
+		BindPort:               "8080",
+		RouteConfigurationName: "test-listener-routes",
+		NodeGroupId:            "test-gateway",
+	}
+	listener, err := builder.BuildListener(domainListener, "", false)
+	assert.Nil(t, err)
+
+	httpConnManager := getHttpConnManager(t, listener)
+	assert.NotNil(t, httpConnManager.MaxRequestHeadersKb)
+	assert.Equal(t, uint32(128), httpConnManager.MaxRequestHeadersKb.Value)
 }
