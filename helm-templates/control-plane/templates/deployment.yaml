@@ -113,6 +113,8 @@ spec:
                     value: '{{ .Values.GATEWAYS_ALLOWED_HEADERS }}'
                 -   name: GATEWAYS_ACCESS_CONTROL_MAX_AGE
                     value: '{{ .Values.GATEWAYS_ACCESS_CONTROL_MAX_AGE }}'
+                -   name: MAX_REQUEST_HEADERS_KB
+                    value: '{{ .Values.MAX_REQUEST_HEADERS_KB }}'
                 -   name: ENVOY_PROXY_ROUTES_TIMEOUT
                     value: '{{ .Values.TIMEOUT }}'
                 -   name: ENVOY_PROXY_COMPRESSION_ENABLED
