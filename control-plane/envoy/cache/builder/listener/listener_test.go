@@ -10,6 +10,7 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/envoy/cache/builder/common"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
 )
 
@@ -113,4 +114,52 @@ func verifyHttpConnManagerFilter(t *testing.T, httpConnManager *managerv3.HttpCo
 		}
 		t.Errorf("Expected filter %s was not found in HttpConnectionManager#HttpFilters", filterName)
 	}
+}
+
+func TestMaxRequestHeadersKb_NotSet(t *testing.T) {
+	os.Unsetenv("MAX_REQUEST_HEADERS_KB")
+	maxRequestHeadersKb = 0
+	defer func() { maxRequestHeadersKb = 0 }()
+	resolveMaxRequestHeadersKb()
+
+	manager, err := buildBaseHttpConnectionManager("test-routes", "localhost", "test")
+	assert.Nil(t, err)
+	assert.Nil(t, manager.MaxRequestHeadersKb)
+}
+
+func TestMaxRequestHeadersKb_Set(t *testing.T) {
+	os.Setenv("MAX_REQUEST_HEADERS_KB", "128")
+	defer os.Unsetenv("MAX_REQUEST_HEADERS_KB")
+	maxRequestHeadersKb = 0
+	resolveMaxRequestHeadersKb()
+	defer func() { maxRequestHeadersKb = 0 }()
+
+	manager, err := buildBaseHttpConnectionManager("test-routes", "localhost", "test")
+	assert.Nil(t, err)
+	assert.NotNil(t, manager.MaxRequestHeadersKb)
+	assert.Equal(t, uint32(128), manager.MaxRequestHeadersKb.Value)
+}
+
+func TestMaxRequestHeadersKb_Zero(t *testing.T) {
+	os.Setenv("MAX_REQUEST_HEADERS_KB", "0")
+	defer os.Unsetenv("MAX_REQUEST_HEADERS_KB")
+	maxRequestHeadersKb = 0
+	resolveMaxRequestHeadersKb()
+	defer func() { maxRequestHeadersKb = 0 }()
+
+	manager, err := buildBaseHttpConnectionManager("test-routes", "localhost", "test")
+	assert.Nil(t, err)
+	assert.Nil(t, manager.MaxRequestHeadersKb)
+}
+
+func TestMaxRequestHeadersKb_Invalid(t *testing.T) {
+	os.Setenv("MAX_REQUEST_HEADERS_KB", "invalid")
+	defer os.Unsetenv("MAX_REQUEST_HEADERS_KB")
+	maxRequestHeadersKb = 0
+	resolveMaxRequestHeadersKb()
+	defer func() { maxRequestHeadersKb = 0 }()
+
+	manager, err := buildBaseHttpConnectionManager("test-routes", "localhost", "test")
+	assert.Nil(t, err)
+	assert.Nil(t, manager.MaxRequestHeadersKb)
 }
