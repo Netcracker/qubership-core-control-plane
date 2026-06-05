@@ -63,6 +63,7 @@ func resolveMaxRequestHeadersKb() uint32 {
 			} else if parsed > 8192 {
 				logger.Errorf("MAX_REQUEST_HEADERS_KB value '%s' exceeds Envoy max of 8192 KiB, using Envoy default", value)
 			} else {
+				logger.Infof("MAX_REQUEST_HEADERS_KB is set to %d KiB", parsed)
 				return uint32(parsed)
 			}
 		} else {
