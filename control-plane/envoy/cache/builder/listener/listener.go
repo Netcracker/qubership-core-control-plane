@@ -56,20 +56,25 @@ func init() {
 }
 
 func resolveMaxRequestHeadersKb() uint32 {
-	if value := configloader.GetOrDefaultString("max.request.headers.kb", ""); value != "" {
-		if parsed, err := strconv.ParseUint(value, 10, 32); err == nil {
-			if parsed == 0 {
-				logger.Debugf("MAX_REQUEST_HEADERS_KB value '0'; using Envoy default")
-			} else if parsed > 8192 {
-				logger.Errorf("MAX_REQUEST_HEADERS_KB value '%s' exceeds Envoy max of 8192 KiB, using Envoy default", value)
-			} else {
-				return uint32(parsed)
-			}
-		} else {
-			logger.Errorf("Invalid MAX_REQUEST_HEADERS_KB value '%s': %v; using Envoy default", value, err)
-		}
+	value := configloader.GetOrDefaultString("max.request.headers.kb", "")
+	if value == "" {
+		return 0
 	}
-	return 0
+	parsed, err := strconv.ParseUint(value, 10, 32)
+	if err != nil {
+		logger.Errorf("Invalid MAX_REQUEST_HEADERS_KB value '%s': %v; using Envoy default", value, err)
+		return 0
+	}
+	if parsed == 0 {
+		logger.Debugf("MAX_REQUEST_HEADERS_KB value '0'; using Envoy default")
+		return 0
+	}
+	if parsed > 8192 {
+		logger.Errorf("MAX_REQUEST_HEADERS_KB value '%s' exceeds Envoy max of 8192 KiB, using Envoy default", value)
+		return 0
+	}
+	logger.Debugf("MAX_REQUEST_HEADERS_KB set to %d KiB", parsed)
+	return uint32(parsed)
 }
 
 //go:generate mockgen -source=listener.go -destination=../../../../test/mock/envoy/cache/builder/listener/stub_listener.go -package=mock_listener
