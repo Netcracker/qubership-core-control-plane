@@ -124,6 +124,7 @@ public class RouteScanner {
 
         RouteMetadata classMetadata = extractClassMetadata(classInfo);
         Set<HttpRoute> routes = processMethodRoutes(classInfo, classMetadata);
+        routes.addAll(buildClassLevelRoutes(classInfo, classMetadata));
 
         // Process superclass routes
         if (classInfo.getSuperclass() != null) {
@@ -153,6 +154,43 @@ public class RouteScanner {
                         classMetadata
                 ).stream())
                 .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /**
+     * When the controller/resource class is annotated with {@code @Route}, emit routes from
+     * class-level {@code @RequestMapping} / {@code @Path} and {@code @Gateway} metadata even
+     * if no method carries {@code @Route}.
+     */
+    private Set<HttpRoute> buildClassLevelRoutes(ClassInfo classInfo, RouteMetadata classMetadata) {
+        if (!classInfo.hasAnnotation(ROUTE_ANNOTATION)) {
+            return Collections.emptySet();
+        }
+
+        if (classMetadata.requestMappings().isEmpty() && classMetadata.gatewayMappings().isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        HttpRoute.Type routeType = classMetadata.routeType().orElse(HttpRoute.Type.INTERNAL);
+        long routeTimeout = classMetadata.routeTimeout().orElse(0L);
+
+        if (!classMetadata.gatewayMappings().isEmpty()) {
+            return buildClassGatewayRoutes(
+                    classMetadata.gatewayMappings(),
+                    List.of(),
+                    classMetadata.requestMappings(),
+                    List.of(""),
+                    routeType,
+                    routeTimeout
+            );
+        }
+
+        return classMetadata.requestMappings().stream()
+                .map(path -> new HttpRoute(path, routeType, routeTimeout))
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    private boolean hasMethodRouteAnnotation(MethodInfo methodInfo) {
+        return methodInfo.hasAnnotation(ROUTE_ANNOTATION);
     }
 
     private Stream<AnnotationInfo> getHttpMappingAnnotations(MethodInfo methodInfo) {
@@ -227,6 +265,10 @@ public class RouteScanner {
             AnnotationInfo mappingAnn,
             RouteMetadata classMetadata
     ) {
+        if (!hasMethodRouteAnnotation(methodInfo)) {
+            return Collections.emptySet();
+        }
+
         HttpRoute.Type routeType = getRouteType(methodInfo.getAnnotationInfo(ROUTE_ANNOTATION))
                 .orElse(classMetadata.routeType().orElse(HttpRoute.Type.INTERNAL));
 

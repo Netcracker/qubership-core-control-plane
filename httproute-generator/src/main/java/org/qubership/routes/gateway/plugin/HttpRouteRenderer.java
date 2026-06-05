@@ -15,6 +15,9 @@ public class HttpRouteRenderer {
     private static final long MINUTE = 60_000;
     private static final long HOUR = 3_600_000;
     public static final String PARENT_REF_KIND_SERVICE = "Service";
+    public static final String PARENT_REF_KIND_GATEWAY = "Gateway";
+    public static final String PARENT_REF_GROUP_GATEWAY = "gateway.networking.k8s.io";
+    public static final String PARENT_REF_GROUP_SERVICE = "";
 
     private final String backendRefVal;
 
@@ -34,10 +37,7 @@ public class HttpRouteRenderer {
 
         public record Spec(Set<ParentRef> parentRefs, List<Rule> rules) {
 
-            public record ParentRef(String name, String kind, String group) {
-                public ParentRef(String name) {
-                    this(name, null, null);
-                }
+            public record ParentRef(String group, String kind, String name) {
             }
 
             public record Rule(
@@ -62,7 +62,7 @@ public class HttpRouteRenderer {
                 }
             }
 
-            public record BackendRef(String name, Integer port) {
+            public record BackendRef(String group, String kind, String name, Integer port, Integer weight) {
             }
         }
     }
@@ -138,10 +138,14 @@ public class HttpRouteRenderer {
                 );
 
         List<HTTPRouteResource.Spec.BackendRef> backendRefs =
-                List.of(new HTTPRouteResource.Spec.BackendRef(this.backendRefVal, servicePort));
+                List.of(serviceBackendRef(this.backendRefVal, servicePort));
 
-        List<HTTPRouteResource.Spec.Rule> ruleList = new ArrayList<>(routes.size());
-        for (HttpRoute route : routes) {
+        List<HttpRoute> sortedRoutes = routes.stream()
+                .sorted(pathSpecificityComparator())
+                .toList();
+
+        List<HTTPRouteResource.Spec.Rule> ruleList = new ArrayList<>(sortedRoutes.size());
+        for (HttpRoute route : sortedRoutes) {
             if (route.type() == HttpRoute.Type.FACADE && route.path().equals(route.gatewayPath())) { // ignore Facade routes with same path
                 continue;
             }
@@ -157,24 +161,65 @@ public class HttpRouteRenderer {
     }
 
     private static Set<HTTPRouteResource.Spec.ParentRef> getParentRefs(HttpRoute.Type type) {
-        Set<HTTPRouteResource.Spec.ParentRef> parentRefs = new HashSet<>();
+        LinkedHashSet<HTTPRouteResource.Spec.ParentRef> parentRefs = new LinkedHashSet<>();
 
         switch (type) {
-            case FACADE -> parentRefs.add(new HTTPRouteResource.Spec.ParentRef("{{ .Values.SERVICE_NAME }}", PARENT_REF_KIND_SERVICE, ""));
-            case INTERNAL -> parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName(), PARENT_REF_KIND_SERVICE, ""));
+            case FACADE -> parentRefs.add(serviceParentRef("{{ .Values.SERVICE_NAME }}"));
+            case INTERNAL -> parentRefs.add(serviceParentRef(HttpRoute.Type.INTERNAL.gatewayName()));
             case PUBLIC -> {
-                parentRefs.add(new HTTPRouteResource.Spec.ParentRef(type.gatewayName()));
-                parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.PRIVATE.gatewayName()));
-                parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName(), PARENT_REF_KIND_SERVICE, ""));
+                parentRefs.add(gatewayParentRef(HttpRoute.Type.PUBLIC.gatewayName()));
+                parentRefs.add(gatewayParentRef(HttpRoute.Type.PRIVATE.gatewayName()));
+                parentRefs.add(serviceParentRef(HttpRoute.Type.INTERNAL.gatewayName()));
             }
             case PRIVATE -> {
-                parentRefs.add(new HTTPRouteResource.Spec.ParentRef(type.gatewayName()));
-                parentRefs.add(new HTTPRouteResource.Spec.ParentRef(HttpRoute.Type.INTERNAL.gatewayName(), PARENT_REF_KIND_SERVICE, ""));
+                parentRefs.add(gatewayParentRef(HttpRoute.Type.PRIVATE.gatewayName()));
+                parentRefs.add(serviceParentRef(HttpRoute.Type.INTERNAL.gatewayName()));
             }
-            default -> parentRefs.add(new HTTPRouteResource.Spec.ParentRef(type.gatewayName()));
+            default -> parentRefs.add(gatewayParentRef(type.gatewayName()));
         }
 
         return parentRefs;
+    }
+
+    private static HTTPRouteResource.Spec.ParentRef gatewayParentRef(String name) {
+        return new HTTPRouteResource.Spec.ParentRef(PARENT_REF_GROUP_GATEWAY, PARENT_REF_KIND_GATEWAY, name);
+    }
+
+    private static HTTPRouteResource.Spec.ParentRef serviceParentRef(String name) {
+        return new HTTPRouteResource.Spec.ParentRef(PARENT_REF_GROUP_SERVICE, PARENT_REF_KIND_SERVICE, name);
+    }
+
+    private static HTTPRouteResource.Spec.BackendRef serviceBackendRef(String name, int port) {
+        return new HTTPRouteResource.Spec.BackendRef(
+                PARENT_REF_GROUP_SERVICE,
+                PARENT_REF_KIND_SERVICE,
+                name,
+                port,
+                1
+        );
+    }
+
+    /**
+     * Longest-prefix-first ordering per shared path-specificity-sorting rules.
+     */
+    static Comparator<HttpRoute> pathSpecificityComparator() {
+        return Comparator
+                .comparingInt((HttpRoute route) -> pathSegmentCount(route.gatewayPath())).reversed()
+                .thenComparingInt(route -> route.gatewayPath().length()).reversed()
+                .thenComparing(HttpRoute::gatewayPath);
+    }
+
+    static int pathSegmentCount(String path) {
+        if (path == null || path.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        for (String segment : path.split("/")) {
+            if (!segment.isEmpty()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static HTTPRouteResource.Spec.Rule toRule(HttpRoute route, List<HTTPRouteResource.Spec.BackendRef> backendRefs) {

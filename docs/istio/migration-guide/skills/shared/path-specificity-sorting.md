@@ -1,7 +1,8 @@
 # Shared rule — sort HTTPRoute rules by path specificity
 
-This is a shared procedure reused by multiple skills
-(`httproute-from-code`, `core-mesh-crs-to-gatewayapi`). Apply it before emitting
+This is a shared procedure reused by multiple skills and generators
+(`httproute-from-code`, `core-mesh-crs-to-gatewayapi`, `httproutes-generator-maven-plugin`).
+Apply it before emitting
 an HTTPRoute so the most specific path match appears first in `rules[]`.
 
 The path to sort on is the rule's prefix/path match value (the `from` path for

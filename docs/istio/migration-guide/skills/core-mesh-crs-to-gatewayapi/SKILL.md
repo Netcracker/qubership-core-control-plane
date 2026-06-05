@@ -23,6 +23,38 @@ old resources in `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` and new Istio r
 
 ---
 
+## Scope — only touch mesh-entity files
+
+This skill operates **exclusively** on the Core Mesh custom resources it
+converts: `FacadeService`, `Gateway`, `RouteConfiguration` (and `Mesh` CRs with
+those `subKind`s). Everything else in the chart must be left byte-for-byte
+unchanged.
+
+**Only modify a file if it actually contains one of those mesh CR documents**
+(detected in Step 1). For such files you may wrap the mesh CR documents in Core
+guards and create the `-istio.yaml` sibling — but do not rewrite unrelated
+documents in the same file.
+
+**Do NOT touch** (do not edit, wrap, reformat, or generate siblings for):
+
+- Deployments, Services, ConfigMaps, Secrets, ServiceAccounts, HPAs, PVCs,
+  Ingresses, NetworkPolicies, CronJobs, or any other non-mesh kind.
+- `_helpers.tpl` / any `*.tpl` files and the named template helpers
+  (`{{- define }}` / `{{- include }}`) they contain. Do **not** trigger on a
+  template helper just because it appears in a chart — only the rendered mesh CR
+  documents are in scope.
+- `Chart.yaml`, `NOTES.txt`, `.helmignore`, CRD definitions, tests, and docs.
+- `values.yaml` / `values.schema.json` — the **only** exception, edited solely
+  to add the `SERVICE_MESH_TYPE` key per Step 6. Make no other value changes.
+
+The lone exception to "mesh CRs only" is Step 6 (`values.yaml` /
+`values.schema.json` for `SERVICE_MESH_TYPE`). If a mesh CR is produced by a
+template helper (a `{{- include }}` that renders FacadeService/Gateway/
+RouteConfiguration), do not edit the helper — flag it with
+`# ⚠ MANUAL REVIEW REQUIRED` per Step 7 and leave it to the user.
+
+---
+
 ### Gateway Types and Their Disposition
 
 `Gateway` kind has a `spec.type` field that determines the transformation:
@@ -78,6 +110,20 @@ grep -rl \
 
 List each discovered file and its contained kinds before proceeding. Do not proceed
 with transformation until the full file list is confirmed.
+
+**Scope gate:** the files matched here are the **only** files this skill may
+modify (plus `values.yaml` / `values.schema.json` in Step 6). A file is in scope
+only if it contains an actual `FacadeService`, `Gateway`, or `RouteConfiguration`
+CR document. Specifically:
+
+- Ignore `*.tpl` / `_helpers.tpl` and any file that has no mesh CR document, even
+  if it references mesh values or includes a helper.
+- Matching `kind: Gateway` may catch unrelated kinds — confirm the
+  `apiVersion`/`subKind` identifies a Core Mesh CR before treating a file as in
+  scope; drop false positives from the list.
+- If a mesh CR is rendered indirectly by a `{{- include }}` helper, keep the
+  helper file out of scope and flag it for manual review (Step 7); do not edit
+  the helper.
 
 
 ### Step 3 — Wrap originals in Core condition
@@ -220,6 +266,7 @@ After generating all files, verify:
 - [ ] All `ingress`, `egress` type Gateways, gateway with name `egress-gateway` produce a Gateway
 - [ ] `RouteConfiguration` → HTTPRoute parentRefs correctly use Gateway or Service kind
 - [ ] No hardcoded values where Helm expressions existed
+- [ ] Only mesh-CR files were modified (plus `values.yaml` / `values.schema.json` for `SERVICE_MESH_TYPE`); no `*.tpl` helpers, Deployments, Services, or other non-mesh files were touched
 - [ ] Each HTTPRoute's `rules[]` are sorted by path specificity (most specific first) per [shared/path-specificity-sorting.md](../shared/path-specificity-sorting.md)
 - [ ] YAML is valid (no unclosed blocks, correct indentation)
 - [ ] `⚠ MANUAL REVIEW REQUIRED` comments added for every encountered unsupported/omitted field (see list below)

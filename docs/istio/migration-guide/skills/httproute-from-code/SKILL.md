@@ -358,6 +358,11 @@ implementations.
 
 Generate one CR per RouteType. Wrap ALL CRs together in a single Istio conditional block.
 
+**Rule order:** emit `rules[]` in the path-specificity order produced by
+[Step 9](#step-9--sort-rules-by-path-specificity) (shared procedure
+[`../shared/path-specificity-sorting.md`](../shared/path-specificity-sorting.md)).
+Most specific match first — never in source/discovery order.
+
 ### ParentRef resolution
 
 Resolve every target gateway name to a Gateway API `parentRefs` entry before rendering:
@@ -368,20 +373,34 @@ Resolve every target gateway name to a Gateway API `parentRefs` entry before ren
 | `private-gateway` | `- name: private-gateway` with `kind: Gateway` and `group: gateway.networking.k8s.io` |
 | `internal-gateway-service` | `- name: internal-gateway-service` with `kind: Service` and `group: ''` |
 
-Always render `kind` and `group` fields for all parentRefs.
+**Mandatory fields — every `parentRefs[]` entry MUST render all three:**
+
+- `group:` — `gateway.networking.k8s.io` for `kind: Gateway`, or `''` (empty
+  string) for `kind: Service`. Always present, never omitted.
+- `kind:` — `Gateway` or `Service`.
+- `name:` — the resolved parent name.
+
+Never emit a parentRef with a missing `group`, `kind`, or `name` (an empty
+`group` must still be written as `group: ''`, not dropped).
 
 ### BackendRef resolution
 
-Every rule's `backendRefs` entry uses the resolved input parameters (see
-[Inputs / parameters](#inputs--parameters)):
+**Mandatory fields — every rule's `backendRefs[]` entry MUST render all five:**
 
-- `name:` ← `backendRefName` (default `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`)
-- `port:` ← `backendRefPort` (default `8080`)
+- `group:` — always `''` (empty string), never omitted.
+- `kind:` — always `Service`.
+- `name:` ← `backendRefName` (default `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`).
+- `port:` ← `backendRefPort` (default `8080`).
+- `weight:` — always `1`.
 
-`group: ''`, `kind: Service`, and `weight: 1` are constant. The same
-`backendRefName` / `backendRefPort` apply to every rule across every CR — they
-are migration-wide, not per-route. The examples below use the defaults; substitute
-the confirmed values when they differ.
+The same `backendRefName` / `backendRefPort` apply to every rule across every CR
+— they are migration-wide, not per-route (see
+[Inputs / parameters](#inputs--parameters)). The examples below use the defaults;
+substitute the confirmed values when they differ.
+
+These five fields are always required on every emitted rule. Forbidden/skipped
+routes are not emitted at all (see [Step 4](#step-4--skip-routes)), so there is
+no rule with a missing `backendRefs`.
 
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}

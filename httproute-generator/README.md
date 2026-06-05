@@ -81,7 +81,7 @@ Run Maven build:
 mvn clean process-classes
 ```
 
-Generated `gateway-httproutes.yaml`:
+Generated `gateway-httproutes.yaml` (rules sorted by path specificity — most specific first; entire file wrapped in the Istio guard):
 
 ```yaml
 # -----------------------------------------------------------------------------
@@ -90,8 +90,7 @@ Generated `gateway-httproutes.yaml`:
 # Modify source annotations and regenerate using route generation maven plugin.
 # -----------------------------------------------------------------------------
 
-{{ if .Values.ISTIO_ENABLED }}
----
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -106,25 +105,31 @@ metadata:
     deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}
 spec:
   parentRefs:
-  - name: internal-gateway-service
+  - group: ''
     kind: Service
-    group: ''
+    name: internal-gateway-service
   rules:
   - matches:
     - path:
-        type: PathPrefix
-        value: /api/users
+        type: RegularExpression
+        value: /api/users/([^/]+)        
     backendRefs:
-    - name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
+    - group: ''
+      kind: Service
+      name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
       port: 8080
+      weight: 1
   - matches:
     - path:
-        type: RegularExpression
-        value: /api/users/([^/]+)
+        type: PathPrefix
+        value: /
     backendRefs:
-    - name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
+    - group: ''
+      kind: Service
+      name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
       port: 8080
-{{ end }}
+      weight: 1
+{{- end }}
 ```
 
 ### Using @Route Annotation for Gateway Types
@@ -159,10 +164,10 @@ public class PublicController {
 
 **Gateway Type Hierarchy:**
 
-- `INTERNAL`: Only internal-gateway-service
-- `PRIVATE`: private-gateway-istio + internal-gateway-service
-- `PUBLIC`: public-gateway-istio + private-gateway-istio + internal-gateway-service
-- `FACADE`: Custom service-specific gateway
+- `INTERNAL`: `internal-gateway-service` (Service parentRef)
+- `PRIVATE`: `private-gateway` + `internal-gateway-service`
+- `PUBLIC`: `public-gateway` + `private-gateway` + `internal-gateway-service`
+- `FACADE`: `{{ .Values.SERVICE_NAME }}` (Service parentRef)
 
 ### Path Rewriting with @Gateway
 
@@ -184,7 +189,8 @@ public class UserController {
 }
 ```
 
-Generated HTTPRoute includes URL rewrite filter:
+Generated HTTPRoute rule (within the `SERVICE_MESH_TYPE=Istio` guard) includes a
+`PathPrefix` match and URL rewrite filter:
 
 ```yaml
 rules:
@@ -199,8 +205,11 @@ rules:
         type: ReplacePrefixMatch
         replacePrefixMatch: /my-service/users
   backendRefs:
-  - name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
+  - group: ''
+    kind: Service
+    name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
     port: 8080
+    weight: 1
 ```
 
 ### Quarkus Support
@@ -246,7 +255,7 @@ compile → process-classes → [generate-routes] → package
 To run independently:
 
 ```bash
-mvn org.qubership.routes:gateway-plugin:generate-routes
+mvn org.qubership.cloud.core:httproutes-generator-maven-plugin:generate-routes
 ```
 
 ## Troubleshooting
@@ -315,7 +324,9 @@ Generates:
 
 ```yaml
 backendRefs:
-- name: my-service-backend
+- group: ''
+  kind: Service
+  name: my-service-backend
   port: 8080
 ```
 
