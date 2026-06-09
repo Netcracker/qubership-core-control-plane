@@ -228,6 +228,29 @@ Procedure:
 Report the result in the Output Summary (see "Detected backend reference").
 Do not ask the user here — resolution/prompting is the orchestrator's job.
 
+### Step 5d — Capture labels applied to generated Gateways and HTTPRoutes
+
+Capture the label set that will be applied to generated Istio resources, using
+[labels.md](labels.md) as the source of truth.
+
+Procedure:
+
+1. Resolve the final label map for generated `Gateway` and `HTTPRoute` resources
+   (including Helm template expressions if used).
+2. If labels are computed from multiple places (common helper + local overrides),
+   produce the merged final map exactly as rendered.
+3. If labels cannot be resolved unambiguously (for example helper indirection that
+   cannot be statically resolved), mark labels as **unresolved** and include why.
+4. Record the result in output summary as:
+   - `Detected output labels: <key=value list>` when resolved, or
+   - `Detected output labels: unresolved (<reason>)`.
+5. If `MIGRATION_LOG.md` exists at repo root:
+   - append one **Done** entry with the detected labels when resolved;
+   - append one **Needs review** entry when unresolved, including reason and
+     suggested action (`confirm labels map manually and propagate to code-generated routes`).
+
+Do not invent missing label values. If uncertain, mark unresolved.
+
 ### Step 6 — Update values.yaml
 
 * Add `SERVICE_MESH_TYPE = Core` to the end of values.yaml. 
@@ -315,6 +338,11 @@ Detected backend reference (for code-generated HTTPRoutes / Maven plugin):
   backendRefPort: <port or "unresolved">
   # if unresolved, state why: no RouteConfiguration destinations found
   #                           | conflicting backends: <list of name:port>
+
+Detected output labels (for Maven plugin / code-generated HTTPRoutes):
+  labels: <k1=v1, k2=v2, ... or "unresolved">
+  # if unresolved, state why: helper indirection not resolvable
+  #                           | conflicting label definitions
 
 Items needing manual review:
   <list every omitted `⚠ MANUAL REVIEW REQUIRED` — one line per hit, e.g.:

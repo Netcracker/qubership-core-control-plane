@@ -81,6 +81,24 @@ Once resolved (detected or user-provided), the same values MUST be:
 - propagated to the [`httproute-from-code`](../httproute-from-code/SKILL.md)
   sub-skill in **Step 2.4** so the generated `backendRefs` match.
 
+### Route labels (`routeLabels`) — prefer Step 1 detection
+
+The `metadata.labels` map used by generated HTTPRoutes must be consistent between:
+
+- declarative CR migration output from
+  [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md) **Step 1**,
+- Maven-plugin-generated routes in **Step 2.3**, and
+- [`httproute-from-code`](../httproute-from-code/SKILL.md) output in **Step 2.4**.
+
+Resolve labels as follows:
+
+1. Capture `Detected output labels` from Step 1 sub-skill output (it also writes
+   them to `MIGRATION_LOG.md`).
+2. If labels are resolved, treat them as migration-wide `routeLabels`.
+3. If labels are unresolved, ask the user for a label map only when first needed
+   (Step 2.3 for Java or Step 2.4 otherwise), and record it in the log.
+4. Never silently invent label values.
+
 ---
 
 ## Error policy — read before executing any step
@@ -241,10 +259,15 @@ and skip to Step 1.1.
    sub-skill reports them as unresolved, note that they must be asked from the
    user when first needed (see
    [Backend reference](#backend-reference-backendrefname--backendrefport--do-not-ask-up-front)).
+6. **Capture the detected labels.** Read the `Detected output labels` map from
+   the sub-skill output (and corresponding `MIGRATION_LOG.md` entry). If
+   resolved, store it as migration-wide `routeLabels` for Step 2.3 / Step 2.4.
+   If unresolved, add a **Needs review** entry and ask user only when labels are
+   first needed.
 
 Log update:
 - **Done:** every file in `Files modified` and `Files generated`; the detected
-  `backendRefName` / `backendRefPort` (if resolved).
+  `backendRefName` / `backendRefPort` and `routeLabels` (if resolved).
 - **Needs review:** every item from the sub-skill's "Items needing manual review".
 
 **Validation:**
@@ -370,6 +393,9 @@ in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
        Step 1, or asked from the user here (default
        `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`) if Step 1 did not resolve it,
        e.g. `<backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>`.
+     - `<labels>` set to resolved migration-wide `routeLabels` from Step 1. If
+       Step 1 labels are unresolved, ask user for the label map and use it
+       verbatim. Do not invent values.
   2. **Confirm `<outputFile>`** is set to a path inside the Helm chart templates
      directory (see above). This file must be committed to the branch.
   3. **Build the project** to generate the output file. Run `mvn -q clean process-classes`
@@ -406,6 +432,9 @@ last run), log under **Done** ("already present") and skip.
    defaults `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080`). The sub-skill uses
    these for every generated `backendRefs[].name` / `backendRefs[].port` so the
    code-generated routes match the Maven-plugin output from Step 2.3.
+   Also pass migration-wide `routeLabels` (detected in Step 1 or provided by user)
+   so every generated HTTPRoute uses the same labels as declarative and plugin
+   generated routes.
 2. That skill scans Go (`*.go`) and Java (`*.java`) files, extracts
    `routeregistration.Route` / `RouteEntry` definitions, groups by `RouteType`,
    and emits one HTTPRoute CR per type to

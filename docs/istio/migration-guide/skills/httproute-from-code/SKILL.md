@@ -26,9 +26,9 @@ Examples:
 
 ## Inputs / parameters
 
-Besides `<path>`, this skill accepts two optional `backendRefs` parameters. They
-control the `backendRefs[].name` and `backendRefs[].port` emitted in every
-generated rule. When invoked by the
+Besides `<path>`, this skill accepts optional `backendRefs` parameters and an
+optional `routeLabels` parameter. They control `backendRefs[]` and
+`metadata.labels` emitted in every generated HTTPRoute CR. When invoked by the
 [`core-mesh-to-istio-migration`](../core-mesh-to-istio-migration/SKILL.md)
 orchestrator, these are passed in already resolved — either detected from the
 existing mesh CRs by the `core-mesh-crs-to-gatewayapi` skill or provided by the user.
@@ -37,18 +37,30 @@ existing mesh CRs by the `core-mesh-crs-to-gatewayapi` skill or provided by the 
 |---|---|---|
 | `backendRefName` | `backendRefs[].name` in every rule | `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` |
 | `backendRefPort` | `backendRefs[].port` in every rule | `8080` |
+| `routeLabels` | `metadata.labels` on every generated HTTPRoute CR | default label set from |
 
 Resolution rules:
 
 - If a value is provided by the caller (or the orchestrator), use it verbatim for
   **all** generated CRs — do not infer per-route values.
-- If not provided, propose the default to the user and ask for confirmation
-  before generating. When running standalone with no opportunity to ask, use the
-  defaults and note the used values in the summary.
+- If `backendRefName` / `backendRefPort` are not provided, propose the defaults
+  to the user and ask for confirmation before generating. When running standalone
+  with no opportunity to ask, use the defaults and note the used values in the summary.
 - `backendRefName` is used as-is, including Helm template expressions such as
   `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`.
 - `backendRefPort` must be a positive integer. If a non-integer value is given,
   stop with an `ERROR:` (see Error handling).
+- `routeLabels` must be a map of string keys to string values. Apply exactly the
+  same label set to every generated HTTPRoute CR. Do not infer per-route labels.
+- If `routeLabels` is provided by caller/orchestrator, use it verbatim.
+- If `routeLabels` is not provided, use this default label set for every
+  generated HTTPRoute CR:
+  - `app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}`
+  - `app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}`
+  - `app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}`
+  - `deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`
+  - `deployer.cleanup/allow: "true"`
+  - `app.kubernetes.io/processed-by-operator: istiod`
 
 ---
 
@@ -402,6 +414,25 @@ These five fields are always required on every emitted rule. Forbidden/skipped
 routes are not emitted at all (see [Step 4](#step-4--skip-routes)), so there is
 no rule with a missing `backendRefs`.
 
+### Labels resolution
+
+If `routeLabels` is provided:
+
+- Render a `metadata.labels` section on every generated HTTPRoute CR.
+- Copy all labels exactly as provided (including Helm template expressions).
+- Keep the same label set for all generated CRs in this run.
+
+If `routeLabels` is not provided:
+
+- Render `metadata.labels` using the default label set from
+  `httproute-generator/README.md`:
+  - `app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}`
+  - `app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}`
+  - `app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}`
+  - `deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`
+  - `deployer.cleanup/allow: "true"`
+  - `app.kubernetes.io/processed-by-operator: istiod`
+
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 apiVersion: gateway.networking.k8s.io/v1
@@ -409,6 +440,9 @@ kind: HTTPRoute
 metadata:
   name: <microservice-name>-source-code-public-routes
   namespace: {{ .Values.NAMESPACE }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io    
@@ -510,6 +544,12 @@ backendRefName: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}   (detected | user-provid
 backendRefPort: 8080                                     (detected | user-provided | default)
 ```
 
+Also report labels applied to generated CRs:
+
+```
+routeLabels: <map or "default labels from README used">
+```
+
 ---
 
 ## Error handling
@@ -522,6 +562,7 @@ Stop and report if:
 - Java constructor argument types are ambiguous
 - No routes detected in any file
 - `backendRefPort` is provided but is not a positive integer
+- `routeLabels` is provided but is not a string-to-string map
 
 Error format:
 
