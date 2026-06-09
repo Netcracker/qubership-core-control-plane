@@ -1,66 +1,105 @@
 # HTTPRoute Generator Maven Plugin
 
-A Maven plugin that automatically generates Kubernetes Gateway API HTTPRoute resources from Spring Boot and Quarkus REST API annotations.
+This module contains `org.qubership.cloud.core:httproutes-generator-maven-plugin`.
+It scans compiled Java classes and generates Gateway API `HTTPRoute` manifests
+for Istio deployments.
 
-## Overview
+## What It Does
 
-The HTTPRoute Generator scans your Java application's compiled classes for REST endpoint annotations (Spring `@RequestMapping`, `@GetMapping`, etc., or Quarkus `@Path`) and automatically generates HTTPRoute Custom Resources for Kubernetes Gateway API. This eliminates manual YAML management and ensures your routing configuration stays in sync with your actual API endpoints.
+- Scans Spring MVC and Quarkus/JAX-RS endpoints from compiled classes.
+- Includes only classes/methods annotated with `@Route`.
+- Supports gateway path remapping via `@Gateway` and `@GatewayRequestMapping`.
+- Groups generated routes by route type (`INTERNAL`, `PRIVATE`, `PUBLIC`, `FACADE`).
+- Emits Helm-ready YAML wrapped in:
+  `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}`.
+- Runs as an **aggregator** mojo, so it collects routes across reactor modules.
 
-### Key Features
+## Maven Coordinates
 
-- **Automatic Route Discovery**: Scans Spring Boot and Quarkus REST annotations
-- **Multi-Module Maven Projects**: Aggregates routes from all reactor modules
-- **Helm Template Ready**: Generates YAML with Helm template placeholders
+- **GroupId:** `org.qubership.cloud.core`
+- **ArtifactId:** `httproutes-generator-maven-plugin`
+- **Goal:** `generate-routes`
+- **Default phase:** `process-classes`
 
-## Installation
+## Plugin Configuration
 
 Add the plugin to your `pom.xml`:
 
 ```xml
 <build>
-    <plugins>
-        <plugin>
-            <groupId>org.qubership.cloud.core</groupId>
-            <artifactId>httproutes-generator-maven-plugin</artifactId>
-            <version>1.0.0</version>
-            <executions>
-                <execution>
-                    <goals>
-                        <goal>generate-routes</goal>
-                    </goals>
-                </execution>
-            </executions>
-            <configuration>
-                <packages>
-                    <package>com.example</package>
-                </packages>
-                <servicePort>8080</servicePort>
-                <outputFile>gateway-httproutes.yaml</outputFile>
-                <backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>
-            </configuration>
-        </plugin>
-    </plugins>
+  <plugins>
+    <plugin>
+      <groupId>org.qubership.cloud.core</groupId>
+      <artifactId>httproutes-generator-maven-plugin</artifactId>
+      <version>RELEASE<version>
+      <executions>
+        <execution>
+          <goals>
+            <goal>generate-routes</goal>
+          </goals>
+        </execution>
+      </executions>
+      <configuration>
+        <packages>
+          <package>com.example.service</package>
+        </packages>
+        <servicePort>8080</servicePort>
+        <outputFile>helm-templates/my-service/templates/annotations-httproutes.yaml</outputFile>
+        <backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>
+        <labels>
+        </labels>
+      </configuration>
+    </plugin>
+  </plugins>
 </build>
 ```
 
-## Configuration Parameters
+### Parameters
 
-| Parameter       | Type     | Default                                  | Description                                      |
-|-----------------|----------|------------------------------------------|--------------------------------------------------|
-| `packages`      | String[] | `com.netcracker`                         | Package prefixes to scan for annotations         |
-| `servicePort`   | int      | `8080`                                   | Backend service port                             |
-| `outputFile`    | String   | `gateway-httproutes.yaml`                | Output file path (relative to project root)      |
-| `backendRefVal` | String   | `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` | Backend reference name (supports Helm templates) |
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `packages` | `String[]` | `com.netcracker` | Package prefixes scanned in compiled classes. |
+| `servicePort` | `int` | `8080` | Backend service port for generated `backendRefs`. |
+| `outputFile` | `String` | `gateway-httproutes.yaml` | Output path relative to project base dir. |
+| `backendRefVal` | `String` | `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` | Backend service name in generated routes. |
+| `labels` | `Map<String,String>` | empty map | Custom labels for generated HTTPRoutes metadata. When set, they replace default labels. |
 
-## Usage
+## Supported Annotations
 
-### Basic Example - Spring Boot
+### Spring
 
-Annotate your REST controllers:
+- Class/method mappings:
+  - `@RequestMapping`, `@GetMapping`, `@PostMapping`, `@PutMapping`,
+    `@DeleteMapping`, `@PatchMapping`
+- Route metadata:
+  - `com.netcracker.cloud.routesregistration.common.annotation.Route`
+- Gateway path mapping:
+  - `com.netcracker.cloud.routesregistration.common.annotation.Gateway`
+  - `com.netcracker.cloud.routesregistration.common.spring.gateway.route.annotation.GatewayRequestMapping`
+
+### Quarkus / JAX-RS
+
+- `@Path` with HTTP method annotations:
+  - `@GET`, `@POST`, `@PUT`, `@DELETE`, `@PATCH`
+- Route metadata:
+  - `@Route`
+- Gateway path mapping:
+  - `@Gateway`
+
+## Example: Spring Controller
 
 ```java
+import com.netcracker.cloud.routesregistration.common.annotation.Route;
+import com.netcracker.cloud.routesregistration.common.spring.gateway.route.annotation.GatewayRequestMapping;
+import com.netcracker.cloud.routesregistration.common.gateway.route.RouteType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/users")
+@GatewayRequestMapping("/api/users")
+@Route(RouteType.PRIVATE)
 public class UserController {
     
     @GetMapping("/{id}")
@@ -75,13 +114,49 @@ public class UserController {
 }
 ```
 
-Run Maven build:
+Generated route characteristics for this example:
 
-```bash
-mvn clean process-classes
+- match path `/api/users`,
+- URL rewrite filter is added because gateway and service paths differ.
+- parent refs for `private-gateway`, `internal-gateway-service`.
+
+## Example: Quarkus Resource
+
+```java
+import com.netcracker.cloud.routesregistration.common.annotation.Gateway;
+import com.netcracker.cloud.routesregistration.common.annotation.Route;
+import com.netcracker.cloud.routesregistration.common.gateway.route.RouteType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+
+@Path("/sleep")
+@Route(RouteType.PUBLIC)
+@Gateway("/test/sleep")
+public class SleepResource {
+
+  @GET
+  public String sleep() {
+    return "ok";
+  }
+}
 ```
 
-Generated `gateway-httproutes.yaml` (rules sorted by path specificity — most specific first; entire file wrapped in the Istio guard):
+This produces a `PUBLIC` HTTPRoute rule with:
+- match path `/test/sleep`,
+- URL rewrite to `/sleep`,
+- parent refs for `public-gateway`, `private-gateway`,
+  and `internal-gateway-service`.
+
+## Generated YAML Shape
+
+The plugin writes:
+
+1. Header comment (`DO NOT EDIT`),
+2. Istio conditional guard:
+   `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}`,
+3. One or more `HTTPRoute` resources grouped by route type.
+
+Snippet:
 
 ```yaml
 # -----------------------------------------------------------------------------
@@ -105,24 +180,26 @@ metadata:
     deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}
 spec:
   parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: public-gateway
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: private-gateway
   - group: ''
     kind: Service
     name: internal-gateway-service
   rules:
   - matches:
     - path:
-        type: RegularExpression
-        value: /api/users/([^/]+)        
-    backendRefs:
-    - group: ''
-      kind: Service
-      name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
-      port: 8080
-      weight: 1
-  - matches:
-    - path:
         type: PathPrefix
-        value: /
+        value: /api/users
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /users
     backendRefs:
     - group: ''
       kind: Service
@@ -132,127 +209,94 @@ spec:
 {{- end }}
 ```
 
-### Using @Route Annotation for Gateway Types
+## Timeout Generation
 
-Control which gateway exposes your routes:
+The plugin can generate per-rule HTTPRoute timeouts from `@Route(timeout = ...)`.
 
-```java
-import com.netcracker.cloud.routesregistration.common.annotation.Route;
+- If timeout is greater than `0`, it renders:
+  `spec.rules[].timeouts.request`.
+- If timeout is `0` (or not set), the `timeouts` block is omitted.
+- Timeout value is converted from milliseconds using these rules:
+  - divisible by `3600000` -> `<N>h`
+  - divisible by `60000` -> `<N>m`
+  - divisible by `1000` -> `<N>s`
+  - otherwise -> `<N>ms`
 
-@RestController
-@RequestMapping("/api/admin")
-@Route(type = Route.Type.PRIVATE) // Only accessible via private gateway
-public class AdminController {
-    
-    @GetMapping("/users")
-    public List<User> listUsers() {
-        // ...
-    }
-}
-
-@RestController
-@RequestMapping("/api/public")
-@Route(type = Route.Type.PUBLIC) // Accessible via public, private, and internal gateways
-public class PublicController {
-    
-    @GetMapping("/status")
-    public Status getStatus() {
-        // ...
-    }
-}
-```
-
-**Gateway Type Hierarchy:**
-
-- `INTERNAL`: `internal-gateway-service` (Service parentRef)
-- `PRIVATE`: `private-gateway` + `internal-gateway-service`
-- `PUBLIC`: `public-gateway` + `private-gateway` + `internal-gateway-service`
-- `FACADE`: `{{ .Values.SERVICE_NAME }}` (Service parentRef)
-
-### Path Rewriting with @Gateway
-
-Map external gateway paths to internal service paths:
-
-```java
-import com.netcracker.cloud.routesregistration.common.annotation.Gateway;
-
-@RestController
-@RequestMapping("/my-service/users") // Internal service path
-@Gateway("/api/v1/users")          // External gateway path
-public class UserController {
-    
-    @GetMapping("/{id}")
-    public User getUser(@PathVariable String id) {
-        // Accessible at gateway: /api/v1/users/{id}
-        // Rewrites to service: /my-service/users/{id}
-    }
-}
-```
-
-Generated HTTPRoute rule (within the `SERVICE_MESH_TYPE=Istio` guard) includes a
-`PathPrefix` match and URL rewrite filter:
+Example (`@Route(timeout = 5000)`):
 
 ```yaml
 rules:
 - matches:
   - path:
-      type: RegularExpression
-      value: /api/v1/users/([^/]+)
-  filters:
-  - type: URLRewrite
-    urlRewrite:
-      path:
-        type: ReplacePrefixMatch
-        replacePrefixMatch: /my-service/users
+      type: PathPrefix
+      value: /api/test
   backendRefs:
   - group: ''
     kind: Service
     name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
     port: 8080
     weight: 1
+  timeouts:
+    request: 5s
 ```
 
-### Quarkus Support
+## Route Type to parentRefs mapping
 
-Works with Quarkus JAX-RS annotations:
+- `INTERNAL` -> Service `internal-gateway-service`
+- `PRIVATE` -> Gateway `private-gateway` + Service `internal-gateway-service`
+- `PUBLIC` -> Gateway `public-gateway` + Gateway `private-gateway` + Service `internal-gateway-service`
+- `FACADE` -> Service `{{ .Values.SERVICE_NAME }}`
 
-```java
-import jakarta.ws.rs.*;
+## Generated Labels
 
-@Path("/api/products")
-public class ProductResource {
-    
-    @GET
-    @Path("/{id}")
-    public Product getProduct(@PathParam("id") String id) {
-        // ...
-    }
-}
+When `labels` is **not** configured, each generated `HTTPRoute` includes these
+default metadata labels:
+
+- `app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}`
+- `app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}`
+- `app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}`
+- `deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`
+- `deployer.cleanup/allow: "true"`
+- `app.kubernetes.io/processed-by-operator: istiod`
+
+These labels are emitted by the renderer for ownership, tracking, and cleanup
+semantics in platform deployments.
+
+You can replace default label set via plugin configuration labels section:
+
+```xml
+<configuration>
+  <labels>
+    <team>platform</team>
+    <owner>control-plane</owner>
+    <app.kubernetes.io/managed-by>custom-manager</app.kubernetes.io/managed-by>
+  </labels>
+</configuration>
 ```
 
-### Multi-Module Maven Projects
+When custom `labels` are provided, they are used as-is and default labels are
+not added automatically.
 
-The plugin runs as an aggregator and collects routes from all modules:
+## Route Sorting
 
+Generated rules are sorted by path specificity before rendering:
+
+1. More path segments first (for example `/api/v1/users/profile` before `/api/users`).
+2. If segment count is equal, longer path first.
+3. If still equal, lexical path order for deterministic output.
+
+This keeps more specific routes ahead of generic ones and makes generated YAML
+stable between builds.
+
+## Build and Run
+
+Run with lifecycle:
+
+```bash
+mvn clean process-classes
 ```
-my-app/
-├── pom.xml (aggregator, plugin configured here)
-├── user-service/
-│   └── src/main/java/.../UserController.java
-├── order-service/
-│   └── src/main/java/.../OrderController.java
-└── gateway-httproutes.yaml (generated with all routes)
-```
 
-## Build Lifecycle
-
-The plugin executes during the `process-classes` phase:
-
-```
-compile → process-classes → [generate-routes] → package
-```
-
-To run independently:
+Or run goal directly:
 
 ```bash
 mvn org.qubership.cloud.core:httproutes-generator-maven-plugin:generate-routes
@@ -262,40 +306,19 @@ mvn org.qubership.cloud.core:httproutes-generator-maven-plugin:generate-routes
 
 ### No routes generated
 
-**Problem**: Empty output file
+- Ensure classes are compiled (`target/classes` exists for scanned modules).
+- Ensure `packages` includes your controllers/resources.
+- Ensure classes or methods use `@Route` (without it, routes are ignored).
 
-**Solution**: Ensure classes are compiled and packages match:
-```bash
-mvn clean compile
-# Check outputDirectory exists
-ls target/classes
-```
+### Expected gateway rewrite is missing
 
-### Wrong package scanned
+- Rewrite filters are only generated when `gatewayPath != servicePath`.
+- Add `@Gateway` or `@GatewayRequestMapping` to provide gateway path.
 
-**Problem**: Controllers not found
+### Superclass endpoints not discovered
 
-**Solution**: Update `packages` configuration:
-```xml
-<configuration>
-    <packages>
-        <package>com.example</package>
-        <package>org.mycompany</package>
-    </packages>
-</configuration>
-```
-
-### Path variables not converted to regex
-
-**Problem**: `{id}` appears literally in path
-
-**Solution**: This is expected behavior - the plugin converts `{variable}` to `([^/]+)` regex automatically.
-
-### Routes from parent classes missing
-
-**Problem**: Inherited endpoints not detected
-
-**Solution**: The scanner automatically processes superclasses. Ensure parent class is in scanned packages.
+- Scanner recursively processes superclasses, but those classes still must be
+  available in compiled output and inside accepted packages.
 
 ### Helm template syntax issues
 
@@ -303,40 +326,13 @@ ls target/classes
 
 **Solution**: The plugin wraps output with:
 ```yaml
-{{ if .Values.ISTIO_ENABLED }}
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 # ... routes ...
 {{ end }}
 ```
 
-Ensure your Helm chart defines these values.
+Ensure your Helm chart defines SERVICE_MESH_TYPE.
 
-## Advanced Configuration
-
-### Custom Backend Reference
-
-```xml
-<configuration>
-    <backendRefVal>my-service-backend</backendRefVal>
-</configuration>
-```
-
-Generates:
-
-```yaml
-backendRefs:
-- group: ''
-  kind: Service
-  name: my-service-backend
-  port: 8080
-```
-
-### Custom Output Location
-
-```xml
-<configuration>
-    <outputFile>k8s/routes/gateway-routes.yaml</outputFile>
-</configuration>
-```
 
 ## Dependencies
 
@@ -349,8 +345,8 @@ The plugin uses:
 No runtime dependencies required in your application.
 
 ## Related Resources
-
 - [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/)
-- [Spring Web Annotations](https://docs.spring.io/spring-framework/docs/current/reference/html/web.html#mvc-ann-requestmapping)
+- [Spring Web Annotations](https://docs.spring.io/spring-framework/docs/current/reference/html/web.
+html#mvc-ann-requestmapping)
 - [Quarkus REST](https://quarkus.io/guides/rest-json)
 - [Istio Gateway](https://istio.io/latest/docs/reference/config/networking/gateway/)

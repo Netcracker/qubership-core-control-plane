@@ -8,7 +8,9 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
 import java.nio.file.Files;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Mojo(
@@ -36,6 +38,9 @@ public class GenerateRoutesMojo extends AbstractMojo {
     @Parameter(defaultValue = "{{ .Values.DEPLOYMENT_RESOURCE_NAME }}")
     private String backendRefVal;
 
+    @Parameter
+    private Map<String, String> labels = Collections.emptyMap();
+
     @Override
     public void execute() throws MojoExecutionException {
         RouteScanner scanner = new RouteScanner(packages, getLog());
@@ -50,7 +55,7 @@ public class GenerateRoutesMojo extends AbstractMojo {
                     .resolve(outputFile);
 
 
-            String yaml = new HttpRouteRenderer(backendRefVal).generateHttpRoutesYaml(servicePort, routes);
+            String yaml = new HttpRouteRenderer(backendRefVal, labels).generateHttpRoutesYaml(servicePort, routes);
             Files.createDirectories(file.getParent());
             Files.writeString(file, prependYamlHeader(wrapWithEnabler(yaml)));
             getLog().info(String.format("Generated gateway routes CRs at %s", outputFile));

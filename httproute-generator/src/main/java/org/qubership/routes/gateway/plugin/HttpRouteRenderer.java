@@ -10,6 +10,16 @@ import java.util.stream.Collectors;
 public class HttpRouteRenderer {
 
     private static final ObjectMapper YAML_MAPPER = yamlMapper();
+    private static final String MATCH_TYPE_PATH_PREFIX = "PathPrefix";
+    private static final String MATCH_TYPE_REGULAR_EXPRESSION = "RegularExpression";
+    private static final String FILTER_TYPE_URL_REWRITE = "URLRewrite";
+    private static final String FILTER_PATH_TYPE_REPLACE_PREFIX_MATCH = "ReplacePrefixMatch";
+    private static final String REGEX_MANUAL_REVIEW_WARNING = """
+            # MANUAL REVIEW REQUIRED
+            # RegularExpression path matches may conflict with sibling rules with Prefix matches.
+            # Also, replacePrefixMatch only works with PathPrefix matches and cannot be
+            # used with RegularExpression matches. Test regex matching routes carefully.
+            """;
 
     private static final long SECOND = 1_000;
     private static final long MINUTE = 60_000;
@@ -18,11 +28,25 @@ public class HttpRouteRenderer {
     public static final String PARENT_REF_KIND_GATEWAY = "Gateway";
     public static final String PARENT_REF_GROUP_GATEWAY = "gateway.networking.k8s.io";
     public static final String PARENT_REF_GROUP_SERVICE = "";
+    private static final Map<String, String> DEFAULT_ROUTE_LABELS = Map.of(
+            "app.kubernetes.io/name", "{{ .Values.SERVICE_NAME }}",
+            "app.kubernetes.io/part-of", "{{ .Values.APPLICATION_NAME }}",
+            "app.kubernetes.io/managed-by", "{{ .Values.MANAGED_BY }}",
+            "deployment.netcracker.com/sessionId", "{{ .Values.DEPLOYMENT_SESSION_ID }}",
+            "deployer.cleanup/allow", "true",
+            "app.kubernetes.io/processed-by-operator", "istiod"
+    );
 
     private final String backendRefVal;
+    private final Map<String, String> routeLabels;
 
     public HttpRouteRenderer(String backendRefVal) {
+        this(backendRefVal, Collections.emptyMap());
+    }
+
+    public HttpRouteRenderer(String backendRefVal, Map<String, String> routeLabels) {
         this.backendRefVal = backendRefVal;
+        this.routeLabels = routeLabels == null ? Collections.emptyMap() : routeLabels;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -32,7 +56,7 @@ public class HttpRouteRenderer {
             this("gateway.networking.k8s.io/v1", "HTTPRoute", metadata, spec);
         }
 
-        public record Metadata(String name, String namespace, Map<String, String> labels) {
+        public record Metadata(String name, Map<String, String> labels) {
         }
 
         public record Spec(Set<ParentRef> parentRefs, List<Rule> rules) {
@@ -71,20 +95,20 @@ public class HttpRouteRenderer {
         List<HTTPRouteResource> routes = createHttpRoutes(servicePort, httpRoutes);
 
         return routes.stream()
-                .map(HttpRouteRenderer::writeYaml)
+                .map(HttpRouteRenderer::renderValidatedYaml)
                 .collect(Collectors.joining());
     }
 
     private static HTTPRouteResource.Spec.Match.Path convertSpringPathToHttpRoutePath(String springPath) {
         if (springPath == null || springPath.isEmpty()) {
-            return new HTTPRouteResource.Spec.Match.Path("PathPrefix", "/");
+            return new HTTPRouteResource.Spec.Match.Path(MATCH_TYPE_PATH_PREFIX, "/");
         }
 
         // If path contains Spring placeholders {variable}, use regex
         if (springPath.contains("{")) {
-            return new HTTPRouteResource.Spec.Match.Path("RegularExpression", normalizePath(springPath.replaceAll("\\{([^/]+?)}", "([^/]+)")));
+            return new HTTPRouteResource.Spec.Match.Path(MATCH_TYPE_REGULAR_EXPRESSION, normalizePath(springPath.replaceAll("\\{([^/]+?)}", "([^/]+)")));
         } else {
-            return new HTTPRouteResource.Spec.Match.Path("PathPrefix", normalizePath(springPath));
+            return new HTTPRouteResource.Spec.Match.Path(MATCH_TYPE_PATH_PREFIX, normalizePath(springPath));
         }
     }
 
@@ -126,15 +150,7 @@ public class HttpRouteRenderer {
         HTTPRouteResource.Metadata metadata =
                 new HTTPRouteResource.Metadata(
                         "{{ .Values.SERVICE_NAME }}-" + type.name().toLowerCase(),
-                        "{{ .Values.NAMESPACE }}",
-                        new TreeMap<>(Map.of( // keep ordering
-                                "app.kubernetes.io/name", "{{ .Values.SERVICE_NAME }}",
-                                "app.kubernetes.io/part-of", "{{ .Values.APPLICATION_NAME }}",
-                                "app.kubernetes.io/managed-by", "{{ .Values.MANAGED_BY }}",
-                                "deployment.netcracker.com/sessionId", "{{ .Values.DEPLOYMENT_SESSION_ID }}",
-                                "deployer.cleanup/allow", "true",
-                                "app.kubernetes.io/processed-by-operator", "istiod"
-                        ))
+                        buildRouteLabels(routeLabels)
                 );
 
         List<HTTPRouteResource.Spec.BackendRef> backendRefs =
@@ -158,6 +174,13 @@ public class HttpRouteRenderer {
 
         HTTPRouteResource.Spec spec = new HTTPRouteResource.Spec(getParentRefs(type), ruleList);
         return new HTTPRouteResource(metadata, spec);
+    }
+
+    private static Map<String, String> buildRouteLabels(Map<String, String> customRouteLabels) {
+        if (customRouteLabels == null || customRouteLabels.isEmpty()) {
+            return new TreeMap<>(DEFAULT_ROUTE_LABELS); // keep ordering
+        }
+        return new TreeMap<>(customRouteLabels); // keep ordering
     }
 
     private static Set<HTTPRouteResource.Spec.ParentRef> getParentRefs(HttpRoute.Type type) {
@@ -245,11 +268,11 @@ public class HttpRouteRenderer {
         }
 
         HTTPRouteResource.Spec.Filter.UrlRewrite.Path rewritePath =
-                new HTTPRouteResource.Spec.Filter.UrlRewrite.Path("ReplacePrefixMatch", normalizedService);
+                new HTTPRouteResource.Spec.Filter.UrlRewrite.Path(FILTER_PATH_TYPE_REPLACE_PREFIX_MATCH, normalizedService);
         HTTPRouteResource.Spec.Filter.UrlRewrite urlRewrite =
                 new HTTPRouteResource.Spec.Filter.UrlRewrite(rewritePath);
         HTTPRouteResource.Spec.Filter filter =
-                new HTTPRouteResource.Spec.Filter("URLRewrite", urlRewrite);
+                new HTTPRouteResource.Spec.Filter(FILTER_TYPE_URL_REWRITE, urlRewrite);
         return List.of(filter);
     }
 
@@ -258,6 +281,26 @@ public class HttpRouteRenderer {
             return null;
         }
         return new HTTPRouteResource.Spec.Rule.Timeouts(formatDuration(route.timeout()));
+    }
+
+    private static String renderValidatedYaml(HTTPRouteResource route) {
+        String renderedYaml = writeYaml(route);
+        return hasRegularExpressionMatch(route) ? REGEX_MANUAL_REVIEW_WARNING + renderedYaml : renderedYaml;
+    }
+
+    private static boolean hasRegularExpressionMatch(HTTPRouteResource route) {
+        if (route == null || route.spec() == null || route.spec().rules() == null) {
+            return false;
+        }
+        return route.spec().rules().stream()
+                .filter(Objects::nonNull)
+                .map(HTTPRouteResource.Spec.Rule::matches)
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .map(HTTPRouteResource.Spec.Match::path)
+                .filter(Objects::nonNull)
+                .anyMatch(path -> MATCH_TYPE_REGULAR_EXPRESSION.equals(path.type()));
     }
 
     private static String writeYaml(HTTPRouteResource route) {
