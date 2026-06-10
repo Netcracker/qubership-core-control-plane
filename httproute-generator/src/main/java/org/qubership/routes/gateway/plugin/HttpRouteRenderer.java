@@ -149,7 +149,7 @@ public class HttpRouteRenderer {
     private HTTPRouteResource toResource(HttpRoute.Type type, List<HttpRoute> routes, int servicePort) {
         HTTPRouteResource.Metadata metadata =
                 new HTTPRouteResource.Metadata(
-                        "{{ .Values.SERVICE_NAME }}-" + type.name().toLowerCase(),
+                        "{{ .Values.SERVICE_NAME }}-java-annotations-" + type.name().toLowerCase(),
                         buildRouteLabels(routeLabels)
                 );
 

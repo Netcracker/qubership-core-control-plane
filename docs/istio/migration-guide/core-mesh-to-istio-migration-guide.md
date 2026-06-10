@@ -22,6 +22,11 @@ is missed.
 3. Answer any questions it asks (chart path, source-code path, language), then
    review `MIGRATION_LOG.md` — especially every **Needs review** entry — before
    raising a PR.
+4. Reuse values captured in `MIGRATION_LOG.md` from Step 1:
+   - detected `backendRefName` / `backendRefPort`,
+   - detected output labels for generated Gateway/HTTPRoute resources.
+   The orchestrator propagates these into Maven plugin configuration and
+   `httproute-from-code` so all generated routes stay consistent.
 
 This is the preferred path: it is faster, applies the steps consistently, and
 produces an auditable log.
@@ -63,6 +68,8 @@ Use the skill [`core-mesh-crs-to-gatewayapi`](skills/core-mesh-crs-to-gatewayapi
     - Convert `RouteConfiguration` → `HTTPRoute` with correct `parentRefs` (Gateway or Service depending on gateway type)
     - Omit `FacadeService` and `Gateway` (mesh type) from Istio output — their routes become east-west `HTTPRoute` resources with Service `parentRefs`
     - Add `SERVICE_MESH_TYPE: Core` to `values.yaml` and update `values.schema.json`
+    - Detect and report migration-wide backend reference (`backendRefName` / `backendRefPort`)
+    - Infer and report output labels applied to generated Gateways/HTTPRoutes
 4. Review the generated `-istio.yaml` files and the modified originals.
 
 
@@ -77,6 +84,10 @@ helm template . --set SERVICE_MESH_TYPE=Istio | grep -E 'kind: (HTTPRoute|Gatewa
 ## Step 1.1 — Manually Handle Flagged Features
 
 After the skill runs, it prints a summary of items it could not migrate automatically, marked with `# ⚠ MANUAL REVIEW REQUIRED`. Find the way to migrate them manually.
+
+Also review `MIGRATION_LOG.md` entries for:
+- unresolved backend reference,
+- unresolved output labels.
                                          
 ---
 
@@ -261,6 +272,14 @@ This plugin scans compiled classes for routing annotations - and generates equiv
 4. Commit `outputFile` to your branch. 
 5. In case of any changes in routes annotations - do not forget to build locally and commit changes of routes produced by plugin.
 
+Before adding plugin configuration, resolve inputs from Step 1 (`MIGRATION_LOG.md`):
+
+- `backendRefName` / `backendRefPort` (preferred: detected values),
+- `routeLabels` map (preferred: detected output labels).
+
+If Step 1 left any of these unresolved, provide them explicitly before
+continuing.
+
 ### Add to pom.xml
 
 ```xml
@@ -281,9 +300,18 @@ This plugin scans compiled classes for routing annotations - and generates equiv
                 <packages>
                     <package>com.example</package>
                 </packages>
-                <servicePort>8080</servicePort>
+                <servicePort><!-- use detected backendRefPort from Step 1, fallback 8080 --></servicePort>
                 <outputFile>helm-templates/service/templates/annotations-httproutes.yaml</outputFile>
-                <backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>
+                <backendRefVal><!-- use detected backendRefName from Step 1 --></backendRefVal>
+                <labels>
+                    <!-- use detected output labels from Step 1 -->
+                    <app.kubernetes.io/name>{{ .Values.SERVICE_NAME }}</app.kubernetes.io/name>
+                    <app.kubernetes.io/part-of>{{ .Values.APPLICATION_NAME }}</app.kubernetes.io/part-of>
+                    <app.kubernetes.io/managed-by>{{ .Values.MANAGED_BY }}</app.kubernetes.io/managed-by>
+                    <deployment.netcracker.com/sessionId>{{ .Values.DEPLOYMENT_SESSION_ID }}</deployment.netcracker.com/sessionId>
+                    <deployer.cleanup/allow>true</deployer.cleanup/allow>
+                    <app.kubernetes.io/processed-by-operator>istiod</app.kubernetes.io/processed-by-operator>
+                </labels>
             </configuration>
         </plugin>
     </plugins>
@@ -305,7 +333,10 @@ Use the skill [`httproute-from-code`](skills/httproute-from-code/SKILL.md) to pr
 ### How to run
 
 1. Open your IDE.
-2. Run the slash command: `/httproute-from-code <path>` pointing at your directory or file with route registration code.
+2. Run the slash command: `/httproute-from-code <path>` pointing at your directory or file with route registration code, and pass:
+   - `backendRefName`,
+   - `backendRefPort`,
+   - `routeLabels` (detected output labels from Step 1).
 3. The skill scans Go and Java files, detects route definitions, and outputs HTTPRoute CRs.
 4. Generated files are saved to `helm-templates/<service name>/templates/source-code-httproutes.yaml`.
 5. Review the summary table printed by the skill. Resolve any errors before continuing.
@@ -313,6 +344,15 @@ Use the skill [`httproute-from-code`](skills/httproute-from-code/SKILL.md) to pr
 7. In case of any changes in routes registration code - do not forget to run `httproute-from-code` skill and commit changes of routes produced by skill.
 
 > **Tip:** You can run the skill against a single file or an entire directory.
+
+If `routeLabels` is not passed, the skill applies the default label set:
+
+- `app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}`
+- `app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}`
+- `app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}`
+- `deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`
+- `deployer.cleanup/allow: "true"`
+- `app.kubernetes.io/processed-by-operator: istiod`
 
 ---
 

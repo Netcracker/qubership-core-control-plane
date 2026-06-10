@@ -169,8 +169,7 @@ Snippet:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: {{ .Values.SERVICE_NAME }}-internal
-  namespace: {{ .Values.NAMESPACE }}
+  name: {{ .Values.SERVICE_NAME }}-java-annotations-public
   labels:
     app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}
     app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
@@ -241,6 +240,12 @@ rules:
 ```
 
 ## Route Type to parentRefs mapping
+
+Generated HTTPRoute names use:
+
+`{{ .Values.SERVICE_NAME }}-java-annotations-<type>`
+
+Where `<type>` is lowercase route type (`internal`, `private`, `public`, `facade`).
 
 - `INTERNAL` -> Service `internal-gateway-service`
 - `PRIVATE` -> Gateway `private-gateway` + Service `internal-gateway-service`

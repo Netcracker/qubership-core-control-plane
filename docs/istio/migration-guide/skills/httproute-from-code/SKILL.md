@@ -433,6 +433,35 @@ If `routeLabels` is not provided:
   - `deployer.cleanup/allow: "true"`
   - `app.kubernetes.io/processed-by-operator: istiod`
 
+### HTTPRoute naming schema
+
+Generated HTTPRoute names follow this fixed pattern:
+
+`<microservice-name>-source-code-<route-type>-routes`
+
+Where `<route-type>` is lowercase and mapped as:
+
+| Canonical RouteType | Name suffix |
+|---|---|
+| `Public` | `public-routes` |
+| `Private` | `private-routes` |
+| `Internal` | `internal-routes` |
+| `Mesh` | `mesh-routes` |
+| `Facade` | `facade-routes` |
+
+Examples:
+
+- `billing-service-source-code-public-routes`
+- `billing-service-source-code-private-routes`
+- `billing-service-source-code-internal-routes`
+
+Naming rules:
+
+- Use the microservice name resolved in [Step 7](#step-7--resolve-microservice-name).
+- Emit exactly one HTTPRoute name per RouteType that has routes (see Step 6).
+- If Step 7 cannot resolve the service name, use `<microservice-name>` in the
+  generated name and report it as a warning in the summary / needs-review flow.
+
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 apiVersion: gateway.networking.k8s.io/v1
