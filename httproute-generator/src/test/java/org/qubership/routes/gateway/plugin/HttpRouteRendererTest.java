@@ -2,9 +2,12 @@ package org.qubership.routes.gateway.plugin;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,5 +50,35 @@ class HttpRouteRendererTest {
         assertTrue(yaml.contains("custom-manager"));
         assertFalse(yaml.contains("app.kubernetes.io/name:"));
         assertFalse(yaml.contains("deployment.netcracker.com/sessionId:"));
+    }
+
+    @Test
+    void sortsRulesByPathSpecificity() {
+        List<HttpRoute> routes = new ArrayList<>(List.of(
+                new HttpRoute("/alpha", HttpRoute.Type.INTERNAL),
+                new HttpRoute("/alpha/bravo", HttpRoute.Type.INTERNAL),
+                new HttpRoute("/alpha/bravo/charlie", HttpRoute.Type.INTERNAL)
+        ));
+
+        routes.sort(HttpRouteRenderer.pathSpecificityComparator());
+
+        assertEquals("/alpha/bravo/charlie", routes.get(0).gatewayPath());
+        assertEquals("/alpha/bravo", routes.get(1).gatewayPath());
+        assertEquals("/alpha", routes.get(2).gatewayPath());
+    }
+
+    @Test
+    void sortsByLengthThenLexicalWhenSegmentsEqual() {
+        List<HttpRoute> routes = new ArrayList<>(List.of(
+                new HttpRoute("/aa/za", HttpRoute.Type.INTERNAL),
+                new HttpRoute("/aa/ab", HttpRoute.Type.INTERNAL),
+                new HttpRoute("/aa/abcd", HttpRoute.Type.INTERNAL)
+        ));
+
+        routes.sort(HttpRouteRenderer.pathSpecificityComparator());
+
+        assertEquals("/aa/abcd", routes.get(0).gatewayPath());
+        assertEquals("/aa/ab", routes.get(1).gatewayPath());
+        assertEquals("/aa/za", routes.get(2).gatewayPath());
     }
 }

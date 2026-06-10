@@ -226,10 +226,21 @@ public class HttpRouteRenderer {
      * Longest-prefix-first ordering per shared path-specificity-sorting rules.
      */
     static Comparator<HttpRoute> pathSpecificityComparator() {
-        return Comparator
-                .comparingInt((HttpRoute route) -> pathSegmentCount(route.gatewayPath())).reversed()
-                .thenComparingInt(route -> route.gatewayPath().length()).reversed()
-                .thenComparing(HttpRoute::gatewayPath);
+        return (left, right) -> {
+            int leftSegments = pathSegmentCount(left.gatewayPath());
+            int rightSegments = pathSegmentCount(right.gatewayPath());
+            if (leftSegments != rightSegments) {
+                return Integer.compare(rightSegments, leftSegments); // more segments first
+            }
+
+            int leftLength = left.gatewayPath().length();
+            int rightLength = right.gatewayPath().length();
+            if (leftLength != rightLength) {
+                return Integer.compare(rightLength, leftLength); // longer path first
+            }
+
+            return left.gatewayPath().compareTo(right.gatewayPath()); // deterministic tie-break
+        };
     }
 
     static int pathSegmentCount(String path) {
