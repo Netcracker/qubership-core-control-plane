@@ -297,6 +297,7 @@ func TestRoutingModeService_IsForbiddenRoutingMode(t *testing.T) {
 
 func sendReq(app *fiber.App, method, path, payload string) (string, int, error) {
 	req, err := http.NewRequest(method, path, bytes.NewBufferString(payload))
+	req.Host = "localhost"
 	if err != nil {
 		return "", 0, err
 	}
@@ -309,6 +310,7 @@ func sendReq(app *fiber.App, method, path, payload string) (string, int, error) 
 
 func sendReqForRoutingModeDetails(t *testing.T, app *fiber.App) routingmode.Summary {
 	req, err := http.NewRequest(http.MethodGet, "/test", nil)
+	req.Host = "localhost"
 	if err != nil {
 		assert.FailNow(t, err.Error())
 	}
