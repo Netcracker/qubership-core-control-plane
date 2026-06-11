@@ -29,6 +29,7 @@ func SendHttpRequestWithBody(t *testing.T, httpMethod, endpoint, reqUrl string, 
 		reqUrl,
 		body,
 	)
+	req.Host = "localhost"
 	assert.Nil(t, err)
 	resp, err := app.Test(req, -1)
 	return resp

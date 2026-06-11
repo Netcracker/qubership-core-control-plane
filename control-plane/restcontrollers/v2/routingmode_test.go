@@ -200,6 +200,7 @@ func TestRoutingModeService_IsForbiddenRoutingMode(t *testing.T) {
 
 func sendReq(app *fiber.App, method, path, payload string) (string, int, error) {
 	req, err := http.NewRequest(method, path, bytes.NewBufferString(payload))
+	req.Host = "localhost"
 	if err != nil {
 		return "", 0, err
 	}
