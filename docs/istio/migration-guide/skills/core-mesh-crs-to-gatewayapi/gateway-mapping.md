@@ -94,6 +94,7 @@ Transformation is basically like [§ Gateway-to-Istio-Gateway](#gateway-to-istio
 With several changes:
 
   - Add Service for egress-gateway to the same file where gateway placed
+  - Do not wrap source gateway into Core guard. Let it stay untouched
 
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
