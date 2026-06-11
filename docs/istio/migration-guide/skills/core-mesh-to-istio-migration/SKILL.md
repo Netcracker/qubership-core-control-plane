@@ -378,9 +378,10 @@ in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
 - **If `pom.xml` exists and annotations are used**, follow these five sub-steps
   (from the [plugin README](https://github.com/Netcracker/qubership-core-control-plane/blob/main/httproute-generator/README.md)):
   1. **Add plugin to `pom.xml`** with the following configuration:
-     - `<groupId>org.qubership.cloud.core</groupId>`
+     - `<groupId>com.netcracker.cloud.plugins</groupId>`
      - `<artifactId>httproutes-generator-maven-plugin</artifactId>`
-     - `<version>RELEASE</version>`
+     - `<version>` must use the latest available release, but never lower than
+       `1.0.2` (`>= 1.0.2`).
      - `<goal>generate-routes</goal>`
      - `<packages>` resolved from `src/main/java/...`. If ambiguous, set
        `com.example` and add a **Needs review** entry.
@@ -396,6 +397,8 @@ in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
      - `<labels>` set to resolved migration-wide `routeLabels` from Step 1. If
        Step 1 labels are unresolved, ask user for the label map and use it
        verbatim. Do not invent values.
+       Use Maven plugin label format:
+       `<labels><label><key>my/special-key</key><value>value1</value></label></labels>`.
   2. **Confirm `<outputFile>`** is set to a path inside the Helm chart templates
      directory (see above). This file must be committed to the branch.
   3. **Build the project** to generate the output file. Run `mvn -q clean process-classes`
@@ -408,7 +411,7 @@ in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
      > The plugin generates the output file at compile time. Every time route
      > annotations change, run `mvn clean compile` locally and commit the updated
      > output file before raising a PR.
-  5. Log the committed file path under **Done**.
+  5. Log the selected plugin version and committed file path under **Done**.
 
 Log update:
 - **Done:** `pom.xml` edited; `mvn -q clean process-classes` exit code (if run); generated

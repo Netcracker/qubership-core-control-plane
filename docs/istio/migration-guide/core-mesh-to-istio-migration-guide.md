@@ -282,13 +282,16 @@ continuing.
 
 ### Add to pom.xml
 
+Use plugin coordinates `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin`
+and pick the latest available plugin version, but never lower than `1.0.2`.
+
 ```xml
 <build>
     <plugins>
         <plugin>
-            <groupId>org.qubership.cloud.core</groupId>
+            <groupId>com.netcracker.cloud.plugins</groupId>
             <artifactId>httproutes-generator-maven-plugin</artifactId>
-            <version>RELEASE</version>
+            <version><!-- use latest available, but >= 1.0.2 --></version>
             <executions>
                 <execution>
                     <goals>
@@ -305,12 +308,30 @@ continuing.
                 <backendRefVal><!-- use detected backendRefName from Step 1 --></backendRefVal>
                 <labels>
                     <!-- use detected output labels from Step 1 -->
-                    <app.kubernetes.io/name>{{ .Values.SERVICE_NAME }}</app.kubernetes.io/name>
-                    <app.kubernetes.io/part-of>{{ .Values.APPLICATION_NAME }}</app.kubernetes.io/part-of>
-                    <app.kubernetes.io/managed-by>{{ .Values.MANAGED_BY }}</app.kubernetes.io/managed-by>
-                    <deployment.netcracker.com/sessionId>{{ .Values.DEPLOYMENT_SESSION_ID }}</deployment.netcracker.com/sessionId>
-                    <deployer.cleanup/allow>true</deployer.cleanup/allow>
-                    <app.kubernetes.io/processed-by-operator>istiod</app.kubernetes.io/processed-by-operator>
+                    <label>
+                        <key>app.kubernetes.io/name</key>
+                        <value>{{ .Values.SERVICE_NAME }}</value>
+                    </label>
+                    <label>
+                        <key>app.kubernetes.io/part-of</key>
+                        <value>{{ .Values.APPLICATION_NAME }}</value>
+                    </label>
+                    <label>
+                        <key>app.kubernetes.io/managed-by</key>
+                        <value>{{ .Values.MANAGED_BY }}</value>
+                    </label>
+                    <label>
+                        <key>deployment.netcracker.com/sessionId</key>
+                        <value>{{ .Values.DEPLOYMENT_SESSION_ID }}</value>
+                    </label>
+                    <label>
+                        <key>deployer.cleanup/allow</key>
+                        <value>true</value>
+                    </label>
+                    <label>
+                        <key>app.kubernetes.io/processed-by-operator</key>
+                        <value>istiod</value>
+                    </label>
                 </labels>
             </configuration>
         </plugin>
