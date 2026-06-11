@@ -380,7 +380,7 @@ in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
   1. **Add plugin to `pom.xml`** with the following configuration:
      - `<groupId>org.qubership.cloud.core</groupId>`
      - `<artifactId>httproutes-generator-maven-plugin</artifactId>`
-     - `<version>0.0.1-SNAPSHOT</version>`
+     - `<version>RELEASE</version>`
      - `<goal>generate-routes</goal>`
      - `<packages>` resolved from `src/main/java/...`. If ambiguous, set
        `com.example` and add a **Needs review** entry.

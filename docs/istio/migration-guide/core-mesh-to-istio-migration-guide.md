@@ -288,7 +288,7 @@ continuing.
         <plugin>
             <groupId>org.qubership.cloud.core</groupId>
             <artifactId>httproutes-generator-maven-plugin</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>RELEASE</version>
             <executions>
                 <execution>
                     <goals>
