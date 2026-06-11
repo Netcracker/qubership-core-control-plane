@@ -468,7 +468,6 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: <microservice-name>-source-code-public-routes
-  namespace: {{ .Values.NAMESPACE }}
   labels:
     app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
     app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}
@@ -506,7 +505,6 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: <microservice-name>-source-code-private-routes
-  namespace: {{ .Values.NAMESPACE }}
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io    
