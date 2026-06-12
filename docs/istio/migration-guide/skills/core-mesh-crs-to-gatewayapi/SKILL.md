@@ -1,5 +1,5 @@
 ---
-name: qubership-mesh-to-istio
+name: core-mesh-crs-to-gatewayapi
 description: >
   Transform Qubership Cloud Core Mesh Helm templates to Istio Ambient Mesh equivalents.
   Use this skill whenever the user asks to migrate, convert, transform, or upgrade Helm charts
@@ -20,6 +20,38 @@ homegrown **Cloud Core Mesh** model to **Istio Ambient Mesh** (Gateway API).
 The transformation keeps charts deployable to **both mesh types** simultaneously by wrapping
 old resources in `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` and new Istio resources in
 `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}`.
+
+---
+
+## Scope — only touch mesh-entity files
+
+This skill operates **exclusively** on the Core Mesh custom resources it
+converts: `FacadeService`, `Gateway`, `RouteConfiguration` (and `Mesh` CRs with
+those `subKind`s). Everything else in the chart must be left byte-for-byte
+unchanged.
+
+**Only modify a file if it actually contains one of those mesh CR documents**
+(detected in Step 1). For such files you may wrap the mesh CR documents in Core
+guards and create the `-istio.yaml` sibling — but do not rewrite unrelated
+documents in the same file.
+
+**Do NOT touch** (do not edit, wrap, reformat, or generate siblings for):
+
+- Deployments, Services, ConfigMaps, Secrets, ServiceAccounts, HPAs, PVCs,
+  Ingresses, NetworkPolicies, CronJobs, or any other non-mesh kind.
+- `_helpers.tpl` / any `*.tpl` files and the named template helpers
+  (`{{- define }}` / `{{- include }}`) they contain. Do **not** trigger on a
+  template helper just because it appears in a chart — only the rendered mesh CR
+  documents are in scope.
+- `Chart.yaml`, `NOTES.txt`, `.helmignore`, CRD definitions, tests, and docs.
+- `values.yaml` / `values.schema.json` — the **only** exception, edited solely
+  to add the `SERVICE_MESH_TYPE` key per Step 6. Make no other value changes.
+
+The lone exception to "mesh CRs only" is Step 6 (`values.yaml` /
+`values.schema.json` for `SERVICE_MESH_TYPE`). If a mesh CR is produced by a
+template helper (a `{{- include }}` that renders FacadeService/Gateway/
+RouteConfiguration), do not edit the helper — flag it with
+`# ⚠ MANUAL REVIEW REQUIRED` per Step 7 and leave it to the user.
 
 ---
 
@@ -78,6 +110,20 @@ grep -rl \
 
 List each discovered file and its contained kinds before proceeding. Do not proceed
 with transformation until the full file list is confirmed.
+
+**Scope gate:** the files matched here are the **only** files this skill may
+modify (plus `values.yaml` / `values.schema.json` in Step 6). A file is in scope
+only if it contains an actual `FacadeService`, `Gateway`, or `RouteConfiguration`
+CR document. Specifically:
+
+- Ignore `*.tpl` / `_helpers.tpl` and any file that has no mesh CR document, even
+  if it references mesh values or includes a helper.
+- Matching `kind: Gateway` may catch unrelated kinds — confirm the
+  `apiVersion`/`subKind` identifies a Core Mesh CR before treating a file as in
+  scope; drop false positives from the list.
+- If a mesh CR is rendered indirectly by a `{{- include }}` helper, keep the
+  helper file out of scope and flag it for manual review (Step 7); do not edit
+  the helper.
 
 
 ### Step 3 — Wrap originals in Core condition
@@ -150,7 +196,60 @@ Sequence:
 2. Process all FacadeService CRs
 3. List in chat all resolved gateways: mesh gateways (from FacadeService or Gateway mesh) and ingress/egress gateways (from Gateway CRs).
 4. Process all RouteConfiguration CRs using the resolved list plus user-provided types for any previously unresolved gateways.
+5. Sort each HTTPRoute's `rules[]` by path specificity using the shared procedure
+   in [shared/path-specificity-sorting.md](../shared/path-specificity-sorting.md)
+   (sort on each rule's `match.prefix` / `match.path` / `match.regExp` value).
 
+
+### Step 5c — Detect the service backend reference
+
+While processing `RouteConfiguration` CRs, collect the backend reference of the
+migrated service so downstream tooling (code-generated HTTPRoutes, Maven plugin)
+can reuse the **same** `name` / `port`. This relies on the assumption that **one
+migrated chart contains only routes for its own service**, so every self-route
+destination resolves to the same backend.
+
+Procedure:
+
+1. From every `RouteDestination.endpoint` (see
+   [route-configuration-mapping.md](route-configuration-mapping.md) →
+   "Endpoint to backendRef resolution"), collect the parsed `(name, port)` pairs.
+2. Exclude destinations whose `name` is a well-known platform gateway service
+   (`public-gateway-service`, `private-gateway-service`, `internal-gateway-service`,
+   `egress-gateway`) — these are not the service's own backend.
+3. Determine the result:
+   - **Exactly one distinct `(name, port)` remains** → that is the detected
+     `backendRefName` / `backendRefPort`. Preserve Helm expressions verbatim
+     (e.g. `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`).
+   - **No destinations** (e.g. no `RouteConfiguration` CRs) or **more than one
+     distinct backend** → report `backendRefName` / `backendRefPort` as
+     **unresolved** and explain why (none found / conflicting values listed).
+
+Report the result in the Output Summary (see "Detected backend reference").
+Do not ask the user here — resolution/prompting is the orchestrator's job.
+
+### Step 5d — Capture labels applied to generated Gateways and HTTPRoutes
+
+Capture the label set that will be applied to generated Istio resources, using
+[labels.md](labels.md) as the source of truth.
+
+Procedure:
+
+1. Resolve the final label map for generated `Gateway` and `HTTPRoute` resources
+   (including Helm template expressions if used).
+2. If labels are computed from multiple places (common helper + local overrides),
+   produce the merged final map exactly as rendered.
+3. If labels cannot be resolved unambiguously (for example helper indirection that
+   cannot be statically resolved), mark labels as **unresolved** and include why.
+4. Record the result in output summary as:
+   - `Detected output labels: <key=value list>` when resolved, or
+   - `Detected output labels: unresolved (<reason>)`.
+5. If `MIGRATION_LOG.md` exists at repo root:
+   - append one **Done** entry with the detected labels when resolved;
+   - append one **Needs review** entry when unresolved, including reason and
+     suggested action (`confirm labels map manually and propagate to code-generated routes`).
+
+Do not invent missing label values. If uncertain, mark unresolved.
 
 ### Step 6 — Update values.yaml
 
@@ -190,6 +289,8 @@ After generating all files, verify:
 - [ ] All `ingress`, `egress` type Gateways, gateway with name `egress-gateway` produce a Gateway
 - [ ] `RouteConfiguration` → HTTPRoute parentRefs correctly use Gateway or Service kind
 - [ ] No hardcoded values where Helm expressions existed
+- [ ] Only mesh-CR files were modified (plus `values.yaml` / `values.schema.json` for `SERVICE_MESH_TYPE`); no `*.tpl` helpers, Deployments, Services, or other non-mesh files were touched
+- [ ] Each HTTPRoute's `rules[]` are sorted by path specificity (most specific first) per [shared/path-specificity-sorting.md](../shared/path-specificity-sorting.md)
 - [ ] YAML is valid (no unclosed blocks, correct indentation)
 - [ ] `⚠ MANUAL REVIEW REQUIRED` comments added for every encountered unsupported/omitted field (see list below)
 
@@ -199,19 +300,14 @@ When the listed field is non-empty / non-nil on the source CR, omit it from the 
 
 | Source | Field | Trigger |
 |---|---|---|
-| `RouteConfiguration.spec` | `tlsSupported` | non-empty |
 | `RouteConfiguration.spec` | `overridden` | non-empty |
 | `VirtualService` | `rateLimit` | non-empty |
 | `VirtualService` | `overridden` | non-empty |
 | `VirtualService.hosts[]` | `*` host | appears on an east-west (mesh) route |
 | `RouteDestination` | `cluster` | non-empty |
-| `RouteDestination` | `tlsSupported` | non-empty |
-| `RouteDestination` | `tlsEndpoint` | non-empty |
 | `RouteDestination` | `httpVersion` | non-empty |
-| `RouteDestination` | `tlsConfigName` | non-empty |
 | `RouteDestination` | `circuitBreaker` | non-empty |
 | `RouteDestination` | `tcpKeepalive` | non-empty |
-| `RouteV3.Rule` | `allowed` | non-nil |
 | `RouteV3.Rule` | `idleTimeout` | non-nil |
 | `RouteV3.Rule` | `statefulSession` | non-nil |
 | `RouteV3.Rule` | `rateLimit` | non-empty |
@@ -237,14 +333,24 @@ Resources transformed:
   Gateway/mesh              → omitted, east-west HTTPRoute only (<N> instances)
   RouteConfiguration        → HTTPRoute (<N> instances)
 
+Detected backend reference (for code-generated HTTPRoutes / Maven plugin):
+  backendRefName: <name or "unresolved">
+  backendRefPort: <port or "unresolved">
+  # if unresolved, state why: no RouteConfiguration destinations found
+  #                           | conflicting backends: <list of name:port>
+
+Detected output labels (for Maven plugin / code-generated HTTPRoutes):
+  labels: <k1=v1, k2=v2, ... or "unresolved">
+  # if unresolved, state why: helper indirection not resolvable
+  #                           | conflicting label definitions
+
 Items needing manual review:
   <list every omitted `⚠ MANUAL REVIEW REQUIRED` — one line per hit, e.g.:
-   - tlsSupported / overridden on RouteConfiguration <name>
    - rateLimit / overridden on VirtualService <name>
    - '*' host on east-west RouteConfiguration <name>
-   - cluster / tlsSupported / tlsEndpoint / tlsConfigName / httpVersion /
+   - cluster / httpVersion /
      circuitBreaker / tcpKeepalive on RouteDestination of <name>
-   - allowed / deny / idleTimeout / statefulSession / rateLimit / luaFilter
+   - deny / idleTimeout / statefulSession / rateLimit / luaFilter
      on Rule <path> of <name>
    - FacadeService <name> has no port defined
    - helper {{- include "<name>" }} produces mesh CRs — guards added manually
@@ -260,3 +366,4 @@ Read these before transforming — they contain schemas, field mappings, and ful
 - [gateway-mapping.md](gateway-mapping.md) — Gateway → Istio Gateway
 - [route-configuration-mapping.md](route-configuration-mapping.md) — RouteConfiguration → HTTPRoute
 - [labels.md](labels.md) — Common label resolution
+- [../shared/path-specificity-sorting.md](../shared/path-specificity-sorting.md) — Sort HTTPRoute `rules[]` by path specificity (shared with `httproute-from-code`)

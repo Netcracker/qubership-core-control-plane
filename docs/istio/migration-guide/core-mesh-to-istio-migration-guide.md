@@ -5,25 +5,57 @@
 
 ## Overview
 
-This guide walks you through migrating your service from the Cloud-Core mesh to Istio. Follow the steps in order. Each step builds on the previous one.
+This guide covers migrating your service from the Cloud-Core mesh to Istio.
 
-### Skills
+There are **two ways** to perform the migration. Pick one:
 
-This guide relies on AI skills that automate the bulk of the migration:
+### Option A — Run the orchestrator skill (recommended)
+
+Let the [`core-mesh-to-istio-migration`](skills/core-mesh-to-istio-migration/SKILL.md)
+orchestrator skill drive the entire migration end-to-end. It runs every step
+below in order, delegates to the two atomic skills, validates the result, and
+maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items so nothing
+is missed.
+
+1. Open your IDE in your repository root.
+2. Ask AI to run the migration, e.g.: *"Run the core-mesh-to-istio migration on `<path-to-your-helm-chart>`"* (or invoke `/core-mesh-to-istio-migration <path>`).
+3. Answer any questions it asks (chart path, source-code path, language), then
+   review `MIGRATION_LOG.md` — especially every **Needs review** entry — before
+   raising a PR.
+4. Reuse values captured in `MIGRATION_LOG.md` from Step 1:
+   - detected `backendRefName` / `backendRefPort`,
+   - detected output labels for generated Gateway/HTTPRoute resources.
+   The orchestrator propagates these into Maven plugin configuration and
+   `httproute-from-code` so all generated routes stay consistent.
+
+This is the preferred path: it is faster, applies the steps consistently, and
+produces an auditable log.
+
+### Option B — Follow this guide manually
+
+Work through the steps below yourself, in order (each builds on the previous).
+Along the way you can still invoke the two atomic skills to automate individual
+steps, or do the edits by hand. Choose this path when you want full control,
+need to run a single step in isolation, or are migrating something the
+orchestrator cannot fully handle.
+
+### Skills used by both options
 
 | Skill | Purpose |
 |---|---|
-| [`core-mesh-to-istio-migration`](skills/core-mesh-to-istio-migration/SKILL.md) | **Orchestrator** — runs the full migration end-to-end, delegates to the two skills below, and maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items |
-| [`qubership-mesh-to-istio`](skills/qubership-mesh-to-istio/SKILL.md) | Convert existing Helm mesh CRs (FacadeService, Gateway, RouteConfiguration) to Istio Gateway API resources |
+| [`core-mesh-to-istio-migration`](skills/core-mesh-to-istio-migration/SKILL.md) | **Orchestrator** (Option A) — runs the full migration end-to-end, delegates to the two skills below, and maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items |
+| [`core-mesh-crs-to-gatewayapi`](skills/core-mesh-crs-to-gatewayapi/SKILL.md) | Convert existing Helm mesh CRs (FacadeService, Gateway, RouteConfiguration) to Istio Gateway API resources |
 | [`httproute-from-code`](skills/httproute-from-code/SKILL.md) | Generate HTTPRoute CRs from Go/Java route registration source code |
 
-**Recommended:** run the orchestrator skill (`core-mesh-to-istio-migration`) and let it drive the steps below. The two atomic skills remain available if you prefer to run a single step in isolation.
+> The rest of this guide documents the individual steps. With **Option A** the
+> orchestrator performs them for you; with **Option B** you follow them
+> manually. Either way, finish with the [Final Checklist](#final-checklist).
 
 ---
 
 ## Step 1 — Migrate declarative routes - existing Mesh CRs to HTTPRoute CRs
 
-Use the skill [`qubership-mesh-to-istio`](skills/qubership-mesh-to-istio/SKILL.md) to automatically convert your existing mesh custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`) into GatewayAPI HTTPRoute manifests while keeping the chart deployable on both mesh types.
+Use the skill [`core-mesh-crs-to-gatewayapi`](skills/core-mesh-crs-to-gatewayapi/SKILL.md) to automatically convert your existing mesh custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`) into GatewayAPI HTTPRoute manifests while keeping the chart deployable on both mesh types.
 
 ### How to run
 
@@ -36,6 +68,8 @@ Use the skill [`qubership-mesh-to-istio`](skills/qubership-mesh-to-istio/SKILL.m
     - Convert `RouteConfiguration` → `HTTPRoute` with correct `parentRefs` (Gateway or Service depending on gateway type)
     - Omit `FacadeService` and `Gateway` (mesh type) from Istio output — their routes become east-west `HTTPRoute` resources with Service `parentRefs`
     - Add `SERVICE_MESH_TYPE: Core` to `values.yaml` and update `values.schema.json`
+    - Detect and report migration-wide backend reference (`backendRefName` / `backendRefPort`)
+    - Infer and report output labels applied to generated Gateways/HTTPRoutes
 4. Review the generated `-istio.yaml` files and the modified originals.
 
 
@@ -50,6 +84,10 @@ helm template . --set SERVICE_MESH_TYPE=Istio | grep -E 'kind: (HTTPRoute|Gatewa
 ## Step 1.1 — Manually Handle Flagged Features
 
 After the skill runs, it prints a summary of items it could not migrate automatically, marked with `# ⚠ MANUAL REVIEW REQUIRED`. Find the way to migrate them manually.
+
+Also review `MIGRATION_LOG.md` entries for:
+- unresolved backend reference,
+- unresolved output labels.
                                          
 ---
 
@@ -234,15 +272,26 @@ This plugin scans compiled classes for routing annotations - and generates equiv
 4. Commit `outputFile` to your branch. 
 5. In case of any changes in routes annotations - do not forget to build locally and commit changes of routes produced by plugin.
 
+Before adding plugin configuration, resolve inputs from Step 1 (`MIGRATION_LOG.md`):
+
+- `backendRefName` / `backendRefPort` (preferred: detected values),
+- `routeLabels` map (preferred: detected output labels).
+
+If Step 1 left any of these unresolved, provide them explicitly before
+continuing.
+
 ### Add to pom.xml
+
+Use plugin coordinates `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin`
+and pick the latest available plugin version, but never lower than `1.0.2`.
 
 ```xml
 <build>
     <plugins>
         <plugin>
-            <groupId>org.qubership.cloud.core</groupId>
+            <groupId>com.netcracker.cloud.plugins</groupId>
             <artifactId>httproutes-generator-maven-plugin</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version><!-- use latest available, but >= 1.0.2 --></version>
             <executions>
                 <execution>
                     <goals>
@@ -254,9 +303,36 @@ This plugin scans compiled classes for routing annotations - and generates equiv
                 <packages>
                     <package>com.example</package>
                 </packages>
-                <servicePort>8080</servicePort>
+                <servicePort><!-- use detected backendRefPort from Step 1, fallback 8080 --></servicePort>
                 <outputFile>helm-templates/service/templates/annotations-httproutes.yaml</outputFile>
-                <backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>
+                <backendRefVal><!-- use detected backendRefName from Step 1 --></backendRefVal>
+                <labels>
+                    <!-- use detected output labels from Step 1 -->
+                    <label>
+                        <key>app.kubernetes.io/name</key>
+                        <value>{{ .Values.SERVICE_NAME }}</value>
+                    </label>
+                    <label>
+                        <key>app.kubernetes.io/part-of</key>
+                        <value>{{ .Values.APPLICATION_NAME }}</value>
+                    </label>
+                    <label>
+                        <key>app.kubernetes.io/managed-by</key>
+                        <value>{{ .Values.MANAGED_BY }}</value>
+                    </label>
+                    <label>
+                        <key>deployment.netcracker.com/sessionId</key>
+                        <value>{{ .Values.DEPLOYMENT_SESSION_ID }}</value>
+                    </label>
+                    <label>
+                        <key>deployer.cleanup/allow</key>
+                        <value>true</value>
+                    </label>
+                    <label>
+                        <key>app.kubernetes.io/processed-by-operator</key>
+                        <value>istiod</value>
+                    </label>
+                </labels>
             </configuration>
         </plugin>
     </plugins>
@@ -278,7 +354,10 @@ Use the skill [`httproute-from-code`](skills/httproute-from-code/SKILL.md) to pr
 ### How to run
 
 1. Open your IDE.
-2. Run the slash command: `/httproute-from-code <path>` pointing at your directory or file with route registration code.
+2. Run the slash command: `/httproute-from-code <path>` pointing at your directory or file with route registration code, and pass:
+   - `backendRefName`,
+   - `backendRefPort`,
+   - `routeLabels` (detected output labels from Step 1).
 3. The skill scans Go and Java files, detects route definitions, and outputs HTTPRoute CRs.
 4. Generated files are saved to `helm-templates/<service name>/templates/source-code-httproutes.yaml`.
 5. Review the summary table printed by the skill. Resolve any errors before continuing.
@@ -286,6 +365,15 @@ Use the skill [`httproute-from-code`](skills/httproute-from-code/SKILL.md) to pr
 7. In case of any changes in routes registration code - do not forget to run `httproute-from-code` skill and commit changes of routes produced by skill.
 
 > **Tip:** You can run the skill against a single file or an entire directory.
+
+If `routeLabels` is not passed, the skill applies the default label set:
+
+- `app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}`
+- `app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}`
+- `app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}`
+- `deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`
+- `deployer.cleanup/allow: "true"`
+- `app.kubernetes.io/processed-by-operator: istiod`
 
 ---
 
@@ -324,14 +412,43 @@ helm template . --set SERVICE_MESH_TYPE=Core | grep 'kind: HTTPRoute'
 
 ---
 
+## Step 2.6 — Detect Duplicate HTTPRoute Rules
+
+Once all HTTPRoutes exist — both those converted from declarative mesh CRs
+(Step 1) and those generated from route registration code (Step 2.4 / the Maven
+plugin) — the same route can end up defined twice. A common case: a route is
+declared in a `RouteConfiguration` CR **and** also registered in application
+code, so both pipelines emit a rule for it.
+
+Scan all Istio-guarded HTTPRoutes and flag any **duplicate rules** — two or more
+rules that share **at least one common parent** (`parentRefs[]` entry:
+`group` + `kind` + `name`) **and** have **equal match parameters** (path match
+`type` + `value`, plus any `headers` / `queryParams` / `method`). Compare
+`{{ .Values.* }}` expressions as literal text.
+
+These duplicates are **not removed automatically** — deleting the wrong copy can
+silently change routing behaviour. For each duplicate group, record a manual
+review item listing:
+
+- the shared parent(s) and the match value,
+- every file + HTTPRoute name (and rule) that contributes a copy,
+- which source should remain authoritative (the `RouteConfiguration` CR or the
+  registration code) so you can remove the redundant rule before merging.
+
+Routes that share the same match but target only **different** parents are not
+duplicates and need no action.
+
+---
+
 ## Final Checklist
 
 Before raising a PR, verify all of the following:
 
-- [ ] [`qubership-mesh-to-istio`](skills/qubership-mesh-to-istio/SKILL.md) skill run: existing mesh CRs converted to HTTPRoute CRs
+- [ ] [`core-mesh-crs-to-gatewayapi`](skills/core-mesh-crs-to-gatewayapi/SKILL.md) skill run: existing mesh CRs converted to HTTPRoute CRs
 - [ ] Flagged features from Step 1.1 manually resolved
 - [ ] New mesh-aware libraries replace old route-posting libraries
 - [ ] `SERVICE_MESH_TYPE=Istio` set in Helm values / Deployment
 - [ ] Maven plugin added and local build passes (Java only)
 - [ ] [`httproute-from-code`](skills/httproute-from-code/SKILL.md) skill run: route registration code converted to HTTPRoute CRs
 - [ ] All HTTPRoute CRs wrapped in a `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` block
+- [ ] HTTPRoutes scanned for duplicate rules (same parent + equal match); duplicates resolved or flagged for review

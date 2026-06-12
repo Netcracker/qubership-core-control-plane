@@ -24,6 +24,46 @@ Examples:
 
 ---
 
+## Inputs / parameters
+
+Besides `<path>`, this skill accepts optional `backendRefs` parameters and an
+optional `routeLabels` parameter. They control `backendRefs[]` and
+`metadata.labels` emitted in every generated HTTPRoute CR. When invoked by the
+[`core-mesh-to-istio-migration`](../core-mesh-to-istio-migration/SKILL.md)
+orchestrator, these are passed in already resolved — either detected from the
+existing mesh CRs by the `core-mesh-crs-to-gatewayapi` skill or provided by the user.
+
+| Parameter | Controls | Default |
+|---|---|---|
+| `backendRefName` | `backendRefs[].name` in every rule | `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` |
+| `backendRefPort` | `backendRefs[].port` in every rule | `8080` |
+| `routeLabels` | `metadata.labels` on every generated HTTPRoute CR | default label set from |
+
+Resolution rules:
+
+- If a value is provided by the caller (or the orchestrator), use it verbatim for
+  **all** generated CRs — do not infer per-route values.
+- If `backendRefName` / `backendRefPort` are not provided, propose the defaults
+  to the user and ask for confirmation before generating. When running standalone
+  with no opportunity to ask, use the defaults and note the used values in the summary.
+- `backendRefName` is used as-is, including Helm template expressions such as
+  `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`.
+- `backendRefPort` must be a positive integer. If a non-integer value is given,
+  stop with an `ERROR:` (see Error handling).
+- `routeLabels` must be a map of string keys to string values. Apply exactly the
+  same label set to every generated HTTPRoute CR. Do not infer per-route labels.
+- If `routeLabels` is provided by caller/orchestrator, use it verbatim.
+- If `routeLabels` is not provided, use this default label set for every
+  generated HTTPRoute CR:
+  - `app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}`
+  - `app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}`
+  - `app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}`
+  - `deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`
+  - `deployer.cleanup/allow: "true"`
+  - `app.kubernetes.io/processed-by-operator: istiod`
+
+---
+
 ## Step 1 — Discover files and detect language
 
 Resolve <path>:
@@ -247,9 +287,9 @@ Route C  From=/api/v1/admin    To=/admin    RouteType=Internal
 Produces THREE CRs:
 
 ```
-<name>-public-routes    parentRefs: [public-gateway, private-gateway, internal-gateway-service]  rules: [Route A]
-<name>-private-routes   parentRefs: [private-gateway, internal-gateway-service]                  rules: [Route B]
-<name>-internal-routes  parentRefs: [internal-gateway-service]                                   rules: [Route C]
+<name>-source-code-public-routes    parentRefs: [public-gateway, private-gateway, internal-gateway-service]  rules: [Route A]
+<name>-source-code-private-routes   parentRefs: [private-gateway, internal-gateway-service]                  rules: [Route B]
+<name>-source-code-internal-routes  parentRefs: [internal-gateway-service]                                   rules: [Route C]
 ```
 
 ### Deduplication within a CR
@@ -318,55 +358,11 @@ Rule: divisible by 60000 → `Xm`, divisible by 1000 → `Xs`, else → `Xms`.
 Before generating the CR, sort all collected routes so that the most specific
 `from` paths appear first in `rules[]`.
 
-### Specificity ordering rules
-
-1. Count path segments (split by `/`, ignore empty):
-   `/api/v1/users/profile` → 4 segments  
-   `/api/v1/users` → 3 segments  
-   `/api` → 1 segment
-
-2. More segments = higher specificity = appears first.
-
-3. Tie-break by path length (longer string first).
-
-4. Tie-break by lexicographic order (ascending) for stable output.
-
-### Example — input order does not matter, output is always sorted
-
-Input routes (any order):
-```
-/api/v1/mesh-test-service-go/1234   → 4 segments
-/api/v1/mesh-test-service-go        → 3 segments
-/api/v1                             → 2 segments
-/api                                → 1 segment
-```
-
-Sorted output in rules[]:
-```yaml
-rules:
-  - matches:
-      - path:
-          type: PathPrefix
-          value: /api/v1/mesh-test-service-go/1234   # 4 segments — first
-  - matches:
-      - path:
-          type: PathPrefix
-          value: /api/v1/mesh-test-service-go         # 3 segments
-  - matches:
-      - path:
-          type: PathPrefix
-          value: /api/v1                              # 2 segments
-  - matches:
-      - path:
-          type: PathPrefix
-          value: /api                                 # 1 segment — last
-```
-
-### Why this matters
-GatewayAPI spec defines that more specific prefix matches win regardless of
-order, but not all gateway implementations (Envoy, Nginx, Istio) respect this
-consistently. Sorting longest-prefix-first ensures correct behaviour across
-all implementations.
+Apply the shared procedure in
+[`../shared/path-specificity-sorting.md`](../shared/path-specificity-sorting.md)
+— sort on each rule's `from` path. That file defines the segment-count ordering,
+tie-breaks, a worked example, and why ordering matters across gateway
+implementations.
 
 ---
 
@@ -374,35 +370,119 @@ all implementations.
 
 Generate one CR per RouteType. Wrap ALL CRs together in a single Istio conditional block.
 
+**Rule order:** emit `rules[]` in the path-specificity order produced by
+[Step 9](#step-9--sort-rules-by-path-specificity) (shared procedure
+[`../shared/path-specificity-sorting.md`](../shared/path-specificity-sorting.md)).
+Most specific match first — never in source/discovery order.
+
 ### ParentRef resolution
 
 Resolve every target gateway name to a Gateway API `parentRefs` entry before rendering:
 
 | Target | Rendered parentRef |
 |---|---|
-| `public-gateway` | `- name: public-gateway` |
-| `private-gateway` | `- name: private-gateway` |
+| `public-gateway` | `- name: public-gateway` with `kind: Gateway` and `group: gateway.networking.k8s.io` |
+| `private-gateway` | `- name: private-gateway` with `kind: Gateway` and `group: gateway.networking.k8s.io` |
 | `internal-gateway-service` | `- name: internal-gateway-service` with `kind: Service` and `group: ''` |
 
-Do not render `kind` or `group` for `public-gateway` or `private-gateway`; they
-use the Gateway API defaults. Always render `kind: Service` and `group: ''` for
-`internal-gateway-service`, because it is a Service parentRef for east-west
-traffic through the waypoint path.
+**Mandatory fields — every `parentRefs[]` entry MUST render all three:**
+
+- `group:` — `gateway.networking.k8s.io` for `kind: Gateway`, or `''` (empty
+  string) for `kind: Service`. Always present, never omitted.
+- `kind:` — `Gateway` or `Service`.
+- `name:` — the resolved parent name.
+
+Never emit a parentRef with a missing `group`, `kind`, or `name` (an empty
+`group` must still be written as `group: ''`, not dropped).
+
+### BackendRef resolution
+
+**Mandatory fields — every rule's `backendRefs[]` entry MUST render all five:**
+
+- `group:` — always `''` (empty string), never omitted.
+- `kind:` — always `Service`.
+- `name:` ← `backendRefName` (default `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`).
+- `port:` ← `backendRefPort` (default `8080`).
+- `weight:` — always `1`.
+
+The same `backendRefName` / `backendRefPort` apply to every rule across every CR
+— they are migration-wide, not per-route (see
+[Inputs / parameters](#inputs--parameters)). The examples below use the defaults;
+substitute the confirmed values when they differ.
+
+These five fields are always required on every emitted rule. Forbidden/skipped
+routes are not emitted at all (see [Step 4](#step-4--skip-routes)), so there is
+no rule with a missing `backendRefs`.
+
+### Labels resolution
+
+If `routeLabels` is provided:
+
+- Render a `metadata.labels` section on every generated HTTPRoute CR.
+- Copy all labels exactly as provided (including Helm template expressions).
+- Keep the same label set for all generated CRs in this run.
+
+If `routeLabels` is not provided:
+
+- Render `metadata.labels` using the default label set from
+  `httproute-generator/README.md`:
+  - `app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}`
+  - `app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}`
+  - `app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}`
+  - `deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`
+  - `deployer.cleanup/allow: "true"`
+  - `app.kubernetes.io/processed-by-operator: istiod`
+
+### HTTPRoute naming schema
+
+Generated HTTPRoute names follow this fixed pattern:
+
+`<microservice-name>-source-code-<route-type>-routes`
+
+Where `<route-type>` is lowercase and mapped as:
+
+| Canonical RouteType | Name suffix |
+|---|---|
+| `Public` | `public-routes` |
+| `Private` | `private-routes` |
+| `Internal` | `internal-routes` |
+| `Mesh` | `mesh-routes` |
+| `Facade` | `facade-routes` |
+
+Examples:
+
+- `billing-service-source-code-public-routes`
+- `billing-service-source-code-private-routes`
+- `billing-service-source-code-internal-routes`
+
+Naming rules:
+
+- Use the microservice name resolved in [Step 7](#step-7--resolve-microservice-name).
+- Emit exactly one HTTPRoute name per RouteType that has routes (see Step 6).
+- If Step 7 cannot resolve the service name, use `<microservice-name>` in the
+  generated name and report it as a warning in the summary / needs-review flow.
 
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: <microservice-name>-public-routes
-  namespace: {{ .Values.NAMESPACE }}
+  name: <microservice-name>-source-code-public-routes
+  labels:
+    app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}
 spec:
   parentRefs:
-    - name: public-gateway
-    - name: private-gateway
-    - name: internal-gateway-service
+    - group: gateway.networking.k8s.io    
+      kind: Gateway
+      name: public-gateway
+    - group: gateway.networking.k8s.io    
+      kind: Gateway    
+      name: private-gateway
+    - group: ''
       kind: Service
-      group: ''
+      name: internal-gateway-service
+
   rules:
     - matches:
         - path:
@@ -415,20 +495,24 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /api/v1
       backendRefs:
-        - name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
+        - group: ''
+          kind: Service
+          name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
           port: 8080
+          weight: 1
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: <microservice-name>-private-routes
-  namespace: {{ .Values.NAMESPACE }}
+  name: <microservice-name>-source-code-private-routes
 spec:
   parentRefs:
-    - name: private-gateway
-    - name: internal-gateway-service
+    - group: gateway.networking.k8s.io    
+      kind: Gateway    
+      name: private-gateway
+    - group: ''
       kind: Service
-      group: ''
+      name: internal-gateway-service
   rules:
     - matches:
         - path:
@@ -441,8 +525,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: /api/v1/private
       backendRefs:
-        - name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
+        - group: ''
+          kind: Service
+          name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
           port: 8080
+          weight: 1
 {{- end }}
 ```
 
@@ -477,6 +564,19 @@ helm-templates/<service name>/templates/source-code-httproutes.yaml
 
 Note: summary rows reflect sorted order (most specific first).
 
+Also report the `backendRefs` values applied to all rules:
+
+```
+backendRefName: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}   (detected | user-provided | default)
+backendRefPort: 8080                                     (detected | user-provided | default)
+```
+
+Also report labels applied to generated CRs:
+
+```
+routeLabels: <map or "default labels from README used">
+```
+
 ---
 
 ## Error handling
@@ -488,6 +588,8 @@ Stop and report if:
 - RouteType conflicts with explicit gateway value
 - Java constructor argument types are ambiguous
 - No routes detected in any file
+- `backendRefPort` is provided but is not a positive integer
+- `routeLabels` is provided but is not a string-to-string map
 
 Error format:
 
@@ -501,6 +603,8 @@ reason: RouteEntry missing 'from' field
 ---
 
 ## Non-goals
+
+Do NOT modify source code - it is readonly input for HTTPRoute generation
 
 Do NOT generate:
 

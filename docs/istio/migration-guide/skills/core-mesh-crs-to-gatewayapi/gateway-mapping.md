@@ -55,6 +55,36 @@ Multiple gatewayPort entries → multiple listeners:
       namespaces:
         from: Same
 
+### § Ingress for ingress gateway
+
+For `ingress` gateway create Ingress 
+
+Output Template:
+```yaml
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: <gateway-name>-web
+  labels:
+    app.kubernetes.io/part-of: <take the same value as in gateway>
+  ownerReferences:
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      name: <gateway-name>
+spec:
+  rules:
+    - host: {{ printf "%s-%s.svc.cluster.local" "<gateway-name>" .Release.Namespace }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: <gateway-name>-istio
+                port:
+                  number: 8080
+```
+
 ### § Egress-Gateway-to-Istio-Gateway
 
 Condition:
@@ -64,6 +94,7 @@ Transformation is basically like [§ Gateway-to-Istio-Gateway](#gateway-to-istio
 With several changes:
 
   - Add Service for egress-gateway to the same file where gateway placed
+  - Do not wrap source gateway into Core guard. Let it stay untouched
 
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}

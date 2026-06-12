@@ -22,7 +22,7 @@ Input fields → Output fields:
         namespace         string             OMIT
         gateways          []string           → spec.parentRefs          refer to parentRef resolution
         listenerPort      int                → spec.parentRef[].port   
-        tlsSupported      bool               OMIT ⚠ flag for MANUAL REVIEW if non-empty
+        tlsSupported      bool               ignore
         virtualServices   []VirtualService   → one HTTPRoute per entry
         overridden        bool               OMIT ⚠ flag for MANUAL REVIEW if non-empty
 
@@ -59,15 +59,16 @@ Mapping:
         private-gateway-service → private-gateway
         egress-gateway          → egress-gateway
 
-        kind: omit
-        group: omit
-        By default parent assumed to be Gateway
+        kind: Gateway
+        group: gateway.networking.k8s.io
 
 Example:
 ```yaml
 spec: 
     parentRefs:
-    - name: <platform Gateway name, e.g. public-gateway>
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: <platform Gateway name, e.g. public-gateway>
 ```
 
   PRIORITY 2 — ingress/egress gateway:
@@ -78,15 +79,17 @@ spec:
     parentRef name resolution:
         name = ingress/egress Gateway name
 
-        kind: omit
-        group: omit
+        kind: Gateway
+        group: gateway.networking.k8s.io
         name: <gateway metadata.name value>
 
 Example:
 ```yaml
 spec: 
     parentRefs:
-    - name: <ingress/egress Gateway name>
+    - group: gateway.networking.k8s.io
+      kind: Gateway    
+      name: <ingress/egress Gateway name>
 ```
 
   PRIORITY 3 — Internal gateway or mesh Gateway:
@@ -102,11 +105,11 @@ Example:
 spec:
     parentRefs:
     - kind: Service
-    group: ''
-    name: <normalized host from virtualService.hosts[0]>
+      group: ''
+      name: <normalized host from virtualService.hosts[0]>
     - kind: Service
-    group: ''
-    name: <normalized host from virtualService.hosts[1]>
+      group: ''
+      name: <normalized host from virtualService.hosts[1]>
     ...        
 ```
 ---
@@ -116,8 +119,7 @@ spec:
   JSON key            Go type              Transformation
   ────────────────────────────────────────────────────────────────────────────────
   name                string               → HTTPRoute name suffix when multiple VSes exist
-  hosts               []string             → parentRef Service names (mesh routes) + spec.hostnames[]
-                                             normalize each
+  hosts               []string             → parentRef Service names (mesh routes)
   rateLimit           string               OMIT  ⚠ flag for MANUAL REVIEW if non-empty
   addHeaders          []HeaderDefinition   → RequestHeaderModifier filter add[] (virtualService-level)
   removeHeaders       []string             → RequestHeaderModifier filter remove[] (virtualService-level)
@@ -127,15 +129,10 @@ spec:
 
 ### HTTPRoute.spec.hostnames resolution
 
-```yaml
-spec:
-    hostnames:
-    - <normalized host 0>
-    - <normalized host 1>
-    ...
-```
+Omit `hostnames` field in HTTPRoute.spec
 
 #### Host normalization
+
   IF host = `*` - ignore it, do not propagate to spec.hostnames[]. If `*` occurs in east-west Route - MANUAL REVIEW required
   ELSE IF host contains ".":
     result = host.split(".")[0]
@@ -154,6 +151,11 @@ spec:
   version   string      OMIT
   routes    []RouteV3   → flatten all rules into HTTPRoute rules[]
 
+After flattening, sort the resulting `rules[]` by path specificity using the
+shared procedure in
+[`../shared/path-specificity-sorting.md`](../shared/path-specificity-sorting.md)
+— sort on each rule's match value (`match.prefix` / `match.path` / `match.regExp`).
+
 ---
 
 ### RouteV3
@@ -161,7 +163,7 @@ spec:
   JSON key     Go type           Transformation
   ──────────────────────────────────────────────────────────────────────────
   destination  RouteDestination  → backendRefs[] shared by all rules in this RouteV3
-  rules        []Rule            → one HTTPRoute rule per Rule entry
+  rules        []Rule            → one HTTPRoute.Rule Rule entry
 
 ---
 
@@ -170,11 +172,11 @@ spec:
   JSON key       Go type         Transformation
   ──────────────────────────────────────────────────────────────────────────────────
   endpoint       string          → parse host + port for HTTPRoute.spec.rules[].backendRefs[].name and .port
-  cluster        string          ignore, mo review required
-  tlsSupported   bool            OMIT ⚠ flag for MANUAL REVIEW if non-empty
-  tlsEndpoint    string          OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  cluster        string          ignore
+  tlsSupported   bool            ignore
+  tlsEndpoint    string          ignore
   httpVersion    *int32          OMIT ⚠ flag for MANUAL REVIEW if non-empty
-  tlsConfigName  string          OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  tlsConfigName  string          ignore
   circuitBreaker CircuitBreaker  OMIT ⚠ flag for MANUAL REVIEW if non-empty
   tcpKeepalive   *TcpKeepalive   OMIT ⚠ flag for MANUAL REVIEW if non-empty
 
@@ -197,17 +199,21 @@ Examples:
     "http://public-gateway-service:8080"                 → host="public-gateway-service",                 port=8080
     "my-service:9090"                                    → prepend http:// → host="my-service",            port=9090
 
+Always set `weight: 1` for every backendRef
+
 Output:
 
 ```yaml
   backendRefs:
-  - kind: Service
+  - group: ''
+    kind: Service
     name: <hostname from destination.endpoint>
     port: <port from destination.endpoint>
+    weight: 1
 ```
 
 ---
-
+w
 ### Rule
 
   JSON key        Go type            Transformation
@@ -218,7 +224,7 @@ Output:
   addHeaders      []HeaderDefinition → RequestHeaderModifier add[] (rule-level, merged with VS-level)
   removeHeaders   []string           → RequestHeaderModifier remove[] (rule-level, merged with VS-level)
   timeout         *int64             → timeouts.request: "<value>ms"  (value is milliseconds)
-  allowed         *bool              OMIT  ⚠ flag for MANUAL REVIEW if non-nil
+  allowed         *bool              → when false then refer to `Not allowed rule processing`
   idleTimeout     *int64             OMIT  ⚠ flag for MANUAL REVIEW if non-nil
   statefulSession *StatefulSession   OMIT  ⚠ flag for MANUAL REVIEW if non-nil
   rateLimit       string             OMIT  ⚠ flag for MANUAL REVIEW if non-empty
@@ -226,6 +232,9 @@ Output:
   luaFilter       string             OMIT  ⚠ flag for MANUAL REVIEW if non-empty
 
 ---
+
+### Not allowed rule processing
+When Rule.allowed is false - omit `backendRefs` field for it. This will force istio to return 404 for matched path
 
 ### RouteMatch
 
