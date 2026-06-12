@@ -14,6 +14,11 @@ import (
 
 var (
 	logger      logging.Logger
+	 // Load configuration with defaults
+          maxConnsPerHost, _ := strconv.Atoi(
+              configloader.GetOrDefaultString("http.proxy.client.maxConnsPerHost", "2048"))
+
+
 	proxyClient = &fasthttp.Client{TLSConfig: util.GetTlsConfigWithoutHostNameValidation(), DialDualStack: true}
 )
 
