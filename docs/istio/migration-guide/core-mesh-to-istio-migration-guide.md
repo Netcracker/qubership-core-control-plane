@@ -265,7 +265,7 @@ SERVICE_MESH_TYPE: "Core"
 ## Step 2.3 — Add the Maven Plugin (Java services only)
 
 If your Java service uses route-registration annotations:
-1. Add the route-registration [Maven plugin](https://github.com/Netcracker/qubership-core-control-plane/blob/main/httproute-generator/README.md). 
+1. Add the route-registration [Maven plugin](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-maven-plugins/httproutes-generator-maven-plugin/README.md). 
 This plugin scans compiled classes for routing annotations - and generates equivalent HTTPRoutes to provide consistent routing in Istio mesh. 
 2. Specify `outputFile` path in helm chart templates folder. 
 3. Build the project. 

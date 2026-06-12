@@ -376,7 +376,7 @@ in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
 - **If the Java service does not use route-registration annotations** → skip this
   step and log the reason.
 - **If `pom.xml` exists and annotations are used**, follow these five sub-steps
-  (from the [plugin README](https://github.com/Netcracker/qubership-core-control-plane/blob/main/httproute-generator/README.md)):
+  (from the [plugin README](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-maven-plugins/httproutes-generator-maven-plugin/README.md)):
   1. **Add plugin to `pom.xml`** with the following configuration:
      - `<groupId>com.netcracker.cloud.plugins</groupId>`
      - `<artifactId>httproutes-generator-maven-plugin</artifactId>`
