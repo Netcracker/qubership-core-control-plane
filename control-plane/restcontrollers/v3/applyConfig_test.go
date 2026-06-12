@@ -111,6 +111,7 @@ spec:
         headerName: "BID"
     - cookie: # cookie hashing policy is here only as an example of having more than one policy
         name: "JSESSIONID"`))
+	request.Host = "localhost"
 
 	assert.Nil(err)
 	resp, err := app.Test(request)
@@ -177,6 +178,7 @@ spec:
        headerName: "BID"
    - cookie:
        name: "JSESSIONID"`))
+	request.Host = "localhost"
 
 	resp, err := app.Test(request)
 	assert.Nil(err)
@@ -236,6 +238,7 @@ spec:
        headerName: "BID"
    - cookie:
        name: "JSESSIONID"`))
+	request.Host = "localhost"
 
 	resp, err := app.Test(request)
 	assert.Nil(err)
@@ -314,6 +317,7 @@ spec:
    - cookie: # cookie hashing policy is here only as an example of having more than one policy
        name: "JSESSIONID"
        path: "/"`))
+	request.Host = "localhost"
 
 	resp, err := app.Test(request)
 	assert.Nil(err)
@@ -383,6 +387,7 @@ spec:
         prefixRewrite: "/proxy"
     version: "v1"
     allowed: true`))
+	request.Host = "localhost"
 
 	resp, err := app.Test(request)
 	assert.Nil(err)
@@ -427,6 +432,7 @@ spec:
         prefixRewrite: "/health"
     version: "v1"
     allowed: true`))
+	request.Host = "localhost"
 
 	resp, err := app.Test(request)
 	assert.Nil(err)
@@ -488,6 +494,7 @@ spec:
     allowed: true
 
 `))
+	request.Host = "localhost"
 
 	resp, err := app.Test(request)
 	assert.Nil(err)
