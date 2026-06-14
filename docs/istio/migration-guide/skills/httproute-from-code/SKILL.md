@@ -145,6 +145,13 @@ routeregistration.Route{
 
 ### Java patterns
 
+> **IMPORTANT — Annotation-based routes are explicitly OUT OF SCOPE.**
+> `@Route` / `@Gateway` class/method annotations are processed at compile time
+> by `httproutes-generator-maven-plugin`. Do NOT
+> extract routes from these annotations here — doing so would duplicate the
+> plugin's output. Only extract routes from **`RouteEntry` builder/constructor
+> call sites** as shown below.
+
 ```java
 // Builder
 RouteEntry.builder()
