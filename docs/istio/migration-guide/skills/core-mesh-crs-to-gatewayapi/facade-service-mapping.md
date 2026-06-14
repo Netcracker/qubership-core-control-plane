@@ -43,7 +43,6 @@ Output template (spec.port only, no gatewayPorts):
       <copy all verbatim>
     annotations:                    <- omit block if source has no annotations
       <copy all verbatim>
-      facade-operator.core.netcracker.com/ignore: "true"
 
   spec:
     ports:
@@ -62,7 +61,6 @@ Output template (gatewayPorts present):
       <copy all verbatim>
     annotations:
       <copy all verbatim>
-      facade-operator.core.netcracker.com/ignore: "true"
   spec:
     ports:
     - name: <gatewayPorts[0].name>

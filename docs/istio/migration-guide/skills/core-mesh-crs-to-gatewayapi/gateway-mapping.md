@@ -91,25 +91,9 @@ Condition:
   spec.gatewayType is absent && `metadata.name` = `egress-gateway`
 
 Transformation is basically like [§ Gateway-to-Istio-Gateway](#gateway-to-istio-gateway)
-With several changes:
+With one change:
 
-  - Add Service for egress-gateway to the same file where gateway placed
-  - Do not wrap source gateway into Core guard. Let it stay untouched
-
-```yaml
-{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: egress-gateway
-spec:
-  type: ClusterIP
-  selector:
-    gateway.networking.k8s.io/gateway-name: egress-gateway
-  ports:
-    <ports from listeners>
-{{- end }}
-```
+  - Wrap source gateway in Core guard (same as all other Gateway CRs — see Step 3)
 
 ### § Gateway-to-null
 
