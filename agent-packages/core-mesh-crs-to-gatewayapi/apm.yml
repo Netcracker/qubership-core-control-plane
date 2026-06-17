@@ -1,0 +1,7 @@
+name: core-mesh-crs-to-gatewayapi
+version: 1.0.0
+description: Convert Qubership Cloud-Core Mesh Helm CRs (FacadeService, Gateway, RouteConfiguration) to Istio Ambient Mesh Gateway API resources (Gateway + HTTPRoute), keeping the chart deployable on both mesh types.
+author: Qubership
+dependencies:
+  apm:
+    - estetsenko/qubership-core-control-plane/agent-packages/path-specificity-sorting
