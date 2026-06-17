@@ -4,4 +4,4 @@ description: Generate Kubernetes Gateway API HTTPRoute CRs from Go or Java route
 author: Qubership
 dependencies:
   apm:
-    - estetsenko/qubership-core-control-plane/agent-packages/path-specificity-sorting
+    - Netcracker/qubership-core-control-plane/agent-packages/path-specificity-sorting

@@ -4,4 +4,4 @@ description: Convert Qubership Cloud-Core Mesh Helm CRs (FacadeService, Gateway,
 author: Qubership
 dependencies:
   apm:
-    - estetsenko/qubership-core-control-plane/agent-packages/path-specificity-sorting
+    - Netcracker/qubership-core-control-plane/agent-packages/path-specificity-sorting
