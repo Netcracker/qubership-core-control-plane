@@ -3,13 +3,6 @@ description: Generating Gateway API HTTPRoute CRs from Go/Java route-registratio
 applyTo: "**/*.{go,java}"
 ---
 
-When the user asks to generate HTTPRoute CRs from source code, convert route
-registrations to HTTPRoute YAML, or extract routes from Go/Java files (or runs
-`/httproute-from-code`), apply the `httproute-from-code` skill.
-
-It scans Go (`*.go`) and Java (`*.java`) files for route-registration
-definitions (`routeregistration.Route` / `RouteEntry`), groups them by route
-type, and emits one HTTPRoute CR per type to
-`helm-templates/<service>/templates/source-code-httproutes.yaml`. Use the caller's
-`backendRefName` / `backendRefPort` / `routeLabels` verbatim when provided; never
-infer per-route values.
+When editing Go (`*.go`) or Java (`*.java`) route-registration code and asked to
+generate HTTPRoute CRs from it, convert route registrations to HTTPRoute YAML, or
+extract routes from those files, apply the `httproute-from-code` skill.

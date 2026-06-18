@@ -12,8 +12,8 @@ apm install Netcracker/qubership-core-control-plane/agent-packages/core-mesh-crs
 ```
 
 This deploys the package's primitives into the consuming repo
-(`.claude/skills/`, `.claude/commands/`, `.claude/rules/`, and the merged
-`CLAUDE.md`). Re-run it to pick up a new version.
+(`.claude/skills/`, `.claude/rules/`, and the merged `CLAUDE.md`). Re-run it to
+pick up a new version.
 
 ## What you get
 
@@ -26,22 +26,17 @@ This deploys the package's primitives into the consuming repo
 - The shared rule-sorting procedure lives in its own package,
   [`path-specificity-sorting`](../path-specificity-sorting) (declared as a
   dependency), referenced as a sibling skill once installed.
-- An instruction that fires when you work on Helm templates containing mesh CRs.
-- A [`/core-mesh-crs-to-gatewayapi`](.apm/prompts/core-mesh-crs-to-gatewayapi.prompt.md)
-  slash command to run the conversion on demand.
+- An instruction that fires when you work on Helm templates containing mesh CRs,
+  steering the agent to the skill.
 
 ## Usage
 
-On demand — run the slash command against a chart or templates folder:
+The instruction triggers the skill whenever you ask the agent to migrate or
+convert mesh CRs while working on a Helm chart. You can also invoke the skill by
+name against a chart or templates folder, e.g. "run core-mesh-crs-to-gatewayapi
+on helm-templates/my-service".
 
-```text
-/core-mesh-crs-to-gatewayapi helm-templates/my-service
-```
-
-Automatic — the instruction triggers the skill whenever you ask the agent to
-migrate or convert mesh CRs while working on a Helm chart.
-
-Either path wraps the originals in `SERVICE_MESH_TYPE=Core` guards, generates
+It wraps the originals in `SERVICE_MESH_TYPE=Core` guards, generates
 `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`, updates
 `values.yaml` / `values.schema.json`, and reports the detected backend reference,
 output labels, and any `⚠ MANUAL REVIEW REQUIRED` fields.

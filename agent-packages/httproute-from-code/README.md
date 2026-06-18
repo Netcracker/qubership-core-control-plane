@@ -11,8 +11,8 @@ apm install Netcracker/qubership-core-control-plane/agent-packages/httproute-fro
 ```
 
 This deploys the package's primitives into the consuming repo
-(`.claude/skills/`, `.claude/commands/`, `.claude/rules/`, and the merged
-`CLAUDE.md`). Re-run it to pick up a new version.
+(`.claude/skills/`, `.claude/rules/`, and the merged `CLAUDE.md`). Re-run it to
+pick up a new version.
 
 ## What you get
 
@@ -22,22 +22,16 @@ This deploys the package's primitives into the consuming repo
 - The shared `rules[]` ordering procedure lives in its own package,
   [`path-specificity-sorting`](../path-specificity-sorting) (declared as a
   dependency), referenced as a sibling skill once installed.
-- An instruction that fires when you work on Go/Java route-registration code.
-- A [`/httproute-from-code`](.apm/prompts/httproute-from-code.prompt.md) slash
-  command to run the generation on demand against a file or directory.
+- An instruction that fires when you work on Go/Java route-registration code,
+  steering the agent to the skill.
 
 ## Usage
 
-On demand — run the slash command against a file or directory:
+The instruction triggers the skill whenever you ask the agent to generate
+HTTPRoutes from source code. You can also invoke the skill by name against a file
+or directory, e.g. "run httproute-from-code on internal/routes".
 
-```text
-/httproute-from-code internal/routes
-```
-
-Automatic — the instruction triggers the skill whenever you ask the agent to
-generate HTTPRoutes from source code.
-
-Either path scans the Go/Java files, extracts the route registrations, groups
+It scans the Go/Java files, extracts the route registrations, groups
 them by route type, sorts rules by path specificity, and writes one HTTPRoute CR
 per type to `helm-templates/<service>/templates/source-code-httproutes.yaml`.
 Pass `backendRefName` / `backendRefPort` / `routeLabels` to keep the generated

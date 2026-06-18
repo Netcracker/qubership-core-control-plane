@@ -19,8 +19,8 @@ This pulls in the two atomic sub-skills it delegates to
 `dependencies`, so they all resolve as siblings under `.claude/skills/`.
 
 This deploys the package's primitives into the consuming repo
-(`.claude/skills/`, `.claude/commands/`, `.claude/rules/`, and the merged
-`CLAUDE.md`). Re-run it to pick up a new version.
+(`.claude/skills/`, `.claude/rules/`, and the merged `CLAUDE.md`). Re-run it to
+pick up a new version.
 
 ## What you get
 
@@ -29,21 +29,15 @@ This deploys the package's primitives into the consuming repo
   detection), the mandatory `MIGRATION_LOG.md` format, the error policy, and
   idempotent reruns.
 - An instruction that fires when you ask to run an Istio migration on a service
-  or Helm chart.
-- A [`/core-mesh-to-istio-migration`](.apm/prompts/core-mesh-to-istio-migration.prompt.md)
-  slash command to run the whole migration on demand.
+  or Helm chart, steering the agent to the skill.
 
 ## Usage
 
-On demand — run the slash command against a chart or service directory:
+The instruction triggers the skill whenever you ask the agent to migrate a
+service from Core Mesh to Istio. You can also invoke the skill by name against a
+chart or service directory, e.g. "run core-mesh-to-istio-migration on
+helm-templates/my-service".
 
-```text
-/core-mesh-to-istio-migration helm-templates/my-service
-```
-
-Automatic — the instruction triggers the skill whenever you ask the agent to
-migrate a service from Core Mesh to Istio, so no command is required.
-
-Either path runs every step in order, delegates to the two atomic skills,
+It runs every step in order, delegates to the two atomic skills,
 validates the result, and writes a Done / Skipped / Needs-review log to
 `MIGRATION_LOG.md` — review every **Needs review** entry before raising a PR.
