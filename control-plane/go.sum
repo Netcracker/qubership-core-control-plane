@@ -327,8 +327,8 @@ github.com/klauspost/compress v1.18.6 h1:2jupLlAwFm95+YDR+NwD2MEfFO9d4z4Prjl1XXD
 github.com/klauspost/compress v1.18.6/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/knadh/koanf v1.5.0 h1:q2TSd/3Pyc/5yP9ldIrSdIz26MCcyNQzW0pEAugLPNs=
 github.com/knadh/koanf v1.5.0/go.mod h1:Hgyjp4y8v44hpZtPzs7JZfRAW5AhN7KfZcwv1RYggDs=
-github.com/knadh/koanf/v2 v2.3.4 h1:fnynNSDlujWE+v83hAp8wKr/cdoxHLO0629SN+U8Urc=
-github.com/knadh/koanf/v2 v2.3.4/go.mod h1:gRb40VRAbd4iJMYYD5IxZ6hfuopFcXBpc9bbQpZwo28=
+github.com/knadh/koanf/v2 v2.3.5 h1:2dXJUYaKGm4SGYeoAtBviq9+02JZo/pxQ2ssOd60rJg=
+github.com/knadh/koanf/v2 v2.3.5/go.mod h1:gRb40VRAbd4iJMYYD5IxZ6hfuopFcXBpc9bbQpZwo28=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
@@ -433,8 +433,6 @@ github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.0 h1:FbygBHyH
 github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.0/go.mod h1:UyKRoL3ZEFNjNYB+q6xfLh/ulqGVGsy8Xf6pJ/VKaC4=
 github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.6.0 h1:qob57Kqp0nFJndooxzc/bIAeczh5jSMZv4+Fk21Phnc=
 github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.6.0/go.mod h1:5Gaf+myGcy3Hb83XbHmNfXBP234uJsG/4cG1Mujk/ak=
-github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.6.0 h1:Pm5Qyg61VRbhX6LCW9Jz/6UZRE+O5JXaM8kAb/Gp7bc=
-github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.6.0/go.mod h1:mJh5+80sLcnc/bksm+h3p//kKLBXM+ivW6T/6KY0Spk=
 github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.5.0 h1:oUVIi1f4tLSsbXW4yd1DeNX/JiU2a7vA6tcFpu2SVmI=
 github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.5.0/go.mod h1:hYGNDnfWPoYZbF6Bo0FP4yys2DXEK3WK3USu3SvFyFg=
 github.com/netcracker/qubership-core-lib-go/v3 v3.11.0 h1:x3b6ktH18718410hED7PYvcyKjHfIWwAG5B/9QSOK0Q=

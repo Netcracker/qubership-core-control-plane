@@ -33,7 +33,7 @@ require (
 	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.4.0
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.0
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.6.0
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.6.0
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.6.1-0.20260617084237-f4d3941b08b4
 	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.5.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.11.0
 	github.com/pkg/errors v0.9.1
@@ -107,7 +107,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
-	github.com/knadh/koanf/v2 v2.3.4 // indirect
+	github.com/knadh/koanf/v2 v2.3.5 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
