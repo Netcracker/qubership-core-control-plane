@@ -28,11 +28,11 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mustafaturan/bus/v3 v3.0.3
 	github.com/mustafaturan/monoton/v3 v3.0.0
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.0
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.7.1
 	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.5.1
 	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.4.1
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.1
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.9.0
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.6.1
 	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.7.0
 	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.5.1
 	github.com/netcracker/qubership-core-lib-go/v3 v3.11.1
