@@ -4,5 +4,5 @@ description: Orchestrates the full Cloud-Core Mesh to Istio migration end-to-end
 author: Qubership
 dependencies:
   apm:
-    - Netcracker/qubership-core-control-plane/agent-packages/core-mesh-crs-to-gatewayapi
-    - Netcracker/qubership-core-control-plane/agent-packages/httproute-from-code
+    - ../core-mesh-crs-to-gatewayapi
+    - ../httproute-from-code
