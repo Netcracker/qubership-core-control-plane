@@ -18,13 +18,13 @@ run-name: >
 
 on:
   push:
-    paths-ignore:
-      - 'httproute-generator/**'
+    paths:
+      - 'control-plane/**'
     branches:
       - main
   pull_request:
-    paths-ignore:
-      - 'httproute-generator/**'
+    paths:
+      - 'control-plane/**'
     types: [opened, synchronize, reopened]
 
 jobs:
