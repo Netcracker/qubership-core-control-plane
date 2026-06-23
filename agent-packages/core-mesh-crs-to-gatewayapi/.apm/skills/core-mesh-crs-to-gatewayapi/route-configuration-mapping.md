@@ -153,7 +153,7 @@ Omit `hostnames` field in HTTPRoute.spec
 
 After flattening, sort the resulting `rules[]` by path specificity using the
 shared procedure in
-[`../shared/path-specificity-sorting.md`](../shared/path-specificity-sorting.md)
+[`path-specificity-sorting.md`](../path-specificity-sorting/SKILL.md)
 — sort on each rule's match value (`match.prefix` / `match.path` / `match.regExp`).
 
 ---

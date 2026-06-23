@@ -1,0 +1,7 @@
+name: httproute-from-code
+version: 1.0.0
+description: Generate Kubernetes Gateway API HTTPRoute CRs from Go or Java route-registration code, so code-defined routes are reflected in the Istio cluster configuration.
+author: Qubership
+dependencies:
+  apm:
+    - ../path-specificity-sorting

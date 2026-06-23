@@ -1,13 +1,10 @@
 ---
 name: core-mesh-crs-to-gatewayapi
 description: >
-  Transform Qubership Cloud Core Mesh Helm templates to Istio Ambient Mesh equivalents.
-  Use this skill whenever the user asks to migrate, convert, transform, or upgrade Helm charts
-  from Qubership's homegrown mesh (FacadeService, Gateway, RouteConfiguration CRs) to Istio
-  (Gateway API Gateway + HTTPRoute resources). Trigger on any mention of: mesh migration,
-  istio transformation, FacadeService, RouteConfiguration, SERVICE_MESH_TYPE, qubership mesh,
-  helm chart migration to istio, or converting CRDs for istio ambient mesh.
-  Always use this skill when working with Qubership platform repos containing mesh-related Helm templates.
+  Convert Qubership Cloud-Core Mesh Helm CRs (FacadeService, Gateway,
+  RouteConfiguration) to Istio Ambient Mesh Gateway API resources (Gateway +
+  HTTPRoute), keeping the chart deployable on both mesh types. Use when asked to
+  migrate, convert, or transform mesh CRs in a Helm chart to Istio / Gateway API.
 ---
 
 # Qubership Cloud Core Mesh → Istio Ambient Mesh — Helm Transformer
@@ -197,7 +194,7 @@ Sequence:
 3. List in chat all resolved gateways: mesh gateways (from FacadeService or Gateway mesh) and ingress/egress gateways (from Gateway CRs).
 4. Process all RouteConfiguration CRs using the resolved list plus user-provided types for any previously unresolved gateways.
 5. Sort each HTTPRoute's `rules[]` by path specificity using the shared procedure
-   in [shared/path-specificity-sorting.md](../shared/path-specificity-sorting.md)
+   in [shared/path-specificity-sorting.md](../path-specificity-sorting/SKILL.md)
    (sort on each rule's `match.prefix` / `match.path` / `match.regExp` value).
 
 
@@ -290,7 +287,7 @@ After generating all files, verify:
 - [ ] `RouteConfiguration` → HTTPRoute parentRefs correctly use Gateway or Service kind
 - [ ] No hardcoded values where Helm expressions existed
 - [ ] Only mesh-CR files were modified (plus `values.yaml` / `values.schema.json` for `SERVICE_MESH_TYPE`); no `*.tpl` helpers, Deployments, Services, or other non-mesh files were touched
-- [ ] Each HTTPRoute's `rules[]` are sorted by path specificity (most specific first) per [shared/path-specificity-sorting.md](../shared/path-specificity-sorting.md)
+- [ ] Each HTTPRoute's `rules[]` are sorted by path specificity (most specific first) per [shared/path-specificity-sorting.md](../path-specificity-sorting/SKILL.md)
 - [ ] YAML is valid (no unclosed blocks, correct indentation)
 - [ ] `⚠ MANUAL REVIEW REQUIRED` comments added for every encountered unsupported/omitted field (see list below)
 
@@ -366,4 +363,4 @@ Read these before transforming — they contain schemas, field mappings, and ful
 - [gateway-mapping.md](gateway-mapping.md) — Gateway → Istio Gateway
 - [route-configuration-mapping.md](route-configuration-mapping.md) — RouteConfiguration → HTTPRoute
 - [labels.md](labels.md) — Common label resolution
-- [../shared/path-specificity-sorting.md](../shared/path-specificity-sorting.md) — Sort HTTPRoute `rules[]` by path specificity (shared with `httproute-from-code`)
+- [path-specificity-sorting.md](../path-specificity-sorting/SKILL.md) — Sort HTTPRoute `rules[]` by path specificity (shared with `httproute-from-code`)
