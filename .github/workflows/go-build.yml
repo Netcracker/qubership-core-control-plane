@@ -20,11 +20,13 @@ on:
   push:
     paths:
       - 'control-plane/**'
+      - 'Dockerfile'
     branches:
       - main
   pull_request:
     paths:
       - 'control-plane/**'
+      - 'Dockerfile'
     types: [opened, synchronize, reopened]
 
 jobs:
