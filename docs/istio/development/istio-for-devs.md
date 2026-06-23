@@ -1,16 +1,36 @@
 # Istio for Developers
 
+## Table of Contents
+
+- [Istio Ambient Mesh Overview](#istio-ambient-mesh-overview)
+- [Istio Distribution](#istio-distribution)
+- [Cloud Core with Istio Ambient Mesh](#cloud-core-with-istio-ambient-mesh)
+  - [High Level Architecture](#high-level-architecture)
+  - [Gateways Mapping and Traffic Flow](#gateways-mapping-and-traffic-flow)
+  - [Detailed Deployment Diagram](#detailed-deployment-diagram)
+  - [Feature Flag and Rollback](#feature-flag-and-rollback)
+  - [Zero-Down-Time Cloud-Core Migration](#zero-down-time-cloud-core-migration)
+  - [Egress Gateway](#egress-gateway)
+- [Application Migration on Istio](#application-migration-on-istio)
+- [Writing Configurations](#writing-configurations)
+- [Troubleshooting](#troubleshooting)
+  - [Is My Request Served by Istio? Is it mTLS encrypted?](#is-my-request-served-by-istio-is-it-mtls-encrypted)
+  - [Is My Pod Participant of Mesh?](#is-my-pod-participant-of-mesh)
+  - [How to Trace Request Flow?](#how-to-trace-request-flow)
+  - [Request/Watch Stuck After Namespace Enrollment into Mesh](#requestwatch-stuck-after-namespace-enrollment-into-mesh)
+  - [Monitoring](#monitoring)
+
 ## Istio Ambient Mesh Overview
 
 We use Istio only in Ambient mode, see https://istio.io/latest/docs/ambient
 
-Especially pay attention to https://istio.io/latest/docs/ambient/architecture/traffic-redirection/ document that describes traffic redirection. 
+Especially pay attention to https://istio.io/latest/docs/ambient/architecture/traffic-redirection/ document that describes traffic redirection.
 
 ## Istio Distribution
 
-https://github.com/Netcracker/qubership-istio/tree/main
+https://github.com/Netcracker/qubership-istio
 
-Qubership Istio distribution is just an umbrella helm chart that includes vanilla Istio helm charts as helm dependencies and applies minimal customizations in build time: docker registry URL override, resource profiles, RBAC resources, monitoring dashboards and some default helm values. 
+Qubership Istio distribution is just an umbrella helm chart that includes vanilla Istio helm charts as helm dependencies and applies minimal customizations in build time: docker registry URL override, resource profiles, RBAC resources, monitoring dashboards and some default helm values.
 
 It is safe to install Istio distro on cluster with any running apps on it, because Istio will affect connectivity in specific namespace only after this namespace is enrolled into mesh, see https://github.com/Netcracker/qubership-istio/blob/main/docs/public/namespace-enrollment.md
 
@@ -18,25 +38,25 @@ It is safe to install Istio distro on cluster with any running apps on it, becau
 
 ### High Level Architecture
 
-We target to maintain fully backward-compatible Service Mesh behavior on Istio without using legacy Core Mesh in the end. This means that Cloud Core OOB gateways will become Istio entities but they will keep their dns names, header modification behavior, etc. 
+We aim to maintain fully backward-compatible Service Mesh behavior on Istio without using the legacy Core Mesh in the end. This means that Cloud Core OOB gateways will become Istio entities, but they will keep their DNS names, header modification behavior, etc.
 
-But removing legacy service mesh requires all applications to migrate their route configurations on Istio. Until then, for BWC period we "wrap" our existing service mesh solution with Istio. 
+But removing the legacy service mesh requires all applications to migrate their route configurations to Istio. Until then, for the BWC period we "wrap" our existing service mesh solution with Istio.
 
 ![istio-current-to-be](./images/istio-current-to-be.drawio.svg)
 
-All contract domain names (e.g. public gateway dns name) are resolved to Istio gateways and we provide fallback routes in Istio gateways forwarding traffic to our legacy gateways if no migrated route matched. So migrated to Istio APIs will be served by Istio gateways while not yet migrated APIs will be served by legacy gateways. 
+All contract domain names (e.g. the public gateway DNS name) are resolved to Istio gateways, and we provide fallback routes in Istio gateways forwarding traffic to our legacy gateways if no migrated route matched. So APIs migrated to Istio will be served by Istio gateways, while not-yet-migrated APIs will be served by legacy gateways.
 
-This approach is not applied to composite/facade gateways, since such gateway always belongs to single application that can be fully migrated to Istio in one deploy session. See [Detailed Deployment Diagram](#detailed-deployment-diagram) for more details.
+This approach is not applied to composite/facade gateways, since such a gateway always belongs to a single application that can be fully migrated to Istio in one deploy session. See [Detailed Deployment Diagram](#detailed-deployment-diagram) for more details.
 
 ### Gateways Mapping and Traffic Flow
 
-We requrie to enroll all namespaces of composite deployment into mesh at the same time. So all interactions inside the environment got intercepted by waypoint by default. 
+We require enrolling all namespaces of a composite deployment into the mesh at the same time. So all interactions inside the environment get intercepted by the waypoint by default.
 
-Ingress (public and private) and egress gateways become gateways deployed via k8s Gateway API CRs with `kind: Gateway`. These istio gateways excluded from mesh by Istio design (their deployments have label `istio.io/dataplane-mode=none`), which means that outgoing traffic from them is not redirected to waypoint and goes strictly to target micro service.
+Ingress (public and private) and egress gateways become gateways deployed via k8s Gateway API CRs with `kind: Gateway`. These Istio gateways are excluded from the mesh by Istio design (their deployments have the label `istio.io/dataplane-mode=none`), which means that outgoing traffic from them is not redirected to the waypoint and goes strictly to the target microservice.
 
-All east-west routes (which in legacy mesh was served by compoiste/facade gateways and internal gateway) served by istio waypoint proxy. `internal-gateway-service` dns name is still available but internal gateway is now emulated by waypoint (having fallback route to legacy internal gateway for BWC period).
+All east-west routes (which in the legacy mesh were served by composite/facade gateways and the internal gateway) are served by the Istio waypoint proxy. The `internal-gateway-service` DNS name is still available, but the internal gateway is now emulated by the waypoint (having a fallback route to the legacy internal gateway for the BWC period).
 
-While it is possible to deploy as many different waypoints as you want and map which services served by which waypoint, we recommend to use single waypoint for namespace - it is scalable deployment with HPA so deploying more waypoints is not necessary but will cause significant resource consumption boost.
+While it is possible to deploy as many different waypoints as you want and map which services are served by which waypoint, we recommend using a single waypoint per namespace - it is a scalable deployment with HPA, so deploying more waypoints is not necessary but will cause a significant resource consumption boost.
 
 ![istio-traffic-flow](./images/istio-traffic-flow.drawio.svg)
 
@@ -46,39 +66,39 @@ While it is possible to deploy as many different waypoints as you want and map w
 
 ### Feature Flag and Rollback
 
-Deployment parameter `SERVICE_MESH_TYPE` introduced to switch between legacy core mesh and Istio. 
+The deployment parameter `SERVICE_MESH_TYPE` is introduced to switch between the legacy core mesh and Istio.
 Possible values:
 * `Core` - default value; legacy Service Mesh mode with no Istio resources being deployed;
-* `Istio` - enalbes Istio but keeps legacy OOB Cloud-Core gateways and creates fallback routes from Istio to legacy Core gateways.
+* `Istio` - enables Istio but keeps legacy OOB Cloud-Core gateways and creates fallback routes from Istio to legacy Core gateways.
 
 ### Zero-Down-Time Cloud-Core Migration
 
 ZDT for Cloud-Core OOB gateways migration on Istio is reached via helm hook weights and phases (that get translated to sync-waves by ArgoCD).
 
-Most of the Cloud-Core k8s resource templates for Istio located in https://github.com/Netcracker/qubership-core-mesh-config
+Most of the Cloud-Core k8s resource templates for Istio are located in https://github.com/Netcracker/qubership-core-mesh-config
 But some of the resources are in the following repos for historical reasons:
 * https://github.com/Netcracker/qubership-core-ingress-gateway
 * https://github.com/Netcracker/qubership-core-facade-operator
 
-Rollback to previous state (without Istio) can be achieved by redeploying **all** applications with feature flag `SERVICE_MESH_TYPE` set to `Core`. 
+Rollback to the previous state (without Istio) can be achieved by redeploying **all** applications with the feature flag `SERVICE_MESH_TYPE` set to `Core`.
 
 ### Egress Gateway
 
-We require Egress gateway to be managed by Cloud-Core before migrating to Istio. [facade-operator](https://github.com/Netcracker/qubership-core-facade-operator) with Istio support includes feature to migrate legacy Cloud-Core egress on Istio gateway. To avoid collisions of CRs describing legacy egress causing unwanted deletion of legacy egress during migration, new legacy CR for egress was introduced: TBD: link to CR in ingress-gateway repo
+We require the Egress gateway to be managed by Cloud-Core before migrating to Istio. The [facade-operator](https://github.com/Netcracker/qubership-core-facade-operator) with Istio support includes a feature to migrate legacy Cloud-Core egress to an Istio gateway. To avoid collisions of CRs describing legacy egress causing unwanted deletion of legacy egress during migration, a new legacy CR for egress was introduced: TBD: link to CR in ingress-gateway repo
 
-This relates only to egress gateway deployment, but routes for egress should be migrated by route configurations owners. 
+This relates only to the egress gateway deployment, but routes for egress should be migrated by the route configuration owners.
 
-Migration of Core to Istio should come before migration of other apps - otherwise facade-operator might delete migrated services since it is not yet aware of which resource to delete during migration.
+Migration of Core to Istio should come before migration of other apps - otherwise the facade-operator might delete migrated services since it is not yet aware of which resource to delete during migration.
 
 ## Application Migration on Istio
 
-In order to help with applications migration on Istio we provide:
+In order to help with application migration to Istio we provide:
 * migration guide;
 * AI skills;
 * httproutes-generator maven plugin;
 * `SERVICE_MESH_TYPE` feature flag support in all route registration libraries that disables routes registration in legacy control-plane when Istio enabled.
 
-For more details see [Core Mesh to Istio Migration Gudie](../migration-guide/core-mesh-to-istio-migration-guide.md).
+For more details see [Core Mesh to Istio Migration Guide](../migration-guide/core-mesh-to-istio-migration-guide.md).
 
 ## Writing Configurations
 
@@ -87,7 +107,7 @@ TBD: routes ordering, EnvoyFilter, forbidden routes
 ## Troubleshooting
 ### Is My Request Served by Istio? Is it mTLS encrypted?
 
-If it is request coming to public or private gateway, then it will be served by istio ingress gateway and gets encrypted in ztunnel. In any other case outgoing pod decides: if outgoing pod is participant of mesh, then yes; otherwise request will ommit ztunnel and waypoint - no routing rules and no encryption applied.
+If it is a request coming to the public or private gateway, then it will be served by the Istio ingress gateway and gets encrypted in ztunnel. In any other case the outgoing pod decides: if the outgoing pod is a participant of the mesh, then yes; otherwise the request will omit ztunnel and waypoint - no routing rules and no encryption applied.
 
 ### Is My Pod Participant of Mesh?
 
@@ -114,12 +134,12 @@ Steps to check:
 
 ### How to Trace Request Flow?
 
-All gateways (istio, waypoint, legacy core mesh) have access logs. Ztunnel logs is better to check in logging aggregator (e.g. graylod) in case cluster has many worker nodes since ztunnel is daemon set. 
+All gateways (Istio, waypoint, legacy core mesh) have access logs. Ztunnel logs are better checked in a logging aggregator (e.g. graylog) in case the cluster has many worker nodes, since ztunnel is a daemon set.
 
 ### Request/Watch Stuck After Namespace Enrollment into Mesh
 
-As mentioned in https://github.com/Netcracker/qubership-istio/blob/main/docs/public/namespace-enrollment.md it is required to restart all workloads in namespace when enrolling namespace into mesh, otherwise long-living sessions will be dropped silently and not all network clients can detect that and re-establish the connection.
+As mentioned in https://github.com/Netcracker/qubership-istio/blob/main/docs/public/namespace-enrollment.md it is required to restart all workloads in a namespace when enrolling the namespace into the mesh, otherwise long-living sessions will be dropped silently and not all network clients can detect that and re-establish the connection.
 
 ### Monitoring
 
-Dashboard provided with Istio distribution display metrics on Istio components and gateways HW resources consumption and traffic statistics. 
+The dashboard provided with the Istio distribution displays metrics on Istio components, gateways HW resource consumption, and traffic statistics.
