@@ -1,26 +1,21 @@
 ---
 name: httproute-from-code
 description: >
-  Generate Kubernetes GatewayAPI HTTPRoute CRs from Go or Java route registration code.
-  Use when the user runs /httproute-from-code, asks to generate HTTPRoute from source code,
-  convert route registrations to HTTPRoute YAML, or extract routes from Go/Java files.
-  Triggers on: httproute generation, route extraction, routeregistration, RouteEntry,
-  GatewayAPI from code, go routes to yaml, java routes to yaml.
+  Generate Gateway API HTTPRoute CRs from Go or Java route-registration code
+  (routeregistration.Route / RouteEntry call sites). Use when asked to generate
+  HTTPRoutes from source code, convert route registrations to HTTPRoute YAML, or
+  extract routes from Go/Java files.
 ---
 
 # Generate GatewayAPI HTTPRoute CRs from Go or Java route registration code
 
-## Trigger
+## Invocation
 
-Use this skill when the user runs:
+Run this skill against a file or directory of route-registration code. Examples:
 
-/httproute-from-code <path>
-
-Examples:
-
-/httproute-from-code internal/routes
-/httproute-from-code src/main/java/com/example/config/RouteConfig.java
-/httproute-from-code .
+- `internal/routes`
+- `src/main/java/com/example/config/RouteConfig.java`
+- `.`
 
 ---
 
@@ -366,7 +361,7 @@ Before generating the CR, sort all collected routes so that the most specific
 `from` paths appear first in `rules[]`.
 
 Apply the shared procedure in
-[`../shared/path-specificity-sorting.md`](../shared/path-specificity-sorting.md)
+[`path-specificity-sorting.md`](../path-specificity-sorting/SKILL.md)
 — sort on each rule's `from` path. That file defines the segment-count ordering,
 tie-breaks, a worked example, and why ordering matters across gateway
 implementations.
@@ -379,7 +374,7 @@ Generate one CR per RouteType. Wrap ALL CRs together in a single Istio condition
 
 **Rule order:** emit `rules[]` in the path-specificity order produced by
 [Step 9](#step-9--sort-rules-by-path-specificity) (shared procedure
-[`../shared/path-specificity-sorting.md`](../shared/path-specificity-sorting.md)).
+[`path-specificity-sorting.md`](../path-specificity-sorting/SKILL.md)).
 Most specific match first — never in source/discovery order.
 
 ### ParentRef resolution

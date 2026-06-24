@@ -11,14 +11,16 @@ There are **two ways** to perform the migration. Pick one:
 
 ### Option A — Run the orchestrator skill (recommended)
 
-Let the [`core-mesh-to-istio-migration`](skills/core-mesh-to-istio-migration/SKILL.md)
+Let the [`core-mesh-to-istio-migration`](../../../agent-packages/core-mesh-to-istio-migration/.apm/skills/core-mesh-to-istio-migration/SKILL.md)
 orchestrator skill drive the entire migration end-to-end. It runs every step
 below in order, delegates to the two atomic skills, validates the result, and
 maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items so nothing
 is missed.
 
-1. Open your IDE in your repository root.
-2. Ask AI to run the migration, e.g.: *"Run the core-mesh-to-istio migration on `<path-to-your-helm-chart>`"* (or invoke `/core-mesh-to-istio-migration <path>`).
+1. Install the skills (see [Install the skills](#install-the-skills-apm)) and open
+   your IDE in your repository root.
+2. Ask the agent to run the migration by name, e.g.: *"Run the
+   core-mesh-to-istio-migration skill on `<path-to-your-helm-chart>`"*.
 3. Answer any questions it asks (chart path, source-code path, language), then
    review `MIGRATION_LOG.md` — especially every **Needs review** entry — before
    raising a PR.
@@ -43,19 +45,35 @@ orchestrator cannot fully handle.
 
 | Skill | Purpose |
 |---|---|
-| [`core-mesh-to-istio-migration`](skills/core-mesh-to-istio-migration/SKILL.md) | **Orchestrator** (Option A) — runs the full migration end-to-end, delegates to the two skills below, and maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items |
-| [`core-mesh-crs-to-gatewayapi`](skills/core-mesh-crs-to-gatewayapi/SKILL.md) | Convert existing Helm mesh CRs (FacadeService, Gateway, RouteConfiguration) to Istio Gateway API resources |
-| [`httproute-from-code`](skills/httproute-from-code/SKILL.md) | Generate HTTPRoute CRs from Go/Java route registration source code |
+| [`core-mesh-to-istio-migration`](../../../agent-packages/core-mesh-to-istio-migration/.apm/skills/core-mesh-to-istio-migration/SKILL.md) | **Orchestrator** (Option A) — runs the full migration end-to-end, delegates to the two skills below, and maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items |
+| [`core-mesh-crs-to-gatewayapi`](../../../agent-packages/core-mesh-crs-to-gatewayapi/.apm/skills/core-mesh-crs-to-gatewayapi/SKILL.md) | Convert existing Helm mesh CRs (FacadeService, Gateway, RouteConfiguration) to Istio Gateway API resources |
+| [`httproute-from-code`](../../../agent-packages/httproute-from-code/.apm/skills/httproute-from-code/SKILL.md) | Generate HTTPRoute CRs from Go/Java route registration source code |
 
 > The rest of this guide documents the individual steps. With **Option A** the
 > orchestrator performs them for you; with **Option B** you follow them
 > manually. Either way, finish with the [Final Checklist](#final-checklist).
 
+### Install the skills (APM)
+
+The skills are distributed as [APM](https://github.com/microsoft/apm) packages
+under [`agent-packages/`](../../../agent-packages). Install the orchestrator into
+your repo — it pulls in the two atomic skills (and the shared
+`path-specificity-sorting` procedure) as dependencies:
+
+```sh
+apm install Netcracker/qubership-core-control-plane/agent-packages/core-mesh-to-istio-migration --target claude
+```
+
+Swap `--target claude` for your agent (`cursor`, `copilot`, `codex`, …). This
+deploys the skills under `.claude/skills/` (and the trigger rules under
+`.claude/rules/`), after which the agent can run them by name. Re-run the command
+to pick up a new version. 
+
 ---
 
 ## Step 1 — Migrate declarative routes - existing Mesh CRs to HTTPRoute CRs
 
-Use the skill [`core-mesh-crs-to-gatewayapi`](skills/core-mesh-crs-to-gatewayapi/SKILL.md) to automatically convert your existing mesh custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`) into GatewayAPI HTTPRoute manifests while keeping the chart deployable on both mesh types.
+Use the skill [`core-mesh-crs-to-gatewayapi`](../../../agent-packages/core-mesh-crs-to-gatewayapi/.apm/skills/core-mesh-crs-to-gatewayapi/SKILL.md) to automatically convert your existing mesh custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`) into GatewayAPI HTTPRoute manifests while keeping the chart deployable on both mesh types.
 
 ### How to run
 
@@ -349,12 +367,13 @@ mvn clean process-classes
 
 ## Step 2.4 — Generate HTTPRoute CRs from Route Registration Code
 
-Use the skill [`httproute-from-code`](skills/httproute-from-code/SKILL.md) to produce HTTPRoute manifests directly from your application source code. This ensures your code-defined routes are reflected in the cluster configuration.
+Use the skill [`httproute-from-code`](../../../agent-packages/httproute-from-code/.apm/skills/httproute-from-code/SKILL.md) to produce HTTPRoute manifests directly from your application source code. This ensures your code-defined routes are reflected in the cluster configuration.
 
 ### How to run
 
 1. Open your IDE.
-2. Run the slash command: `/httproute-from-code <path>` pointing at your directory or file with route registration code, and pass:
+2. Ask the agent to run the `httproute-from-code` skill on your directory or file
+   with route registration code, and pass:
    - `backendRefName`,
    - `backendRefPort`,
    - `routeLabels` (detected output labels from Step 1).
@@ -444,11 +463,11 @@ duplicates and need no action.
 
 Before raising a PR, verify all of the following:
 
-- [ ] [`core-mesh-crs-to-gatewayapi`](skills/core-mesh-crs-to-gatewayapi/SKILL.md) skill run: existing mesh CRs converted to HTTPRoute CRs
+- [ ] [`core-mesh-crs-to-gatewayapi`](../../../agent-packages/core-mesh-crs-to-gatewayapi/.apm/skills/core-mesh-crs-to-gatewayapi/SKILL.md) skill run: existing mesh CRs converted to HTTPRoute CRs
 - [ ] Flagged features from Step 1.1 manually resolved
 - [ ] New mesh-aware libraries replace old route-posting libraries
 - [ ] `SERVICE_MESH_TYPE=Istio` set in Helm values / Deployment
 - [ ] Maven plugin added and local build passes (Java only)
-- [ ] [`httproute-from-code`](skills/httproute-from-code/SKILL.md) skill run: route registration code converted to HTTPRoute CRs
+- [ ] [`httproute-from-code`](../../../agent-packages/httproute-from-code/.apm/skills/httproute-from-code/SKILL.md) skill run: route registration code converted to HTTPRoute CRs
 - [ ] All HTTPRoute CRs wrapped in a `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` block
 - [ ] HTTPRoutes scanned for duplicate rules (same parent + equal match); duplicates resolved or flagged for review

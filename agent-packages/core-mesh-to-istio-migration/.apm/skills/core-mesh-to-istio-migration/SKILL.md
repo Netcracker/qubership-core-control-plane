@@ -1,15 +1,12 @@
 ---
 name: core-mesh-to-istio-migration
 description: >
-  Orchestrates the full Cloud-Core Mesh to Istio migration described in
-  docs/istio/migration-guide/core-mesh-to-istio-migration-guide.md. Converts
-  declarative mesh CRs to Gateway API resources, migrates route-registration
-  libraries, wires SERVICE_MESH_TYPE, adds the Java HTTPRoute generator when
-  needed, generates HTTPRoutes from Go/Java route registration code, validates
-  Istio guards, and maintains MIGRATION_LOG.md. Use when the user runs
-  /core-mesh-to-istio-migration, asks to run a full Istio migration, migrate
-  Core Mesh to Istio, migrate to Istio Ambient Mesh, or execute the migration
-  guide end-to-end.
+  Orchestrate the full Cloud-Core Mesh to Istio migration end-to-end — convert
+  declarative mesh CRs to Gateway API, migrate route-registration libraries, wire
+  SERVICE_MESH_TYPE, add the Java HTTPRoute generator, generate HTTPRoutes from
+  Go/Java code, validate Istio guards, and maintain MIGRATION_LOG.md. Use when
+  asked to migrate a service from Core Mesh to Istio (Ambient Mesh) or run the
+  migration guide end-to-end.
 ---
 
 # Core Mesh → Istio — Full Migration Orchestrator
@@ -18,17 +15,13 @@ This skill runs the complete migration described in the guide.
 It is an **orchestrator**: the heavy lifting lives in two atomic sub-skills, and this
 skill coordinates them, performs the remaining steps, and keeps an auditable log.
 
-## Trigger
+## Invocation
 
-Use this skill when the user runs:
+Run this skill against the chart or service directory to migrate. Examples:
 
-/core-mesh-to-istio-migration <path>
-
-Examples:
-
-/core-mesh-to-istio-migration mesh-test-service-go
-/core-mesh-to-istio-migration helm-templates/my-service
-/core-mesh-to-istio-migration .
+- `mesh-test-service-go`
+- `helm-templates/my-service`
+- `.`
 
 
 ## Sub-skills invoked

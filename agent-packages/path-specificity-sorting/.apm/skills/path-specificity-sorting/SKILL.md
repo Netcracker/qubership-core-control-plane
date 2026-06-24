@@ -1,3 +1,13 @@
+---
+name: path-specificity-sorting
+description: >
+  Shared procedure for sorting Gateway API HTTPRoute `rules[]` by path
+  specificity (most specific first). Not triggered directly by users — invoked as
+  a sub-procedure by other skills (`httproute-from-code`,
+  `core-mesh-crs-to-gatewayapi`) before they emit an HTTPRoute. Apply when ordering
+  HTTPRoute rules so longest/most-specific prefix matches appear first.
+---
+
 # Shared rule — sort HTTPRoute rules by path specificity
 
 This is a shared procedure reused by multiple skills and generators

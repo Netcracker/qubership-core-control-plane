@@ -1,0 +1,4 @@
+name: path-specificity-sorting
+version: 1.0.0
+description: Shared procedure for sorting Gateway API HTTPRoute rules[] by path specificity (most specific first). Reused by core-mesh-crs-to-gatewayapi and httproute-from-code.
+author: Qubership
