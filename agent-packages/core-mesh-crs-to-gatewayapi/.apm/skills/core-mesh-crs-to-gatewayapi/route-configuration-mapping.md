@@ -226,7 +226,7 @@ w
   timeout         *int64             → timeouts.request: "<value>ms"  (value is milliseconds)
   allowed         *bool              → when false then refer to `Not allowed rule processing`
   idleTimeout     *int64             OMIT  ⚠ flag for MANUAL REVIEW if non-nil
-  statefulSession *StatefulSession   OMIT  ⚠ flag for MANUAL REVIEW if non-nil
+  statefulSession *StatefulSession   → DestinationRule (see [stateful-session-mapping.md](../core-mesh-crs-to-istio/stateful-session-mapping.md) "Rule-level StatefulSession" section)
   rateLimit       string             OMIT  ⚠ flag for MANUAL REVIEW if non-empty
   deny            *bool              OMIT  ⚠ flag for MANUAL REVIEW if non-nil
   luaFilter       string             OMIT  ⚠ flag for MANUAL REVIEW if non-empty
@@ -270,9 +270,11 @@ When Rule.allowed is false - omit `backendRefs` field for it. This will force is
 
 ---
 
-### StatefulSession  (all fields — OMIT, flag for MANUAL REVIEW)
+### StatefulSession  (rule-level — generates DestinationRule)
 
   version, namespace, cluster, hostname, gateways, port,
   enabled, cookie, route, overridden
-  → No Gateway API HTTPRoute equivalent.
-  → Add comment: # ⚠ MANUAL REVIEW: statefulSession has no Gateway API equivalent
+
+  → See [stateful-session-mapping.md](../core-mesh-crs-to-istio/stateful-session-mapping.md) "Rule-level StatefulSession" section.
+  → A DestinationRule is generated for the route's destination host.
+  → The DestinationRule is written after the HTTPRoute in the same output file (`---` separator).
