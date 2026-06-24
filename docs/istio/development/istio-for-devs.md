@@ -40,9 +40,11 @@ It is safe to install Istio distro on cluster with any running apps on it, becau
 
 We aim to maintain fully backward-compatible Service Mesh behavior on Istio without using the legacy Core Mesh in the end. This means that Cloud Core OOB gateways will become Istio entities, but they will keep their DNS names, header modification behavior, etc.
 
+![istio-current-to-be](./images/istio-current-to-be.drawio.svg)
+
 But removing the legacy service mesh requires all applications to migrate their route configurations to Istio. Until then, for the BWC period we "wrap" our existing service mesh solution with Istio.
 
-![istio-current-to-be](./images/istio-current-to-be.drawio.svg)
+![istio-mesh-wrap](./images/istio-mesh-wrap.drawio.svg)
 
 All contract domain names (e.g. the public gateway DNS name) are resolved to Istio gateways, and we provide fallback routes in Istio gateways forwarding traffic to our legacy gateways if no migrated route matched. So APIs migrated to Istio will be served by Istio gateways, while not-yet-migrated APIs will be served by legacy gateways.
 
@@ -115,7 +117,12 @@ Steps to check:
 1. Check labels on namespace:
   * `istio.io/dataplane-mode: ambient` - enables interception by ztunnel for workloads in namespace;
   * `istio.io/use-waypoint: waypoint` - makes ztunnel forward traffic to waypoint for workloads in namespace;
-2. Check labels on deployment - they may override namespace-level labels for this specific workload;
+2. Check labels on deployment (set on the pod template, i.e. `spec.template.metadata.labels`) - they may override namespace-level labels for this specific workload:
+  * `istio.io/dataplane-mode: ambient` - explicitly includes the pod into the ambient mesh (interception by ztunnel) even if the namespace is not labeled;
+  * `istio.io/dataplane-mode: none` - excludes the pod from the ambient mesh even if the namespace is labeled `ambient`;
+  * `istio.io/use-waypoint: <waypoint-name>` - makes ztunnel forward this pod's traffic to the named waypoint, overriding the namespace-level waypoint;
+  * `istio.io/use-waypoint: none` - disables waypoint usage for this pod (traffic still goes through ztunnel but bypasses any waypoint);
+  * `istio.io/use-waypoint-namespace: <namespace>` - selects a waypoint located in a different namespace (used together with `istio.io/use-waypoint`);
 3. Go to pod terminal and check ztunnel socket ports 15008, 15006, 15001 via `cat /proc/net/tcp6` or `cat /proc/net/tcp` depending on protocol version:
   ```bash
   $ cat /proc/net/tcp6 | grep 3A
