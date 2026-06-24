@@ -2,7 +2,7 @@
 SNI_PROPAGATION_ENABLED: false
 MONITORING_ENABLED: true
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
-READONLY_CONTAINER_FILE_SYSTEM_ENABLED: true
+READONLY_CONTAINER_FILE_SYSTEM_ENABLED: false
 IMAGE_REPOSITORY: 'ghcr.io/netcracker/qubership-core-control-plane'
 
 DB_CREDENTIALS_SECRET: "control-plane-db-credentials"
