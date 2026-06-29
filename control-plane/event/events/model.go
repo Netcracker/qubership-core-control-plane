@@ -69,20 +69,51 @@ func (re *ReloadEvent) MarshalPrepare() error {
 }
 
 func marshalPrepareForChanges(changes []memdb.Change) error {
-	for _, change := range changes {
-		if change.Before != nil {
-			if err := change.Before.(domain.MarshalPreparer).MarshalPrepare(); err != nil {
-				return err
-			}
-		}
-		if change.After != nil {
-			if err := change.After.(domain.MarshalPreparer).MarshalPrepare(); err != nil {
-				return err
-			}
-		}
+	for i := range changes {
+    		if changes[i].Before != nil {
+    			cloned, err := cloneAndPrepare(changes[i].Before)
+    			if err != nil {
+    				return err
+    			}
+    			changes[i].Before = cloned
+    		}
+		if changes[i].After != nil {
+        			cloned, err := cloneAndPrepare(changes[i].After)
+        			if err != nil {
+        				return err
+        			}
+        			changes[i].After = cloned
+        		}
+        	}
 	}
 	return nil
 }
+
+func cloneAndPrepare(entity interface{}) (interface{}, error) {
+	clone := shallowClonePtr(entity)
+
+	preparer, ok := clone.(domain.MarshalPreparer)
+	if !ok {
+		return nil, fmt.Errorf("event source does not implement domain.MarshalPreparer: %T", clone)
+	}
+
+	if err := preparer.MarshalPrepare(); err != nil {
+		return nil, err
+	}
+
+	return clone, nil
+}
+
+func shallowClonePtr(entity interface{}) interface{} {
+	v := reflect.ValueOf(entity)
+	if v.Kind() != reflect.Ptr {
+		return entity
+	}
+	clone := reflect.New(v.Elem().Type())
+	clone.Elem().Set(v.Elem())
+	return clone.Interface()
+}
+
 
 // PartialReloadEvent signals that all envoy cache entries for the specified nodeGroup:entityType pairs
 // must be reloaded from in-memory storage.

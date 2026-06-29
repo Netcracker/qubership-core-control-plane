@@ -24,6 +24,8 @@ func (c *Cluster) MarshalPrepare() error {
 	c.HealthChecks = nil
 	c.CircuitBreaker = nil
 	c.TLS = nil
+	c.TcpKeepalive = nil
+    c.CommonLbConfig = nil
 	return nil
 }
 
@@ -59,6 +61,7 @@ func (e *Endpoint) MarshalPrepare() error {
 	e.Cluster = nil
 	e.HashPolicies = nil
 	e.StatefulSession = nil
+	e.DeploymentVersionVal = nil
 	return nil
 }
 
@@ -92,6 +95,7 @@ func (r *Route) MarshalPrepare() error {
 	r.RetryPolicy = nil
 	r.StatefulSession = nil
 	r.RateLimit = nil
+	r.DeploymentVersionVal = nil
 	return nil
 }
 
@@ -112,7 +116,9 @@ func (r *RetryPolicy) MarshalPrepare() error {
 }
 
 func (hc *HealthCheck) MarshalPrepare() error {
-	hc.HttpHealthCheck = nil
+	if hc.HttpHealthCheck != nil {
+    		hc.HttpHealthCheck.HealthCheck = nil
+    	}
 	hc.TlsOptions = nil
 	hc.Cluster = nil
 	return nil
