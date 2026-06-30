@@ -314,7 +314,7 @@ When the listed field is non-empty / non-nil on the source CR, omit it from the 
 | `RouteV3.Rule` | `idleTimeout` | non-nil |
 | `RouteV3.Rule` | `rateLimit` | non-empty |
 | `RouteV3.Rule` | `deny` | non-nil |
-| `RouteV3.Rule` | `luaFilter` | non-empty |
+| `RouteV3.Rule` | `luaFilter` | non-empty — migrated by `core-mesh-crs-to-istio` (see [lua-filter-mapping.md](../core-mesh-crs-to-istio/lua-filter-mapping.md)) |
 | `FacadeService` | neither `spec.port` nor `spec.gatewayPorts` | — |
 | Any template helper | `{{- include ... }}` returns mesh-specific CRs | — |
 
@@ -351,8 +351,8 @@ Items needing manual review:
    - '*' host on east-west RouteConfiguration <name>
    - cluster / httpVersion /
      circuitBreaker / tcpKeepalive on RouteDestination of <name>
-   - deny / idleTimeout / statefulSession / rateLimit / luaFilter
-     on Rule <path> of <name>
+   - deny / idleTimeout / statefulSession / rateLimit
+   - luaFilter on Rule <path> of <name> (if script/gateway context unresolved)
    - FacadeService <name> has no port defined
    - helper {{- include "<name>" }} produces mesh CRs — guards added manually
 ```
@@ -367,5 +367,6 @@ Read these before transforming — they contain schemas, field mappings, and ful
 - [gateway-mapping.md](gateway-mapping.md) — Gateway → Istio Gateway
 - [route-configuration-mapping.md](route-configuration-mapping.md) — RouteConfiguration → HTTPRoute
 - [stateful-session-mapping.md](../core-mesh-crs-to-istio/stateful-session-mapping.md) — StatefulSession → DestinationRule (rule-level only)
+- [lua-filter-mapping.md](../core-mesh-crs-to-istio/lua-filter-mapping.md) — HttpFilters + RouteConfiguration → EnvoyFilter / TrafficExtension
 - [labels.md](labels.md) — Common label resolution
 - [path-specificity-sorting.md](../path-specificity-sorting/SKILL.md) — Sort HTTPRoute `rules[]` by path specificity (shared with `httproute-from-code`)

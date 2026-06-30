@@ -1,0 +1,96 @@
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: HttpFilters
+metadata:
+  name: catalog-lua-filters
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/processed-by-operator: "core-operator"
+spec:
+  gateways:
+    - public-gateway-service
+  luaFilters:
+    - name: uuid-from-path
+      luaScript: |
+        function envoy_on_request(request_handle)
+            local path = request_handle:headers():get(":path")
+            local uuid = string.match(path, ".*/([a-z0-9-]+)$")
+            if uuid then
+                request_handle:headers():add("X-Uuid", uuid)
+            end
+        end
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: catalog-routes
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/processed-by-operator: "core-operator"
+spec:
+  gateways: ["public-gateway-service"]
+  virtualServices:
+    - name: public-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: v1
+        routes:
+          - destination:
+              cluster: catalog-service
+              endpoint: http://catalog-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/service/catalogManagement
+                prefixRewrite: /api/v1/catalogManagement
+                allowed: true
+                luaFilter: uuid-from-path
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: HttpFilters
+metadata:
+  name: catalog-mesh-lua-filters
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/processed-by-operator: "core-operator"
+spec:
+  gateways:
+    - internal-gateway-service
+  luaFilters:
+    - name: uuid-from-path-mesh
+      luaScript: |
+        function envoy_on_request(request_handle)
+            local path = request_handle:headers():get(":path")
+            local uuid = string.match(path, ".*/([a-z0-9-]+)$")
+            if uuid then
+                request_handle:headers():add("X-Uuid", uuid)
+            end
+        end
+---
+apiVersion: core.netcracker.com/v1
+kind: Mesh
+subKind: RouteConfiguration
+metadata:
+  name: catalog-mesh-routes
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/processed-by-operator: "core-operator"
+spec:
+  gateways: ["internal-gateway-service"]
+  virtualServices:
+    - name: internal-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: v1
+        routes:
+          - destination:
+              cluster: catalog-service
+              endpoint: http://catalog-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/service/catalogManagement
+                prefixRewrite: /api/v1/catalogManagement
+                allowed: true
+                luaFilter: uuid-from-path-mesh
