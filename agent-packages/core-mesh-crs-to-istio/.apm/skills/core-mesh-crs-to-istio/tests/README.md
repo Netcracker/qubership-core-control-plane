@@ -1,33 +1,52 @@
-# core-mesh-crs-to-istio — E2E Test
+# core-mesh-crs-to-istio — E2E Tests
 
-## How to run
-
-Open a new chat and send:
+## Stickiness / load balancing
 
 ```
 Run skill `core-mesh-crs-to-istio` on file
 `agent-packages/core-mesh-crs-to-istio/.apm/skills/core-mesh-crs-to-istio/tests/input.yaml`.
 
-Compare the result with `tests/expected-output.yaml` from the same folder and report any differences.
+Compare the result with `tests/expected-output.yaml` and report any differences.
 ```
-
-## Scenarios covered
 
 | # | CR | Input condition | Expected output |
 |---|----|-----------------|-----------------|
-| 1 | `StatefulSession` | cookie, ttl=0, simple cluster name | DestinationRule with `httpCookie`, ttl `"0s"` |
-| 2 | `StatefulSession` | cluster with namespace+port suffix, ttl=3600 | host stripped to service name, ttl `"3600s"` |
-| 3 | `StatefulSession` | `hostname` + `port` set | DestinationRule generated + `# ⚠ MANUAL REVIEW` comment |
-| 4 | `StatefulSession` | `enabled: false` | skipped — no DestinationRule |
-| 5 | `LoadBalance` | single header policy | DestinationRule with `httpHeaderName` |
-| 6 | `LoadBalance` | single cookie policy, ttl=0 | DestinationRule with `httpCookie`, ttl `"0s"` |
-| 7 | `LoadBalance` | single sourceIp policy | DestinationRule with `useSourceIp: true` |
-| 8 | `LoadBalance` | two policies | first policy used + `# ⚠ MANUAL REVIEW` comment listing dropped policy |
+| 1 | `StatefulSession` | cookie, ttl=0 | DestinationRule with `httpCookie`, ttl `"0s"` |
+| 2 | `StatefulSession` | cluster with namespace+port suffix | host stripped, ttl `"3600s"` |
+| 3 | `StatefulSession` | `hostname` + `port` | DestinationRule + `# ⚠ MANUAL REVIEW` |
+| 4 | `StatefulSession` | `enabled: false` | skipped |
+| 5–8 | `LoadBalance` | header / cookie / sourceIp / multi-policy | DestinationRule per mapping |
 
-## What to check
+---
 
-- Host resolution: `cluster.namespace:port` → bare service name
-- TTL formatting: `null`/`0` → `"0s"`, `N` → `"Ns"`
-- Istio guard wraps the entire output file
-- MANUAL REVIEW comments present where required
-- Disabled/empty StatefulSession produces no output
+## Lua filters
+
+Skill input: one pair (`HttpFilters` + `RouteConfiguration`). `tests/lua-input.yaml` is an e2e
+fixture with **two gateway scenarios** — run the skill per pair and compare with expected output.
+Assume `ISTIO_VERSION` is known before comparing.
+
+### Istio ≥ 1.30
+
+```
+Run skill `core-mesh-crs-to-istio` on `tests/lua-input.yaml` (ISTIO_VERSION ≥ 1.30).
+
+Compare with `tests/lua-expected-output.yaml`.
+```
+
+| # | Gateway | Expected output |
+|---|---------|-----------------|
+| 1 | `public-gateway-service` | `TrafficExtension` → `public-gateway`, path guard |
+| 2 | `internal-gateway-service` | `TrafficExtension` → `waypoint`, path guard |
+
+### Istio < 1.30
+
+```
+Run skill `core-mesh-crs-to-istio` on `tests/lua-input.yaml` (ISTIO_VERSION < 1.30).
+
+Compare with `tests/lua-expected-output-lt130.yaml`.
+```
+
+| # | Gateway | Expected output |
+|---|---------|-----------------|
+| 1 | `public-gateway-service` | `EnvoyFilter` with base filter + `LuaPerRoute` |
+| 2 | `internal-gateway-service` | `EnvoyFilter` → `waypoint`, `HTTP_FILTER` without `context`, `inline_code` + path guard |

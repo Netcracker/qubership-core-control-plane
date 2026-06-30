@@ -194,7 +194,8 @@ block a correct migration:
 | `RouteConfiguration.spec.overridden` non-empty | RouteConfiguration CR |
 | `VirtualService.rateLimit` / `.overridden` non-empty | VirtualService CR |
 | `RouteDestination.httpVersion` / `.circuitBreaker` / `.tcpKeepalive` non-empty | RouteConfiguration CR |
-| `Rule.rateLimit` / `.luaFilter` non-empty | RouteConfiguration CR |
+| `Rule.rateLimit` non-empty | RouteConfiguration CR |
+| `Rule.luaFilter` non-empty | RouteConfiguration CR — auto-migrated by `core-mesh-crs-to-istio`; flag only if script/gateway/route name unresolved |
 | `Rule.deny` / `.idleTimeout` non-nil | RouteConfiguration CR |
 | `StatefulSession.hostname` / `.port` set (endpoint-level targeting) | StatefulSession CR |
 | `StatefulSession.overridden` true | StatefulSession CR |
@@ -249,9 +250,11 @@ and skip to Step 1.1.
    update `values.yaml` / `values.schema.json`.
 3. Invoke the sub-skill [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)
    with the chart path.
-4. That skill will: convert standalone `StatefulSession` → `DestinationRule` and
-   `LoadBalance` → `DestinationRule`, wrapping originals and generated files in the
-   respective mesh-type guards.
+4. That skill will: convert standalone `StatefulSession` → `DestinationRule`,
+   `LoadBalance` → `DestinationRule`, and `HttpFilters` + `RouteConfiguration`
+   Lua scripts → `EnvoyFilter` (&lt; 1.30: ingress/egress + waypoint with different
+   patch rules) or `TrafficExtension` (≥ 1.30), wrapping
+   originals and generated files in the respective mesh-type guards.
 5. **Check for DestinationRule host conflicts across the two sub-skills.** Both
    sub-skills can emit a `DestinationRule` for the same `spec.host` — rule-level
    `statefulSession` (from `core-mesh-crs-to-gatewayapi`) and a standalone

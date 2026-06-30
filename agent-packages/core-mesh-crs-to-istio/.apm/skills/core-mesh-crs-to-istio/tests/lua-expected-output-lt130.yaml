@@ -1,0 +1,95 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+# catalog-routes: ingress gateway → EnvoyFilter (Istio < 1.30)
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: public-gateway-lua-filters
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRefs:
+  - kind: Gateway
+    group: gateway.networking.k8s.io
+    name: public-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.lua
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+          stat_prefix: lua
+          inline_code: ""
+  - applyTo: HTTP_ROUTE
+    match:
+      context: GATEWAY
+      routeConfiguration:
+        vhost:
+          route:
+            # ⚠ MANUAL REVIEW: set route name after inspecting istioctl proxy-config routes
+            #   Expected rule match: prefix /api/v1/service/catalogManagement
+            name: catalog-routes-catalog-service-0
+    patch:
+      operation: MERGE
+      value:
+        typed_per_filter_config:
+          envoy.filters.http.lua:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.LuaPerRoute
+            source_code:
+              inline_string: |
+                function envoy_on_request(request_handle)
+                    local path = request_handle:headers():get(":path")
+                    local uuid = string.match(path, ".*/([a-z0-9-]+)$")
+                    if uuid then
+                        request_handle:headers():add("X-Uuid", uuid)
+                    end
+                end
+---
+# catalog-mesh-routes: waypoint → EnvoyFilter (Istio < 1.30, ambient)
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: catalog-service-uuid-from-path-mesh
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRefs:
+  - kind: Gateway
+    group: gateway.networking.k8s.io
+    name: waypoint
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.lua
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+          stat_prefix: lua
+          inline_code: |
+            function envoy_on_request(request_handle)
+              local path = request_handle:headers():get(":path")
+              if not string.find(path, "/api/v1/service/catalogManagement", 1, true) then
+                return
+              end
+              local uuid = string.match(path, ".*/([a-z0-9-]+)$")
+              if uuid then
+                request_handle:headers():add("X-Uuid", uuid)
+              end
+            end
+{{- end }}
