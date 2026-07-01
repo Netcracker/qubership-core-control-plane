@@ -87,7 +87,6 @@ func TestChangeEventMarshalPrepare_ErrorWhenNotMarshalPreparer(t *testing.T) {
 	assert.Contains(t, err.Error(), "MarshalPreparer")
 }
 
-// PSUPCLCAP-4300: MarshalPrepare must not mutate the memdb-shared original.
 func TestChangeEventMarshalPrepare_DoesNotMutateSharedRouteConfiguration(t *testing.T) {
 	rc := &domain.RouteConfiguration{
 		Id:           32,
