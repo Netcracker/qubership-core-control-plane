@@ -1,0 +1,107 @@
+---
+apiVersion: nc.core.mesh/v3
+kind: StatefulSession
+metadata:
+  name: trace-service-sticky
+  namespace: {{ .Release.Namespace }}
+spec:
+  gateways: ["public-gateway-service"]
+  cluster: trace-service
+  version: v1
+  enabled: true
+  cookie:
+    name: trace-service-sticky
+    ttl: 0
+    path: /
+---
+apiVersion: nc.core.mesh/v3
+kind: StatefulSession
+metadata:
+  name: trace-service-sticky-v2
+  namespace: {{ .Release.Namespace }}
+spec:
+  gateways: ["public-gateway-service"]
+  cluster: trace-service.{{ .Release.Namespace }}:8080
+  enabled: true
+  cookie:
+    name: trace-service-sticky-v2
+    ttl: 3600
+    path: /api
+---
+apiVersion: nc.core.mesh/v3
+kind: StatefulSession
+metadata:
+  name: trace-service-endpoint-sticky
+  namespace: {{ .Release.Namespace }}
+spec:
+  cluster: trace-service
+  hostname: trace-service-v1
+  port: 8080
+  enabled: true
+  cookie:
+    name: trace-service-endpoint-sticky
+    ttl: 0
+    path: /
+---
+apiVersion: nc.core.mesh/v3
+kind: StatefulSession
+metadata:
+  name: trace-service-disabled
+  namespace: {{ .Release.Namespace }}
+spec:
+  cluster: trace-service
+  enabled: false
+  cookie:
+    name: trace-service-sticky
+    ttl: 0
+    path: /
+---
+apiVersion: nc.core.mesh/v3
+kind: LoadBalance
+metadata:
+  name: trace-service-lb-header
+  namespace: {{ .Release.Namespace }}
+spec:
+  cluster: trace-service
+  version: v1
+  policies:
+    - header:
+        headerName: X-User-Id
+---
+apiVersion: nc.core.mesh/v3
+kind: LoadBalance
+metadata:
+  name: trace-service-lb-cookie
+  namespace: {{ .Release.Namespace }}
+spec:
+  cluster: trace-service.{{ .Release.Namespace }}
+  policies:
+    - cookie:
+        name: LB_COOKIE
+        ttl: 0
+        path: /
+---
+apiVersion: nc.core.mesh/v3
+kind: LoadBalance
+metadata:
+  name: trace-service-lb-sourceip
+  namespace: {{ .Release.Namespace }}
+spec:
+  cluster: trace-service
+  policies:
+    - connectionProperties:
+        sourceIp: true
+---
+apiVersion: nc.core.mesh/v3
+kind: LoadBalance
+metadata:
+  name: trace-service-lb-multi
+  namespace: {{ .Release.Namespace }}
+spec:
+  cluster: trace-service
+  policies:
+    - header:
+        headerName: BID
+    - cookie:
+        name: JSESSION
+        ttl: 5

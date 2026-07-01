@@ -29,6 +29,7 @@ Run this skill against the chart or service directory to migrate. Examples:
 | Sub-skill                                                                           | Used in step | Purpose                                                        |
 | ----------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------- |
 | [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md)            | Step 1       | Convert existing Helm mesh CRs to Gateway + HTTPRoute          |
+| [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert StatefulSession / LoadBalance CRs to DestinationRule   |
 | [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
 
 **How to invoke a sub-skill:** read its `SKILL.md` in full and execute its steps
@@ -194,7 +195,11 @@ block a correct migration:
 | `VirtualService.rateLimit` / `.overridden` non-empty | VirtualService CR |
 | `RouteDestination.httpVersion` / `.circuitBreaker` / `.tcpKeepalive` non-empty | RouteConfiguration CR |
 | `Rule.rateLimit` / `.luaFilter` non-empty | RouteConfiguration CR |
-| `Rule.deny` / `.idleTimeout` / `.statefulSession` non-nil | RouteConfiguration CR |
+| `Rule.deny` / `.idleTimeout` non-nil | RouteConfiguration CR |
+| `StatefulSession.hostname` / `.port` set (endpoint-level targeting) | StatefulSession CR |
+| `StatefulSession.overridden` non-empty | StatefulSession CR |
+| `LoadBalance` with more than one policy | LoadBalance CR |
+| `LoadBalance.overridden` non-empty | LoadBalance CR |
 | `FacadeService` with no port defined | FacadeService CR |
 | Named `{{- include }}` helpers producing mesh CRs | Helm templates |
 | `*` host on an east-west route | Generated HTTPRoute |
@@ -237,22 +242,28 @@ and skip to Step 1.1.
 2. That skill will: wrap originals in `SERVICE_MESH_TYPE=Core` guards, generate
    `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`, convert
    `Gateway(ingress/egress)` → Istio Gateway, convert `RouteConfiguration`
-   → HTTPRoute, omit `FacadeService` and mesh-type `Gateway` (generates
-   east-west HTTPRoutes instead, where parent is of kind Service, processed by
-   waypoint proxy), and update `values.yaml` / `values.schema.json`.
-3. **If the sub-skill pauses to ask about unresolved gateways** → forward the
+   → HTTPRoute (including any rule-level `statefulSession` → `DestinationRule`),
+   omit `FacadeService` and mesh-type `Gateway` (generates east-west HTTPRoutes
+   instead, where parent is of kind Service, processed by waypoint proxy), and
+   update `values.yaml` / `values.schema.json`.
+3. Invoke the sub-skill [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)
+   with the chart path.
+4. That skill will: convert standalone `StatefulSession` → `DestinationRule` and
+   `LoadBalance` → `DestinationRule`, wrapping originals and generated files in the
+   respective mesh-type guards.
+5. **If the sub-skill pauses to ask about unresolved gateways** → forward the
    question to the user verbatim, wait for the answer, and resume the sub-skill.
    Log each decision under **Needs review** → move to **Done** once applied.
-4. Copy the sub-skill's output summary (modified / generated files, transformed
-   resource counts, manual-review list) into the log.
-5. **Capture the detected backend reference.** Read the `backendRefName` /
+6. Copy the sub-skills' output summaries (modified / generated files, transformed
+   resource counts, manual-review lists) into the log.
+7. **Capture the detected backend reference.** Read the `backendRefName` /
    `backendRefPort` reported in the sub-skill's "Detected backend reference"
    output. If both are resolved, record them in the log (under **Done**) as the
    migration-wide backend reference to reuse in Step 2.3 / Step 2.4. If the
    sub-skill reports them as unresolved, note that they must be asked from the
    user when first needed (see
    [Backend reference](#backend-reference-backendrefname--backendrefport--do-not-ask-up-front)).
-6. **Capture the detected labels.** Read the `Detected output labels` map from
+8. **Capture the detected labels.** Read the `Detected output labels` map from
    the sub-skill output (and corresponding `MIGRATION_LOG.md` entry). If
    resolved, store it as migration-wide `routeLabels` for Step 2.3 / Step 2.4.
    If unresolved, add a **Needs review** entry and ask user only when labels are
@@ -536,6 +547,7 @@ at least one **Done** entry and zero unresolved **Needs review** entries:
 ## Final report
 
 - [x/ ] Existing mesh CRs converted to HTTPRoute CRs
+- [x/ ] StatefulSession / LoadBalance CRs converted to DestinationRule CRs
 - [x/ ] Flagged features from Step 1.1 resolved
 - [x/ ] Mesh-aware libraries replace old route-posting libraries
 - [x/ ] SERVICE_MESH_TYPE set in Helm values / Deployment
