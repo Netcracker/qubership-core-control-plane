@@ -5,20 +5,23 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/go-errors/errors"
 	"github.com/gorilla/websocket"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxhelper"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-core-lib-go/v3/security"
+	"github.com/netcracker/qubership-core-lib-go/v3/security/tokensource"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
 	"github.com/valyala/fasthttp"
-	"net/http"
-	"net/url"
-	"strconv"
-	"sync"
-	"time"
 )
 
 type utilConfig struct {
@@ -74,7 +77,7 @@ func createConfig() {
 		DialDualStack:                 true,
 	}
 	config = &utilConfig{
-		getToken:  serviceloader.MustLoad[security.TokenProvider]().GetToken,
+		getToken:  getTokenFunc(),
 		doTimeout: httpclient.DoTimeout,
 		client:    httpclient,
 	}
@@ -153,7 +156,7 @@ func constructRequest(ctx context.Context, method string, url string, data []byt
 	req.Header.Add("Content-Type", "application/json")
 
 	logger.Debugf(`Building secure request with arguments:
-	method=%v, 
+	method=%v,
 	url=%v`, method, url)
 
 	req.Header.SetMethod(method)
@@ -188,4 +191,14 @@ func addHeaderIfAbsent(requestHeaders http.Header, headerName, headerValue strin
 		requestHeaders.Add(headerName, headerValue)
 	}
 	return requestHeaders
+}
+
+func getTokenFunc() func(ctx context.Context) (string, error) {
+	k8sM2mEnabled, _ := strconv.ParseBool(os.Getenv("KUBERNETES_M2M_ENABLED"))
+	if k8sM2mEnabled {
+		return func(ctx context.Context) (string, error) {
+			return tokensource.GetAudienceToken(ctx, tokensource.AudienceNetcracker)
+		}
+	}
+	return serviceloader.MustLoad[security.TokenProvider]().GetToken
 }
