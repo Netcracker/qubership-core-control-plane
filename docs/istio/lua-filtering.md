@@ -3,6 +3,9 @@
 ## Overview
 
 Inline Lua runs at the proxy for header manipulation, logging, path parsing, and similar logic.
+
+> Lua runs inside Envoy on the request path. A faulty script can break routing or take down traffic on the affected proxy. Test carefully and **use at your own risk**.
+
 Choose the resource by Istio version:
 
 | Istio version | Resource | Scope |

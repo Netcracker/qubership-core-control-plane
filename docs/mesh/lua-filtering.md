@@ -5,6 +5,8 @@
 
 You can configure lua filter by setting script code for any route, but please note, that per-virtualService lua filter configuration is forbidden. 
 
+> Lua runs inside Envoy on the request path. A faulty script can break routing or take down traffic on the affected proxy. Test carefully and **use at your own risk**.
+
 ## How to set up lua filter
 To set up lua filter you need to register two configurations in control-plane (order does not matter): 
 
