@@ -5,20 +5,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/go-errors/errors"
 	"github.com/gorilla/websocket"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxhelper"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-core-lib-go/v3/security"
-	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
 	"github.com/valyala/fasthttp"
-	"net/http"
-	"net/url"
-	"strconv"
-	"sync"
-	"time"
 )
 
 type utilConfig struct {
@@ -74,7 +74,7 @@ func createConfig() {
 		DialDualStack:                 true,
 	}
 	config = &utilConfig{
-		getToken:  serviceloader.MustLoad[security.TokenProvider]().GetToken,
+		getToken:  security.GetTokenFunc(),
 		doTimeout: httpclient.DoTimeout,
 		client:    httpclient,
 	}
@@ -153,7 +153,7 @@ func constructRequest(ctx context.Context, method string, url string, data []byt
 	req.Header.Add("Content-Type", "application/json")
 
 	logger.Debugf(`Building secure request with arguments:
-	method=%v, 
+	method=%v,
 	url=%v`, method, url)
 
 	req.Header.SetMethod(method)
