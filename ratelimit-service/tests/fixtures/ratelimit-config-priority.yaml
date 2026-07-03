@@ -43,4 +43,4 @@ data:
           unit: minute
           requests_per_unit: 60
         algorithm: fixed_window
-        priority: 0
+        priority: -1

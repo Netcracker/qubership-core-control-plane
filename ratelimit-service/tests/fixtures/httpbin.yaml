@@ -16,10 +16,7 @@ spec:
       - name: httpbin
         image: kong/httpbin:latest
         ports:
-        - containerPort: 8080
-        env:
-        - name: PORT
-          value: "8080"
+        - containerPort: 80
         resources:
           requests:
             memory: "64Mi"
@@ -37,4 +34,4 @@ spec:
     app: httpbin
   ports:
   - port: 8080
-    targetPort: 8080
+    targetPort: 80
