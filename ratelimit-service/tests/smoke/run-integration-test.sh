@@ -97,6 +97,7 @@ delete_config() {
   kubectl delete configmap "$cm_name" -n "$NAMESPACE" --ignore-not-found > /dev/null
   kubectl exec -n "$NAMESPACE" deployment/ratelimit -- \
     curl -s -X POST http://localhost:8082/api/v1/config/reload > /dev/null
+  sleep 2
 }
 
 run_test() {
@@ -247,6 +248,7 @@ phase_scenarios() {
   run_test "2. Add Rules with Priorities"  "add-rules-with-priority.sh" ""
   run_test "3. Priority Test (Admin/VIP/Normal)" "priority-test.sh" ""
   run_test "4. Gateway Distribution (200 req)"   "gateway-distribution.sh" "200"
+  delete_config "k6-priority-rules"
 
   apply_config "$FIXTURES_DIR/ratelimit-config-accuracy.yaml"
   # Config: 2 req/s limit, 10 requests sent → expected rejection rate:
