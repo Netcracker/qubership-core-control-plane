@@ -38,7 +38,7 @@ on:
       collect-logs-for:
         description: 'Labels of services which logs are required to collect for debugging. Comma-separated label_name=value pairs (name=mesh-test-service-spring-v1,app=control-plane, app.kubernetes.io/name=public-gateway)'
         required: false
-        default: 'app=ratelimit'
+        default: 'app=ratelimit,gateway.networking.k8s.io/gateway-name=public-gateway,app=httpbin'
         type: string
 
 jobs:
@@ -100,7 +100,7 @@ jobs:
       - name: Collect Kubernetes diagnostics
         if: ${{ failure() || steps.smoke.outcome == 'failure' }}
         env:
-          COLLECT_LOGS_FOR: ${{ inputs.collect-logs-for || 'app=ratelimit' }}
+          COLLECT_LOGS_FOR: ${{ inputs.collect-logs-for || 'app=ratelimit,gateway.networking.k8s.io/gateway-name=public-gateway,app=httpbin' }}
         run: |
           set +e
 

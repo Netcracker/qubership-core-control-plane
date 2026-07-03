@@ -16,7 +16,7 @@ data:
           unit: {{ .Values.config.rateLimits.default.window | default "minute" }}
           requests_per_unit: {{ .Values.config.rateLimits.default.limit | default 60 }}
         algorithm: {{ .Values.config.rateLimits.default.algorithm | default "fixed_window" }}
-        priority: 0
+        priority: -1
       {{- end }}
       {{- range .Values.config.rateLimits.rules }}
       - key: path
