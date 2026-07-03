@@ -2,6 +2,12 @@ name: Ratelimit smoke test
 run-name: "Ratelimit smoke [${{ inputs.ratelimit-image-tag || 'latest' }}]"
 
 on:
+  push:
+    branches:
+      - feat/ratelimit
+    paths:
+      - 'ratelimit-service/**'
+      - '.github/workflows/smoke.yml'
   workflow_dispatch:
     inputs:
       core-bootstrap-branch:
@@ -42,7 +48,7 @@ jobs:
           ref: ${{ github.ref }}
 
       - name: Setup Kind cluster and deploy Cloud Core
-        uses: ./.github/actions/setup-kind-with-cloud-core
+        uses: Netcracker/qubership-core-test-apps/.github/actions/setup-kind-with-cloud-core@main
         with:
           core-bootstrap-branch: ${{ inputs.core-bootstrap-branch || 'main' }}
           install-istio: true
@@ -61,6 +67,7 @@ jobs:
 
       - name: Run ratelimit smoke test
         id: smoke
+        working-directory: ratelimit-service
         env:
           NAMESPACE:       ${{ inputs.namespace || 'core-1-core' }}
           HELM_IMAGE_TAG:  ${{ inputs.ratelimit-image-tag || 'latest' }}
