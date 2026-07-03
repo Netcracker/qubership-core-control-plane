@@ -11,32 +11,38 @@ data:
         rate_limit:
           unit: minute
           requests_per_unit: 20
-      
+        priority: 20
+
 
       - key: path
         value: "/api/sensitive-data"
         rate_limit:
           unit: minute
           requests_per_unit: 10
+        priority: 50
         descriptors:
         - key: user_id
           rate_limit:
             unit: minute
             requests_per_unit: 5
-      
+          priority: 100
+
       - key: path
         value: "/api/export"
         rate_limit:
           unit: hour
           requests_per_unit: 10
+        priority: 50
         descriptors:
         - key: user_id
           rate_limit:
             unit: hour
             requests_per_unit: 2
-      
+          priority: 100
+
 
       - key: user_id
         rate_limit:
           unit: hour
           requests_per_unit: 200
+        priority: 10

@@ -158,7 +158,6 @@ phase_setup_pods() {
   log_ok "Test pods ready"
 }
 
-
 phase_setup_backend() {
   log_phase "PHASE 1 — Setting up test backend (httpbin + routes)"
 
@@ -189,6 +188,23 @@ phase_setup_backend() {
   sed "s|__NAMESPACE__|${NAMESPACE}|g" "$FIXTURES_DIR/dest-rule.yaml" \
     | kubectl apply -n "$NAMESPACE" -f -
   log_ok "DestinationRule applied"
+
+  log_info "Waiting for gateway → httpbin path to warm up..."
+  warm_up_ok=false
+  for i in $(seq 1 30); do
+    status=$(kubectl exec -n "$NAMESPACE" "$CURL_POD" -- \
+      curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$GATEWAY_URL/test" 2>/dev/null || echo "000")
+    if [ "$status" = "200" ]; then
+      warm_up_ok=true
+      break
+    fi
+    sleep 1
+  done
+  if [ "$warm_up_ok" = "true" ]; then
+    log_ok "Backend warm — got 200 after ${i}s"
+  else
+    log_err "Backend were not returned 200 after 30s (last status: $status)"
+  fi
 }
 
 # ── Phase 2: baseline load test (no ratelimit) ─────────────────────────────────
@@ -390,9 +406,11 @@ lines = [
     f"| p95 latency     | {fmt_ms(b.get('p95_ms'))}  | {fmt_ms(f.get('p95_ms'))}  | {delta(b.get('p95_ms'), f.get('p95_ms'))} |",
     f"| Min latency     | {fmt_ms(b.get('min_ms'))}  | {fmt_ms(f.get('min_ms'))}  | {delta(b.get('min_ms'), f.get('min_ms'))} |",
     f"| Max latency     | {fmt_ms(b.get('max_ms'))}  | {fmt_ms(f.get('max_ms'))}  | {delta(b.get('max_ms'), f.get('max_ms'))} |",
-    f"| Failure rate    | {fmt_pct(b.get('fail_rate'))} | {fmt_pct(f.get('fail_rate'))} | {delta(b.get('fail_rate'), f.get('fail_rate'))} |",
+    f"| Failure rate    | {fmt_pct(b.get('fail_rate'))} | {fmt_pct(f.get('fail_rate'))} | see Interpretation ⬇️ |",
     "",
     "> 🟢 improvement or negligible change &nbsp;&nbsp;🟡 minor regression (2–10%) &nbsp;&nbsp;🔴 notable regression (>10%)",
+    "> Failure rate is intentionally excluded from the Δ/badge scheme above: Final is *expected* to reject",
+    "> more than Baseline once rate limiting is active — that's enforcement working, not a regression.",
     "",
     "### Interpretation",
     "",

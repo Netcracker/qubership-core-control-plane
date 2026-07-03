@@ -11,16 +11,19 @@ data:
         rate_limit:
           unit: minute
           requests_per_unit: 200
-      
+        priority: 10
+
 
       - key: path
         value: "/api/public"
         rate_limit:
           unit: second
           requests_per_unit: 50
-      
+        priority: 50
+
       - key: path
         value: "/api/health"
         rate_limit:
           unit: second
           requests_per_unit: 100
+        priority: 50

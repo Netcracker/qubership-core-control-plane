@@ -16,7 +16,7 @@ data:
           unit: second
           requests_per_unit: 2
         algorithm: fixed_window
-        priority: 50
+        priority: 100
 ---
 apiVersion: v1
 kind: ConfigMap

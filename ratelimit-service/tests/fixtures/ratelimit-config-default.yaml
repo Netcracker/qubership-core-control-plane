@@ -12,19 +12,24 @@ data:
         rate_limit:
           unit: second
           requests_per_unit: 5
+        priority: 50
 
         descriptors:
         - key: user_id
           rate_limit:
             unit: second
+            requests_per_unit: 2
+          priority: 100
 
       - key: path
         value: "/api/v1/status"
         rate_limit:
           unit: second
           requests_per_unit: 2
+        priority: 50
         descriptors:
         - key: user_id
           rate_limit:
             unit: second
             requests_per_unit: 5
+          priority: 100
