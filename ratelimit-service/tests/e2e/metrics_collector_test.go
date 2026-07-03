@@ -21,7 +21,6 @@ import (
 )
 
 func TestE2E_MetricsWithRealRedis(t *testing.T) {
-	namespace := utils.GetEnv("NAMESPACE", "core-1-core")
 	redisAddr := utils.GetEnv("TEST_REDIS_ADDR", "localhost:6379")
 
 	rdb := redis.NewClient(&redis.Options{
@@ -31,7 +30,7 @@ func TestE2E_MetricsWithRealRedis(t *testing.T) {
 
 	ctx := context.Background()
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		t.Skipf("Redis not available at %s. Run: kubectl port-forward -n %s service/redis 6379:6379", redisAddr, namespace)
+		t.Skipf("Redis not available at %s. Run: kubectl port-forward -n %s service/redis 6379:6379", redisAddr, utils.GetEnv("NAMESPACE", "core"))
 		return
 	}
 	defer rdb.Close()

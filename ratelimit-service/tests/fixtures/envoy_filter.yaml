@@ -29,7 +29,7 @@ spec:
             - endpoint:
                 address:
                   socket_address:
-                    address: ratelimit-service.core-1-core.svc.cluster.local
+                    address: ratelimit-service.__NAMESPACE__.svc.cluster.local
                     port_value: 8081
 
   # Rate limit filter - simplified match

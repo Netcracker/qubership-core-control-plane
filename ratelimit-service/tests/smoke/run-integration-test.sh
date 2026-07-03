@@ -208,9 +208,11 @@ phase_install() {
   kubectl apply -f "$FIXTURES_DIR/gateway-pod-label.yaml" -n "$NAMESPACE"
   log_ok "gateway-pod-label EnvoyFilter applied"
 
-  # Apply DestinationRule (ROUND_ROBIN LB for gateway)
+  # Apply DestinationRule (ROUND_ROBIN LB for gateway).
+  # The gateway host FQDN embeds the namespace, so render it from $NAMESPACE.
   log_info "Applying DestinationRule..."
-  kubectl apply -f "$FIXTURES_DIR/dest-rule.yaml" -n "$NAMESPACE"
+  sed "s|__NAMESPACE__|${NAMESPACE}|g" "$FIXTURES_DIR/dest-rule.yaml" \
+    | kubectl apply -n "$NAMESPACE" -f -
   log_ok "DestinationRule applied"
 
   # Install / upgrade ratelimit via Helm
@@ -218,6 +220,7 @@ phase_install() {
   log_info "Deploying ratelimit via Helm (release: $HELM_RELEASE)..."
   helm upgrade --install "$HELM_RELEASE" "$HELM_CHART" \
     --namespace "$NAMESPACE" \
+    --set namespace="$NAMESPACE" \
     --set image.repository="$HELM_IMAGE_REPO" \
     --set image.tag="$HELM_IMAGE_TAG" \
     --set config.redis.addr="$REDIS_ADDR" \

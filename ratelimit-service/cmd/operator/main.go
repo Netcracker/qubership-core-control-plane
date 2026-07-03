@@ -28,7 +28,6 @@ func main() {
     apiPort := utils.GetEnv("API_PORT", "8082")
     grpcPort := utils.GetEnv("GRPC_PORT", "8081")
     metricsPort := utils.GetEnv("METRICS_PORT", "9090")
-    namespace := utils.GetEnv("NAMESPACE", "core-1-core")
 
     // Create Redis client
     redisClient, err := ratelimit.NewRedisClient(redisAddr, "", 0)
@@ -76,7 +75,6 @@ func main() {
     }
     
     klog.Info("Kubernetes client created successfully")
-    klog.Infof("Using namespace: %s", namespace)
 
     // Create controller
     configMapController := controller.NewConfigMapController(clientset, redisClient, rateLimitManager)
@@ -115,7 +113,6 @@ func main() {
     klog.Infof("  - Metrics API: http://localhost:%s/metrics", metricsPort)
     klog.Infof("  - Redis: %s", redisAddr)
     klog.Infof("  - Metrics collector: running (interval: 30s)")
-    klog.Infof("  - ConfigMap controller: watching namespace '%s'", namespace)
     klog.Infof("========================================")
 
     // Wait for shutdown signal

@@ -10,7 +10,8 @@ image:
 
 config:
   redis:
-    addr: "redis.core-1-core.svc.cluster.local:6379"
+    # Empty → derived from .Values.namespace as redis.<namespace>.svc.cluster.local:6379
+    addr: ""
     password: ""
     db: 0
   separator: "|"

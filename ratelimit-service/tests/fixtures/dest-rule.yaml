@@ -3,7 +3,7 @@ kind: DestinationRule
 metadata:
   name: public-gateway-lb
 spec:
-  host: public-gateway-istio.core-1-core.svc.cluster.local
+  host: public-gateway-istio.__NAMESPACE__.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       simple: ROUND_ROBIN

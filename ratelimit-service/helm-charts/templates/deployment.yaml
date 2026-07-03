@@ -42,7 +42,7 @@ spec:
         - name: METRICS_PORT
           value: {{ .Values.metrics.port | quote }}
         - name: REDIS_ADDR
-          value: {{ .Values.config.redis.addr | quote }}
+          value: {{ .Values.config.redis.addr | default (printf "redis.%s.svc.cluster.local:6379" .Values.namespace) | quote }}
         - name: REDIS_PASSWORD
           value: {{ .Values.config.redis.password | quote }}
         - name: REDIS_DB

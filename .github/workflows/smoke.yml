@@ -28,7 +28,7 @@ on:
       namespace:
         description: 'Kubernetes namespace for ratelimit'
         required: false
-        default: 'core-1-core'
+        default: 'core'
         type: string
       skip-install:
         description: 'Skip ratelimit installation (already deployed)'
@@ -63,13 +63,13 @@ jobs:
           config-server-tag: latest
           site-management-tag: latest
           test-branch: main
-          mesh-type: Core
+          mesh-type: Istio
 
       - name: Run ratelimit smoke test
         id: smoke
         working-directory: ratelimit-service
         env:
-          NAMESPACE:       ${{ inputs.namespace || 'core-1-core' }}
+          NAMESPACE:       ${{ inputs.namespace || 'core' }}
           HELM_IMAGE_TAG:  ${{ inputs.ratelimit-image-tag || 'latest' }}
           HELM_IMAGE_REPO: ghcr.io/netcracker/ratelimit
           HELM_RELEASE:    ratelimit
