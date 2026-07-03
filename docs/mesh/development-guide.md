@@ -376,13 +376,13 @@ There several Core Libraries that allow configuring routes registration for your
 
 #### Quarkus Extension
 
-See route-registrator quarkus extension README https://github.com/Netcracker/qubership-core-quarkus-extensions/tree/main/routes-registrator
+See route-registrator quarkus extension README https://github.com/Netcracker/qubership-core-java-libs/tree/main/core-quarkus-extensions/routes-registrator
 
 #### Thin Java Libraries 3.X
 
 Java Thin Libraries allow routes registration using Java annotations. 
 
-See Spring-based route-registration library README https://github.com/Netcracker/qubership-core-rest-libraries/tree/main/route-registration/README.md
+See Spring-based route-registration library README https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-rest-libraries/route-registration/README.md
 
 #### Reactive Java Library
 
@@ -458,12 +458,12 @@ public class TraceController {
 ```
 
 #### Pure Java
-[route-registration-common](https://github.com/Netcracker/qubership-core-rest-libraries/tree/master/route-registration/route-registration-common) 
+[route-registration-common](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-rest-libraries/route-registration/route-registration-common) 
 is a pure Java library that can be used to write your own routes registration library. 
 
 Common library is suitable both for Spring and Quarkus. 
 
-For more information refer library [README](https://github.com/Netcracker/qubership-core-rest-libraries/tree/main/route-registration/route-registration-common/README.md). 
+For more information refer library [README](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-rest-libraries/route-registration/route-registration-common/README.md). 
 
 #### Go Route Registration
 

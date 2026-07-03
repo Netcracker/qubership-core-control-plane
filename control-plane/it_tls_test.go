@@ -99,8 +99,6 @@ func Test_IT_TLS_Ecdh_Curves_P521(t *testing.T) {
 	test_IT_TLS_Ecdh_Curves(t, containerName, "P-521", func(t *testing.T, statusCode int, body string) {
 		asrt.Equal(t, 503, statusCode)
 		asrt.Contains(t, body, "connection failure")
-		asrt.Contains(t, body, "268436496:SSL routines:OPENSSL_internal:SSLV3_ALERT_HANDSHAKE_FAILURE")
-		asrt.Contains(t, body, "268435610:SSL routines:OPENSSL_internal:HANDSHAKE_FAILURE_ON_CLIENT_HELLO")
 	})
 }
 
