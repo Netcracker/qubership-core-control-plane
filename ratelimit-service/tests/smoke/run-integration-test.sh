@@ -3,11 +3,14 @@
 #
 # Flow:
 #   Phase 0 — Deploy test pods (curl + k6) into the cluster
-#   Phase 1 — Baseline k6 load test (50 req/s × 30s, NO ratelimit active)
-#   Phase 2 — Install ratelimit service (Redis if absent + Helm + EnvoyFilter + gateway restart)
-#   Phase 3 — Run all test scenarios (priorities / accuracy / algo-compare / k6 tests)
-#   Phase 4 — Final k6 load test (same 50 req/s × 30s, ratelimit active)
-#   Phase 5 — Generate markdown comparison report + write to $GITHUB_STEP_SUMMARY
+#   Phase 1 — Set up test backend (httpbin + HTTPRoute + DestinationRule +
+#             gateway-pod-label EnvoyFilter). No rate limiting involved here.
+#   Phase 2 — Baseline k6 load test (50 req/s × 30s, NO ratelimit active)
+#   Phase 3 — Install ratelimit service (Redis if absent + Helm + its EnvoyFilter
+#             + gateway restart) — this is what actually activates enforcement
+#   Phase 4 — Run all test scenarios (priorities / accuracy / algo-compare / k6 tests)
+#   Phase 5 — Final k6 load test (same 50 req/s × 30s, ratelimit active)
+#   Phase 6 — Generate markdown comparison report + write to $GITHUB_STEP_SUMMARY
 #
 # Required env vars (all have defaults):
 #   NAMESPACE         — k8s namespace            (default: core-1-core)
@@ -155,40 +158,9 @@ phase_setup_pods() {
   log_ok "Test pods ready"
 }
 
-# ── Phase 1: baseline load test (no ratelimit) ────────────────────────────────
 
-phase_baseline() {
-  log_phase "PHASE 1 — Baseline load test (WITHOUT ratelimit)"
-  log_info "50 req/s × 30s — pure Istio gateway, no rate-limit enforcement"
-
-  run_k6_test "Baseline" "k6-baseline-test.js" "$BASELINE_SUMMARY"
-
-  if [ -s "$BASELINE_SUMMARY" ]; then
-    log_ok "Baseline summary saved → $BASELINE_SUMMARY"
-  else
-    log_err "Baseline summary not captured — comparison will show partial data"
-  fi
-}
-
-# ── Phase 2: install ratelimit ────────────────────────────────────────────────
-
-phase_install() {
-  if [ "$SKIP_INSTALL" = "true" ]; then
-    log_phase "PHASE 2 — Skipped (SKIP_INSTALL=true)"
-    return
-  fi
-
-  log_phase "PHASE 2 — Installing ratelimit service"
-
-  # Deploy Redis if not already present
-  if ! kubectl get deployment redis -n "$NAMESPACE" &>/dev/null; then
-    log_info "Redis not found — deploying..."
-    kubectl apply -f "$FIXTURES_DIR/redis.yaml" -n "$NAMESPACE"
-    kubectl rollout status deployment/redis -n "$NAMESPACE" --timeout=120s
-    log_ok "Redis deployed"
-  else
-    log_info "Redis already present — skipping"
-  fi
+phase_setup_backend() {
+  log_phase "PHASE 1 — Setting up test backend (httpbin + routes)"
 
   # Deploy httpbin (test backend) if not present
   if ! kubectl get deployment httpbin -n "$NAMESPACE" &>/dev/null; then
@@ -205,8 +177,9 @@ phase_install() {
   kubectl apply -f "$FIXTURES_DIR/routes-loadtest.yaml" -n "$NAMESPACE"
   log_ok "HTTPRoute applied"
 
-  # Apply EnvoyFilter that adds x-gateway-id response header (needed for distribution test)
-  log_info "Applying gateway-pod-label EnvoyFilter..."
+  # Apply EnvoyFilter that adds x-gateway-id response header (needed for distribution
+  # test). Response-header-only Lua filter — no rate limiting involved.
+  log_info "Applying gateway-pod-label EnvoyFilter (response header only, no rate limiting)..."
   kubectl apply -f "$FIXTURES_DIR/gateway-pod-label.yaml" -n "$NAMESPACE"
   log_ok "gateway-pod-label EnvoyFilter applied"
 
@@ -216,6 +189,42 @@ phase_install() {
   sed "s|__NAMESPACE__|${NAMESPACE}|g" "$FIXTURES_DIR/dest-rule.yaml" \
     | kubectl apply -n "$NAMESPACE" -f -
   log_ok "DestinationRule applied"
+}
+
+# ── Phase 2: baseline load test (no ratelimit) ─────────────────────────────────
+
+phase_baseline() {
+  log_phase "PHASE 2 — Baseline load test (WITHOUT ratelimit)"
+  log_info "50 req/s × 30s — pure Istio gateway, no rate-limit enforcement"
+
+  run_k6_test "Baseline" "k6-baseline-test.js" "$BASELINE_SUMMARY"
+
+  if [ -s "$BASELINE_SUMMARY" ]; then
+    log_ok "Baseline summary saved → $BASELINE_SUMMARY"
+  else
+    log_err "Baseline summary not captured — comparison will show partial data"
+  fi
+}
+
+# ── Phase 3: install ratelimit ────────────────────────────────────────────────
+
+phase_install() {
+  if [ "$SKIP_INSTALL" = "true" ]; then
+    log_phase "PHASE 3 — Skipped (SKIP_INSTALL=true)"
+    return
+  fi
+
+  log_phase "PHASE 3 — Installing ratelimit service"
+
+  # Deploy Redis if not already present
+  if ! kubectl get deployment redis -n "$NAMESPACE" &>/dev/null; then
+    log_info "Redis not found — deploying..."
+    kubectl apply -f "$FIXTURES_DIR/redis.yaml" -n "$NAMESPACE"
+    kubectl rollout status deployment/redis -n "$NAMESPACE" --timeout=120s
+    log_ok "Redis deployed"
+  else
+    log_info "Redis already present — skipping"
+  fi
 
   # Install / upgrade ratelimit via Helm
   # EnvoyFilter for ratelimit is included in the chart (envoyFilter.enabled=true).
@@ -238,10 +247,10 @@ phase_install() {
   log_ok "Gateway restarted — ratelimit is now active"
 }
 
-# ── Phase 3: all test scenarios ───────────────────────────────────────────────
+# ── Phase 4: all test scenarios ───────────────────────────────────────────────
 
 phase_scenarios() {
-  log_phase "PHASE 3 — Running all test scenarios"
+  log_phase "PHASE 4 — Running all test scenarios"
 
   run_test "1. Show Current Rules" "get-rules.sh" ""
 
@@ -271,10 +280,10 @@ phase_scenarios() {
   log_ok "All test scenarios complete"
 }
 
-# ── Phase 4: final load test (with ratelimit) ─────────────────────────────────
+# ── Phase 5: final load test (with ratelimit) ─────────────────────────────────
 
 phase_final_load() {
-  log_phase "PHASE 4 — Final load test (WITH ratelimit)"
+  log_phase "PHASE 5 — Final load test (WITH ratelimit)"
   log_info "50 req/s × 30s — same parameters as baseline, ratelimit now enforcing"
 
   apply_config "$FIXTURES_DIR/ratelimit-config-loadtest.yaml"
@@ -291,10 +300,10 @@ phase_final_load() {
   fi
 }
 
-# ── Phase 5: comparison report ────────────────────────────────────────────────
+# ── Phase 6: comparison report ────────────────────────────────────────────────
 
 phase_report() {
-  log_phase "PHASE 5 — Generating comparison report"
+  log_phase "PHASE 6 — Generating comparison report"
 
   python3 - "$BASELINE_SUMMARY" "$FINAL_SUMMARY" "$REPORT_FILE" <<'PYEOF'
 import json, sys, os
@@ -436,11 +445,6 @@ PYEOF
   echo ""
   log_ok "Report written → $REPORT_FILE"
 
-  # ── Publish to GitHub Actions job summary ────────────────────────────────
-  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-    cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
-    log_ok "Comparison report appended to \$GITHUB_STEP_SUMMARY"
-  fi
 }
 
 # ── cleanup ───────────────────────────────────────────────────────────────────
@@ -468,6 +472,7 @@ echo "Results dir  : $RESULTS_DIR"
 echo ""
 
 phase_setup_pods
+phase_setup_backend
 phase_baseline
 phase_install
 phase_scenarios
