@@ -1,7 +1,7 @@
 {
   "components" : [
     {
-      "name": "ratelimit",
+      "name": "qubership-core-ratelimit",
       "file": "ratelimit-service/Dockerfile",
       "context": "./ratelimit-service"
     }

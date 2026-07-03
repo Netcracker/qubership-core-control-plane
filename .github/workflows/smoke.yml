@@ -1,5 +1,5 @@
 name: Ratelimit smoke test
-run-name: "Ratelimit smoke [${{ inputs.ratelimit-image-tag || 'latest' }}]"
+run-name: "Ratelimit smoke [${{ inputs.ratelimit-image-tag || 'feat-ratelimit-snapshot' }}]"
 
 on:
   push:
@@ -23,7 +23,7 @@ on:
       ratelimit-image-tag:
         description: 'Docker image tag for ratelimit service'
         required: false
-        default: 'latest'
+        default: 'feat-ratelimit-snapshot'
         type: string
       namespace:
         description: 'Kubernetes namespace for ratelimit'
@@ -70,8 +70,8 @@ jobs:
         working-directory: ratelimit-service
         env:
           NAMESPACE:       ${{ inputs.namespace || 'core' }}
-          HELM_IMAGE_TAG:  ${{ inputs.ratelimit-image-tag || 'latest' }}
-          HELM_IMAGE_REPO: ghcr.io/netcracker/ratelimit
+          HELM_IMAGE_TAG:  ${{ inputs.ratelimit-image-tag || 'feat-ratelimit-snapshot' }}
+          HELM_IMAGE_REPO: ghcr.io/netcracker/qubership-core-ratelimit
           HELM_RELEASE:    ratelimit
           HELM_CHART:      ./helm-charts
           SKIP_INSTALL:    ${{ (inputs.skip-install && 'true') || 'false' }}

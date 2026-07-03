@@ -71,7 +71,7 @@ cd qubership-core-bootstrap/ratelimit-service
 helm install ratelimit-service ./helm-charts \
   --namespace $NAMESPACE \
   --create-namespace \
-  --set image.repository=ghcr.io/netcracker/ratelimit \
+  --set image.repository=ghcr.io/netcracker/qubership-core-ratelimit \
   --set image.tag=<release-tag>    # e.g. v1.0.0; use feat-ratelimit-snapshot for the latest dev build
 
 # Verify Installation
