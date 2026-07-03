@@ -224,6 +224,8 @@ phase_install() {
     --set image.repository="$HELM_IMAGE_REPO" \
     --set image.tag="$HELM_IMAGE_TAG" \
     --set config.redis.addr="$REDIS_ADDR" \
+    --set monitoring.enabled=false \
+    --set monitoring.grafanaDashboard.enabled=false \
     --wait --timeout=120s
   log_ok "Ratelimit deployed"
 

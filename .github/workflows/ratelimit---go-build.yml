@@ -7,11 +7,6 @@ on:
     paths:
       - 'ratelimit-service/**'
 
-permissions:
-  contents: read
-  pull-requests: read
-  packages: write
-
 concurrency:
   group: ci-ratelimit-build-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
