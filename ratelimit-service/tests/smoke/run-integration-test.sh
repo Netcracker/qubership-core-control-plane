@@ -114,7 +114,7 @@ run_test() {
 # If summary_out is non-empty, --summary-export is used and the result is
 # fetched back to the host so the comparison report can read it.
 run_k6_test() {
-  local name=$1 script=$2 summary_out=${3:-}
+  local name=$1 script=$2 summary_out=${3:-} run_label=${4:-no ratelimit}
   echo ""
   echo -e "${BLUE}──────────────────────────────────────────────${NC}"
   echo -e "${GREEN}▶  K6: $name${NC}"
@@ -124,6 +124,7 @@ run_k6_test() {
 
   kubectl exec -n "$NAMESPACE" "$K6_POD" -- sh -c "
     export K6_QUIET=1
+    export RUN_LABEL='${run_label}'
     k6 run $export_flag /scripts/$script 2>&1 | tail -60
   "
   local rc=$?
@@ -281,7 +282,7 @@ phase_final_load() {
   # Use a standalone run that only captures the constant_load phase metrics
   # by running k6-baseline-test.js (same scenario) but now against the
   # rate-limited gateway. This gives an apples-to-apples latency comparison.
-  run_k6_test "Final constant load (50 req/s × 30s)" "k6-baseline-test.js" "$FINAL_SUMMARY"
+  run_k6_test "Final constant load (50 req/s × 30s)" "k6-baseline-test.js" "$FINAL_SUMMARY" "ratelimit active"
 
   delete_config "ratelimit-config-loadtest"
 
@@ -324,15 +325,17 @@ def extract(data):
     if data is None:
         return {}
     m = data.get('metrics', {})
+    # NOTE: k6's --summary-export JSON puts stats directly under the metric
+    # name (e.g. metrics.http_reqs.count) — there is no extra "values" level.
     return {
-        'total':     dig(m, 'http_reqs',        'values', 'count',  default=None),
-        'rate':      dig(m, 'http_reqs',        'values', 'rate',   default=None),
-        'avg_ms':    dig(m, 'http_req_duration','values', 'avg',    default=None),
-        'p95_ms':    dig(m, 'http_req_duration','values', 'p(95)',  default=None),
-        'med_ms':    dig(m, 'http_req_duration','values', 'med',    default=None),
-        'min_ms':    dig(m, 'http_req_duration','values', 'min',    default=None),
-        'max_ms':    dig(m, 'http_req_duration','values', 'max',    default=None),
-        'fail_rate': dig(m, 'http_req_failed',  'values', 'rate',   default=None),
+        'total':     dig(m, 'http_reqs',        'count',  default=None),
+        'rate':      dig(m, 'http_reqs',        'rate',   default=None),
+        'avg_ms':    dig(m, 'http_req_duration','avg',    default=None),
+        'p95_ms':    dig(m, 'http_req_duration','p(95)',  default=None),
+        'med_ms':    dig(m, 'http_req_duration','med',    default=None),
+        'min_ms':    dig(m, 'http_req_duration','min',    default=None),
+        'max_ms':    dig(m, 'http_req_duration','max',    default=None),
+        'fail_rate': dig(m, 'http_req_failed',  'value',  default=None),
     }
 
 b = extract(load_metrics(baseline_file))
@@ -365,7 +368,7 @@ lines = [
     "| | Baseline | Final |",
     "|---|---|---|",
     "| Rate limiting | ❌ None | ✅ Active (50 req/s path, 10 req/s per user) |",
-    "| Gateway | Istio only | Istio + EnvoyFilter + ratelimit sidecar |",
+    "| Gateway | Istio only | Istio + EnvoyFilter + ratelimit|",
     "",
     "### Results",
     "",

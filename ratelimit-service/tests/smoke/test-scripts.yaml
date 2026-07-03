@@ -451,7 +451,8 @@ data:
       const p95Ms    = data.metrics.http_req_duration.values['p(95)'].toFixed(2);
       const failRate = ((data.metrics.http_req_failed || {values:{rate:0}}).values.rate * 100).toFixed(2);
 
-      console.log(`\n=== K6 BASELINE TEST RESULTS (no ratelimit) ===`);
+      const runLabel = __ENV.RUN_LABEL || 'no ratelimit';
+      console.log(`\n=== K6 TEST RESULTS (${runLabel}) ===`);
       console.log(`Total requests : ${total}`);
       console.log(`Avg latency    : ${avgMs} ms`);
       console.log(`p95 latency    : ${p95Ms} ms`);
