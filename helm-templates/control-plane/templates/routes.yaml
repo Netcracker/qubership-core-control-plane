@@ -33,15 +33,21 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v1/routes/internal-gateway-service"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     - matches:
         - path:
             type: PathPrefix
             value: "/api/v2/control-plane/routing/details"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     - matches:
         - path:
             type: PathPrefix
@@ -53,8 +59,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/routing/details"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -67,8 +76,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/active-active"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -81,8 +93,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/composite-platform/namespaces"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -95,8 +110,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/versions/microservices"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -109,8 +127,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/versions/registry"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -123,8 +144,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/rate-limits"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -137,8 +161,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/http-filters"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -151,15 +178,21 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/gateways/specs"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     - matches:
         - path:
             type: PathPrefix
             value: "/health"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
 
 ---
 # Internal routes - config-server
@@ -193,8 +226,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/"
       backendRefs:
-        - name: config-server
+        - group: ""
+          kind: Service
+          name: config-server
           port: 8080
+          weight: 1
 
 ---
 # ==========================================
@@ -214,7 +250,9 @@ metadata:
     app.kubernetes.io/processed-by-operator: 'istiod'
 spec:
   parentRefs:
-    - name: {{ .Values.ISTIO_PUBLIC_GATEWAY_NAME }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.ISTIO_PUBLIC_GATEWAY_NAME }}
   rules:
     - matches:
         - path:
@@ -227,8 +265,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v1/routes/public-gateway-service"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     - matches:
         - path:
             type: PathPrefix
@@ -240,15 +281,21 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/ui"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     - matches:
         - path:
             type: PathPrefix
             value: "/health"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
 ---
 # ==========================================
 # PRIVATE ROUTES
@@ -268,7 +315,9 @@ metadata:
     app.kubernetes.io/processed-by-operator: 'istiod'
 spec:
   parentRefs:
-    - name: {{ .Values.ISTIO_PRIVATE_GATEWAY_NAME }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.ISTIO_PRIVATE_GATEWAY_NAME }}
   rules:
     - matches:
         - path:
@@ -281,8 +330,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v1/routes/private-gateway-service"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -295,8 +347,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v1/routes/clusters"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -309,8 +364,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v1/routes/route-configs"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     - matches:
         - path:
             type: PathPrefix
@@ -340,8 +398,11 @@ spec:
             type: PathPrefix
             value: "/api/v2/control-plane/load-balance"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
 
 ---
 # Private routes - API v3
@@ -359,7 +420,9 @@ metadata:
     app.kubernetes.io/processed-by-operator: 'istiod'
 spec:
   parentRefs:
-    - name: {{ .Values.ISTIO_PRIVATE_GATEWAY_NAME }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.ISTIO_PRIVATE_GATEWAY_NAME }}
   rules:
     - matches:
         - path:
@@ -372,8 +435,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/routing/details"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -386,8 +452,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/versions"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -400,8 +469,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/versions/microservices"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -414,8 +486,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/versions/watch"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -428,8 +503,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/promote"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -442,8 +520,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/rollback"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -456,8 +537,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/endpoints"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -470,8 +554,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/load-balance"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -484,8 +571,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/rate-limits"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -498,8 +588,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/http-filters"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -512,8 +605,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/gateways/specs"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -526,8 +622,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/routes"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -540,8 +639,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/domains"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -554,8 +656,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/config"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
     
     - matches:
         - path:
@@ -568,8 +673,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/apply-config"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
 
     - matches:
         - path:
@@ -582,8 +690,11 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/api/v3/"
       backendRefs:
-        - name: {{ .Values.SERVICE_NAME }}
+        - group: ""
+          kind: Service
+          name: {{ .Values.SERVICE_NAME }}
           port: 8080
+          weight: 1
 ---
 # Private routes - Config server
 apiVersion: gateway.networking.k8s.io/v1
@@ -600,7 +711,9 @@ metadata:
     app.kubernetes.io/processed-by-operator: 'istiod'
 spec:
   parentRefs:
-    - name: {{ .Values.ISTIO_PRIVATE_GATEWAY_NAME }}
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.ISTIO_PRIVATE_GATEWAY_NAME }}
   rules:
     - matches:
         - path:
@@ -613,6 +726,9 @@ spec:
               type: ReplacePrefixMatch
               replacePrefixMatch: "/"
       backendRefs:
-        - name: config-server
+        - group: ""
+          kind: Service
+          name: config-server
           port: 8080
+          weight: 1
 {{- end }}
