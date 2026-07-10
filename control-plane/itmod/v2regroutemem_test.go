@@ -1,7 +1,8 @@
 package itmod
 
 import (
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
+	"github.com/gofiber/fiber/v3"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"testing"
 )
@@ -48,6 +49,6 @@ func BenchmarkRegRouteV2(b *testing.B) {
 	app, _ := fiberserver.New().Process()
 
 	for i := 0; i < b.N; i++ {
-		app.Test(makeV2Request(regRouteRequestRaw), -1)
+		app.Test(makeV2Request(regRouteRequestRaw), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	}
 }

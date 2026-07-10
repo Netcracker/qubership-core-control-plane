@@ -3,8 +3,8 @@ package v3
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/utils/v2"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
@@ -33,8 +33,8 @@ func NewHttpFilterController(httpFilterSrv *httpFilter.Service) *HttpFilterContr
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/http-filters [post]
-func (c *HttpFilterController) HandlePostHttpFilters(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *HttpFilterController) HandlePostHttpFilters(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Received POST http filters request")
 
 	if dr.GetMode() == dr.Standby {
@@ -73,8 +73,8 @@ func (c *HttpFilterController) HandlePostHttpFilters(fiberCtx *fiber.Ctx) error 
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/http-filters [delete]
-func (c *HttpFilterController) HandleDeleteHttpFilters(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *HttpFilterController) HandleDeleteHttpFilters(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Received DELETE http filters request")
 
 	if dr.GetMode() == dr.Standby {
@@ -113,8 +113,8 @@ func (c *HttpFilterController) HandleDeleteHttpFilters(fiberCtx *fiber.Ctx) erro
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/http-filters/{nodeGroup} [get]
-func (c *HttpFilterController) HandleGetHttpFilters(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *HttpFilterController) HandleGetHttpFilters(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Received GET http filters request")
 
 	nodeGroup := utils.CopyString(fiberCtx.Params("nodeGroup"))

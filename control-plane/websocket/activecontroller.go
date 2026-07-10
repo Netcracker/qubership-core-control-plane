@@ -3,7 +3,7 @@ package websocket
 import (
 	"bytes"
 	"github.com/fasthttp/websocket"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/hashicorp/go-memdb"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
@@ -70,8 +70,8 @@ func (c *ActiveActiveController) handleActiveActiveChange(data interface{}) {
 // @Failure 405 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/active-active/watch [get]
-func (c *ActiveActiveController) HandleActiveActiveWatch(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *ActiveActiveController) HandleActiveActiveWatch(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	connHeader := fiberCtx.Request().Header.Peek("Connection")
 	if bytes.EqualFold(connHeader, []byte("upgrade")) {
 		fiberCtx.Request().Header.Set("Connection", "Upgrade")

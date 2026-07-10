@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/clustering"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
@@ -87,13 +87,13 @@ func CreateCompositeProxy(srv *Service) *proxy.Service {
 		serverPortString = configloader.GetOrDefaultString("https.server.bind", "8443")
 	}
 	return proxy.NewService(fmt.Sprintf("control-plane.%s%s", srv.Baseline(), serverPortString),
-		func(ctx *fiber.Ctx) bool { // condition to serve
+		func(ctx fiber.Ctx) bool { // condition to serve
 			return srv.mode == BaselineMode
 		},
-		func(ctx *fiber.Ctx) bool { // condition to proxy
+		func(ctx fiber.Ctx) bool { // condition to proxy
 			return srv.mode == SatelliteMode
 		},
-		func(ctx *fiber.Ctx) error { // fallback function
+		func(ctx fiber.Ctx) error { // fallback function
 			log.Warnf("Got request to the composite API, but this control-plane is not a part of the composite platform")
 			return restutils.RespondWithError(ctx, http.StatusBadRequest, "This control-plane is not a part of the composite platform")
 		})

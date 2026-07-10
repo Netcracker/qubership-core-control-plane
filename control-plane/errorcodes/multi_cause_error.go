@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
 )
@@ -23,7 +23,7 @@ func (e cpMultiCauseError) GetCauses() []errs.ErrCodeErr {
 	return errorCodeErrs
 }
 
-func (e cpMultiCauseError) Handle(ctx *fiber.Ctx) error {
+func (e cpMultiCauseError) Handle(ctx fiber.Ctx) error {
 	response := tmf.ErrToResponse(e, e.httpCode)
 
 	var multiErrors []tmf.Error

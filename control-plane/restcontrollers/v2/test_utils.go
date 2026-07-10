@@ -1,10 +1,10 @@
 package v2
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
@@ -21,16 +21,16 @@ func SaveDeploymentVersions(t *testing.T, storage *dao.InMemDao, dVs ...*domain.
 	assert.Nil(t, err)
 }
 
-func SendHttpRequestWithBody(t *testing.T, httpMethod, endpoint, reqUrl string, body io.Reader, f func(fiberCtx *fiber.Ctx) error) *http.Response {
+func SendHttpRequestWithBody(t *testing.T, httpMethod, endpoint, reqUrl string, body io.Reader, f func(fiberCtx fiber.Ctx) error) *http.Response {
 	app, err := fiberserver.New().Process()
 	assert.Nil(t, err)
-	app.Add(httpMethod, endpoint, f)
+	app.Add([]string{httpMethod}, endpoint, f)
 	req, err := http.NewRequest(httpMethod,
 		reqUrl,
 		body,
 	)
 	req.Host = "localhost"
 	assert.Nil(t, err)
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	return resp
 }

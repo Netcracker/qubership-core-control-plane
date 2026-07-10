@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/hashicorp/go-memdb"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/constancy"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
@@ -20,8 +20,8 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/route/v1"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/routingmode"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-	security2 "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+	security2 "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/stretchr/testify/assert"
@@ -263,28 +263,28 @@ func checkResponseCode(t *testing.T, expected, actual int) {
 	}
 }
 
-func sendHttpRequest(t *testing.T, httpMethod, endpoint, reqUrl string, body io.Reader, f func(c *fiber.Ctx) error) *http.Response {
+func sendHttpRequest(t *testing.T, httpMethod, endpoint, reqUrl string, body io.Reader, f func(c fiber.Ctx) error) *http.Response {
 	app, err := fiberserver.New().Process()
 	assert.Nil(t, err)
-	app.Add(httpMethod, endpoint, f)
+	app.Add([]string{httpMethod}, endpoint, f)
 	req, err := http.NewRequest(httpMethod,
 		reqUrl,
 		body,
 	)
 	req.Host = "localhost"
 	assert.Nil(t, err)
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	return resp
 }
 
-func (c *Controller) CreateRoutesUnsecure(ctx *fiber.Ctx) error {
+func (c *Controller) CreateRoutesUnsecure(ctx fiber.Ctx) error {
 	return c.HandlePostRoutesWithNodeGroup(ctx)
 }
 
-func (c *Controller) GetRouteConfigsUnsecure(ctx *fiber.Ctx) error {
+func (c *Controller) GetRouteConfigsUnsecure(ctx fiber.Ctx) error {
 	return c.HandleGetRouteConfigs(ctx)
 }
 
-func (c *Controller) GetClustersUnsecure(ctx *fiber.Ctx) error {
+func (c *Controller) GetClustersUnsecure(ctx fiber.Ctx) error {
 	return c.HandleGetClusters(ctx)
 }

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	gerrors "github.com/go-errors/errors"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
@@ -90,8 +90,8 @@ func printStack(err error) {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/routes [post]
-func (c *RoutingConfigController) HandlePostRoutingConfig(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutingConfigController) HandlePostRoutingConfig(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 
 	log.DebugC(ctx, "Received request body: \n\t%s", fiberCtx.Body())
 	var routingReq dto.RoutingConfigRequestV3
@@ -130,7 +130,7 @@ func (c *RoutingConfigController) HandlePostRoutingConfig(fiberCtx *fiber.Ctx) e
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/routes/{nodeGroup}/{virtualServiceName} [get]
-func (c *RoutingConfigController) HandleGetVirtualService(fiberCtx *fiber.Ctx) error {
+func (c *RoutingConfigController) HandleGetVirtualService(fiberCtx fiber.Ctx) error {
 	nodeGroup := restutils.GetFiberParam(fiberCtx, "nodeGroup")
 	if strings.TrimSpace(nodeGroup) == "" {
 		return errorcodes.NewCpError(errorcodes.ValidationRequestError, "Path variable 'nodeGroup' must not be empty.", nil)
@@ -141,7 +141,7 @@ func (c *RoutingConfigController) HandleGetVirtualService(fiberCtx *fiber.Ctx) e
 	}
 	virtualService, err := c.service.GetVirtualService(nodeGroup, virtualServiceName)
 	if err != nil {
-		log.ErrorC(fiberCtx.UserContext(), "Failed to get virtual service via v3 api: %v", err)
+		log.ErrorC(fiberCtx.Context(), "Failed to get virtual service via v3 api: %v", err)
 		return err
 	}
 
@@ -161,8 +161,8 @@ func (c *RoutingConfigController) HandleGetVirtualService(fiberCtx *fiber.Ctx) e
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/routes/{nodeGroup}/{virtualServiceName} [delete]
-func (c *RoutingConfigController) HandleDeleteVirtualService(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutingConfigController) HandleDeleteVirtualService(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	nodeGroup := restutils.GetFiberParam(fiberCtx, "nodeGroup")
 	if strings.TrimSpace(nodeGroup) == "" {
 		return errorcodes.NewCpError(errorcodes.ValidationRequestError, "Path variable 'nodeGroup' must not be empty.", nil)
@@ -197,8 +197,8 @@ func (c *RoutingConfigController) HandleDeleteVirtualService(fiberCtx *fiber.Ctx
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/routes/{nodeGroup}/{virtualServiceName} [put]
-func (c *RoutingConfigController) HandlePutVirtualService(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutingConfigController) HandlePutVirtualService(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	nodeGroup := restutils.GetFiberParam(fiberCtx, "nodeGroup")
 	if strings.TrimSpace(nodeGroup) == "" {
 		return errorcodes.NewCpError(errorcodes.ValidationRequestError, "Path variable 'nodeGroup' must not be empty.", nil)
@@ -244,8 +244,8 @@ func (c *RoutingConfigController) HandlePutVirtualService(fiberCtx *fiber.Ctx) e
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/routes/{nodeGroup}/{virtualServiceName} [post]
-func (c *RoutingConfigController) HandleCreateVirtualService(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutingConfigController) HandleCreateVirtualService(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	nodeGroup := restutils.GetFiberParam(fiberCtx, "nodeGroup")
 	if strings.TrimSpace(nodeGroup) == "" {
 		return errorcodes.NewCpError(errorcodes.ValidationRequestError, "Path variable 'nodeGroup' must not be empty.", nil)
@@ -286,8 +286,8 @@ func (c *RoutingConfigController) HandleCreateVirtualService(fiberCtx *fiber.Ctx
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/routes [delete]
-func (c *RoutingConfigController) HandleDeleteVirtualServiceRoutes(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutingConfigController) HandleDeleteVirtualServiceRoutes(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	var request []dto.RouteDeleteRequestV3
 	if err := json.Unmarshal(fiberCtx.Body(), &request); err != nil {
 		return errorcodes.NewCpError(errorcodes.UnmarshalRequestError, fmt.Sprintf("Failed to unmarshal routes deletion v3 request body: %v", err), err)
@@ -318,8 +318,8 @@ func (c *RoutingConfigController) HandleDeleteVirtualServiceRoutes(fiberCtx *fib
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/domains [delete]
-func (c *RoutingConfigController) HandleDeleteVirtualServiceDomains(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutingConfigController) HandleDeleteVirtualServiceDomains(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Request to delete virtual service domains")
 
 	var request []dto.DomainDeleteRequestV3
@@ -355,8 +355,8 @@ func (c *RoutingConfigController) HandleDeleteVirtualServiceDomains(fiberCtx *fi
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/endpoints [delete]
-func (c *RoutingConfigController) HandleDeleteEndpoints(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutingConfigController) HandleDeleteEndpoints(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.InfoC(ctx, "Request to delete endpoints")
 
 	var deleteRequests []dto.EndpointDeleteRequest

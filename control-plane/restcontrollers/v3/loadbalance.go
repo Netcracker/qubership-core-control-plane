@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
@@ -42,8 +42,8 @@ func NewLoadBalanceController(service *loadbalance.LoadBalanceService, validator
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/load-balance [post]
-func (c *LoadBalanceController) HandlePostLoadBalance(fiberCtx *fiber.Ctx) error {
-	context := fiberCtx.UserContext()
+func (c *LoadBalanceController) HandlePostLoadBalance(fiberCtx fiber.Ctx) error {
+	context := fiberCtx.Context()
 	data := new(dto.LoadBalanceSpec)
 	if err := json.NewDecoder(bytes.NewReader(fiberCtx.Body())).Decode(data); err != nil {
 		return errorcodes.NewCpError(errorcodes.UnmarshalRequestError, fmt.Sprintf("Can't parse request body: %s: ", err.Error()), err)
