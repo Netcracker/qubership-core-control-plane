@@ -1,0 +1,110 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+# trace-service-sticky: cookie-based stickiness, session cookie (ttl=0)
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: trace-service-sticky
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: trace-service
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: trace-service-sticky
+          ttl: "0s"
+          path: /
+---
+# trace-service-sticky-v2: cluster name with namespace+port suffix stripped, ttl in seconds
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: trace-service-sticky-v2
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: trace-service
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: trace-service-sticky-v2
+          ttl: "3600s"
+          path: /api
+---
+# ⚠ MANUAL REVIEW: trace-service-endpoint-sticky targets a specific endpoint
+#   (hostname=trace-service-v1, port=8080). DestinationRule.spec.host targets a
+#   Kubernetes Service (all pods). Check whether a dedicated Service exists for
+#   that endpoint; if not, create one before using this DestinationRule.
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: trace-service-endpoint-sticky
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: trace-service
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: trace-service-endpoint-sticky
+          ttl: "0s"
+          path: /
+# trace-service-disabled: enabled=false — skipped, no DestinationRule generated
+---
+# trace-service-lb-header: header-based consistent hash
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: trace-service-lb-header
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: trace-service
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpHeaderName: X-User-Id
+---
+# trace-service-lb-cookie: cookie-based consistent hash, session cookie
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: trace-service-lb-cookie
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: trace-service
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: LB_COOKIE
+          ttl: "0s"
+          path: /
+---
+# trace-service-lb-sourceip: source IP consistent hash
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: trace-service-lb-sourceip
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: trace-service
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        useSourceIp: true
+---
+# ⚠ MANUAL REVIEW: trace-service-lb-multi had 2 policies; only the first (header: BID) was migrated.
+#   Dropped: cookie: JSESSION — Istio DestinationRule supports only one consistentHash type.
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: trace-service-lb-multi
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: trace-service
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpHeaderName: BID
+{{- end }}
