@@ -1,9 +1,6 @@
 package routeconfig
 
 import (
-	"math"
-	"strings"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	common_ratelimitv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/common/ratelimit/v3"
 	corsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
@@ -19,6 +16,8 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/entity"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"google.golang.org/protobuf/types/known/anypb"
+	"math"
+	"strings"
 )
 
 //go:generate mockgen -source=virtualhost.go -destination=../../../../test/mock/envoy/cache/builder/routeconfig/stub_virtualhost.go -package=mock_routeconfig
