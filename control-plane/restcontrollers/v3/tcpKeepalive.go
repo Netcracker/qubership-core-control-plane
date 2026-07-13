@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/go-errors/errors"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
@@ -15,8 +18,6 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/restutils"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/entity"
-	"net/http"
-	"strings"
 )
 
 var errClusterNotFound = errors.New("no cluster found for provided clusterKey")
@@ -43,12 +44,12 @@ func NewClusterKeepAliveController(service *entity.Service, dao dao.Dao, bus bus
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/clusters/tcp-keepalive [post]
-func (c *ClusterKeepAliveController) HandlePostClusterTcpKeepAlive(fiberCtx *fiber.Ctx) error {
+func (c *ClusterKeepAliveController) HandlePostClusterTcpKeepAlive(fiberCtx fiber.Ctx) error {
 	request, err := c.readRequestBody(fiberCtx)
 	if err != nil {
 		return err
 	}
-	ctx := fiberCtx.UserContext()
+	ctx := fiberCtx.Context()
 
 	if dr.GetMode() == dr.Standby {
 		return restutils.RespondWithJson(fiberCtx, http.StatusOK, nil)
@@ -64,7 +65,7 @@ func (c *ClusterKeepAliveController) HandlePostClusterTcpKeepAlive(fiberCtx *fib
 	return restutils.RespondWithJson(fiberCtx, http.StatusOK, map[string]string{"message": "TCP keepalive for cluster applied successfully"})
 }
 
-func (c *ClusterKeepAliveController) readRequestBody(fiberCtx *fiber.Ctx) (*dto.ClusterKeepAliveReq, error) {
+func (c *ClusterKeepAliveController) readRequestBody(fiberCtx fiber.Ctx) (*dto.ClusterKeepAliveReq, error) {
 	var request dto.ClusterKeepAliveReq
 	if err := json.Unmarshal(fiberCtx.Body(), &request); err != nil {
 		return nil, errorcodes.NewCpError(errorcodes.UnmarshalRequestError, fmt.Sprintf("Failed to unmarshal ClusterTcpKeepAlive apply request body: %v", err), err)

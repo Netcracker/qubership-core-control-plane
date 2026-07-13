@@ -3,15 +3,16 @@ package composite
 import (
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+	"strings"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/composite"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/restutils"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"net/http"
-	"strings"
 )
 
 var logger = logging.GetLogger("rest-controllers/v3/composite")
@@ -34,8 +35,8 @@ func NewCompositeController(srv *composite.Service) *Controller {
 // @Success 200 {object} composite.Structure
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/composite-platform/namespaces [get]
-func (c *Controller) HandleGetCompositeStructure(fiberCtx *fiber.Ctx) error {
-	context := fiberCtx.UserContext()
+func (c *Controller) HandleGetCompositeStructure(fiberCtx fiber.Ctx) error {
+	context := fiberCtx.Context()
 	logger.InfoC(context, "Request to get composite platform structure")
 	structure, err := c.srv.GetCompositeStructure()
 	if err != nil {
@@ -57,8 +58,8 @@ func (c *Controller) HandleGetCompositeStructure(fiberCtx *fiber.Ctx) error {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/composite-platform/namespaces/{namespace} [post]
-func (c *Controller) HandleAddNamespaceToComposite(fiberCtx *fiber.Ctx) error {
-	context := fiberCtx.UserContext()
+func (c *Controller) HandleAddNamespaceToComposite(fiberCtx fiber.Ctx) error {
+	context := fiberCtx.Context()
 	namespace := restutils.GetFiberParam(fiberCtx, "namespace")
 	logger.InfoC(context, "Request to add namespace %s to the composite platform as a satellite", namespace)
 	if err := c.validateNamespace(namespace); err != nil {
@@ -90,8 +91,8 @@ func (c *Controller) HandleAddNamespaceToComposite(fiberCtx *fiber.Ctx) error {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/composite-platform/namespaces/{namespace} [delete]
-func (c *Controller) HandleRemoveNamespaceFromComposite(fiberCtx *fiber.Ctx) error {
-	context := fiberCtx.UserContext()
+func (c *Controller) HandleRemoveNamespaceFromComposite(fiberCtx fiber.Ctx) error {
+	context := fiberCtx.Context()
 	namespace := restutils.GetFiberParam(fiberCtx, "namespace")
 	logger.InfoC(context, "Request to remove namespace %s from the composite platform as a satellite", namespace)
 	if err := c.validateNamespace(namespace); err != nil {
