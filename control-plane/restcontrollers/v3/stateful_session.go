@@ -3,13 +3,14 @@ package v3
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/restutils"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/statefulsession"
-	"net/http"
 )
 
 type StatefulSessionController struct {
@@ -33,7 +34,7 @@ func NewStatefulSessionController(service statefulsession.Service, validator Req
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/load-balance/stateful-session [post]
-func (c *StatefulSessionController) HandlePostStatefulSession(fiberCtx *fiber.Ctx) error {
+func (c *StatefulSessionController) HandlePostStatefulSession(fiberCtx fiber.Ctx) error {
 	request, err := c.readRequestBody(fiberCtx)
 	if err != nil {
 		return err
@@ -53,7 +54,7 @@ func (c *StatefulSessionController) HandlePostStatefulSession(fiberCtx *fiber.Ct
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/load-balance/stateful-session [put]
-func (c *StatefulSessionController) HandlePutStatefulSession(fiberCtx *fiber.Ctx) error {
+func (c *StatefulSessionController) HandlePutStatefulSession(fiberCtx fiber.Ctx) error {
 	return c.HandlePostStatefulSession(fiberCtx)
 }
 
@@ -69,7 +70,7 @@ func (c *StatefulSessionController) HandlePutStatefulSession(fiberCtx *fiber.Ctx
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/load-balance/stateful-session [delete]
-func (c *StatefulSessionController) HandleDeleteStatefulSession(fiberCtx *fiber.Ctx) error {
+func (c *StatefulSessionController) HandleDeleteStatefulSession(fiberCtx fiber.Ctx) error {
 	request, err := c.readRequestBody(fiberCtx)
 	if err != nil {
 		return err
@@ -90,8 +91,8 @@ func (c *StatefulSessionController) HandleDeleteStatefulSession(fiberCtx *fiber.
 // @Success 200 {array} dto.StatefulSession
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/load-balance/stateful-session [get]
-func (c *StatefulSessionController) HandleGetStatefulSessions(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *StatefulSessionController) HandleGetStatefulSessions(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	configs, err := c.service.FindAll(ctx)
 	if err != nil {
 		log.ErrorC(ctx, "Failed to to get stateful session: %v", err)
@@ -100,7 +101,7 @@ func (c *StatefulSessionController) HandleGetStatefulSessions(fiberCtx *fiber.Ct
 	return restutils.ResponseOk(fiberCtx, configs)
 }
 
-func (c *StatefulSessionController) readRequestBody(fiberCtx *fiber.Ctx) (*dto.StatefulSession, error) {
+func (c *StatefulSessionController) readRequestBody(fiberCtx fiber.Ctx) (*dto.StatefulSession, error) {
 	var request dto.StatefulSession
 	if err := json.Unmarshal(fiberCtx.Body(), &request); err != nil {
 		return nil, errorcodes.NewCpError(errorcodes.UnmarshalRequestError, fmt.Sprintf("Failed to unmarshal StatefulSession apply request body: %v", err), err)
@@ -112,8 +113,8 @@ func (c *StatefulSessionController) readRequestBody(fiberCtx *fiber.Ctx) (*dto.S
 	return &request, nil
 }
 
-func (c *StatefulSessionController) applyStatefulSession(fiberCtx *fiber.Ctx, request *dto.StatefulSession) error {
-	ctx := fiberCtx.UserContext()
+func (c *StatefulSessionController) applyStatefulSession(fiberCtx fiber.Ctx, request *dto.StatefulSession) error {
+	ctx := fiberCtx.Context()
 
 	if dr.GetMode() == dr.Standby {
 		return restutils.RespondWithJson(fiberCtx, http.StatusOK, nil)

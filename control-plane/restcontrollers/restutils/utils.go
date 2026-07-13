@@ -6,21 +6,21 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/log"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/log"
+	"github.com/gofiber/utils/v2"
 )
 
-func RespondWithError(c *fiber.Ctx, code int, msg string) error {
+func RespondWithError(c fiber.Ctx, code int, msg string) error {
 	return RespondWithJson(c, code, map[string]string{"error": msg})
 }
 
-func RespondWithJson(c *fiber.Ctx, code int, payload interface{}) error {
+func RespondWithJson(c fiber.Ctx, code int, payload interface{}) error {
 	return c.Status(code).JSON(payload)
 }
 
-func RespondWithZip(c *fiber.Ctx, code int, payload interface{}, filename string, archivename string) error {
-	ctx := c.UserContext()
+func RespondWithZip(c fiber.Ctx, code int, payload interface{}, filename string, archivename string) error {
+	ctx := c.Context()
 	buf := new(bytes.Buffer)
 	zipWriter := zip.NewWriter(buf)
 	defer func(zipWriter *zip.Writer) {
@@ -55,15 +55,15 @@ func RespondWithZip(c *fiber.Ctx, code int, payload interface{}, filename string
 	return c.Send(buf.Bytes())
 }
 
-func ResponseOk(c *fiber.Ctx, payload interface{}) error {
+func ResponseOk(c fiber.Ctx, payload interface{}) error {
 	return RespondWithJson(c, http.StatusOK, payload)
 }
 
-func ResponseNoContent(c *fiber.Ctx, payload interface{}) error {
+func ResponseNoContent(c fiber.Ctx, payload interface{}) error {
 	return RespondWithJson(c, http.StatusNoContent, payload)
 }
 
-func GetFiberParam(fiberCtx *fiber.Ctx, paramName string) string {
+func GetFiberParam(fiberCtx fiber.Ctx, paramName string) string {
 	paramValue := fiberCtx.Params(paramName)
 	unescapedStr, err := url.QueryUnescape(paramValue)
 	if err != nil {

@@ -2,16 +2,17 @@ package v3
 
 import (
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/restutils"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/bluegreen"
-	"net/http"
-	"strconv"
-	"strings"
 )
 
 type BlueGreenController struct {
@@ -39,8 +40,8 @@ func NewBlueGreenController(blueGreenService *bluegreen.Service, dao dao.Dao) *B
 // @Failure 500 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Router /api/v3/versions/microservices/{microservice} [get]
-func (v3 *BlueGreenController) HandleGetMicroserviceVersion(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (v3 *BlueGreenController) HandleGetMicroserviceVersion(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	microservice := restutils.GetFiberParam(fiberCtx, "microservice")
 	log.DebugC(ctx, "Microservice %s is requesting its b/g version", microservice)
 	if strings.TrimSpace(microservice) == "" {
@@ -49,7 +50,7 @@ func (v3 *BlueGreenController) HandleGetMicroserviceVersion(fiberCtx *fiber.Ctx)
 	microservice = sanitizeMicroserviceHost(microservice)
 	version, err := v3.blueGreenService.GetMicroserviceVersion(ctx, microservice)
 	if err != nil {
-		log.ErrorC(fiberCtx.UserContext(), "Failed to get microservice %s version: %v", microservice, err)
+		log.ErrorC(fiberCtx.Context(), "Failed to get microservice %s version: %v", microservice, err)
 		return err
 	}
 	return restutils.RespondWithJson(fiberCtx, http.StatusOK, map[string]string{"version": version})
@@ -65,10 +66,10 @@ func (v3 *BlueGreenController) HandleGetMicroserviceVersion(fiberCtx *fiber.Ctx)
 // @Success 200 {array} domain.DeploymentVersion
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/versions [get]
-func (v3 *BlueGreenController) HandleGetDeploymentVersions(fiberCtx *fiber.Ctx) error {
+func (v3 *BlueGreenController) HandleGetDeploymentVersions(fiberCtx fiber.Ctx) error {
 	deploymentVersions, err := v3.dao.FindAllDeploymentVersions()
 	if err != nil {
-		log.ErrorC(fiberCtx.UserContext(), "Failed to get deployment versions: %v", err)
+		log.ErrorC(fiberCtx.Context(), "Failed to get deployment versions: %v", err)
 		return err
 	}
 	return restutils.RespondWithJson(fiberCtx, http.StatusOK, deploymentVersions)
@@ -86,8 +87,8 @@ func (v3 *BlueGreenController) HandleGetDeploymentVersions(fiberCtx *fiber.Ctx) 
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/versions/{version} [delete]
-func (v3 *BlueGreenController) HandleDeleteDeploymentVersionWithID(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (v3 *BlueGreenController) HandleDeleteDeploymentVersionWithID(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	version := restutils.GetFiberParam(fiberCtx, "version")
 	if version == "" {
 		return errorcodes.NewCpError(errorcodes.ValidationRequestError, "Path variable 'version' must not be empty.", nil)
@@ -128,8 +129,8 @@ func (v3 *BlueGreenController) HandleDeleteDeploymentVersionWithID(fiberCtx *fib
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/promote/{version} [post]
-func (v3 *BlueGreenController) HandlePostPromoteVersion(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (v3 *BlueGreenController) HandlePostPromoteVersion(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	version := restutils.GetFiberParam(fiberCtx, "version")
 	if version == "" {
 		return errorcodes.NewCpError(errorcodes.ValidationRequestError, "Path variable 'version' must not be empty.", nil)
@@ -137,7 +138,7 @@ func (v3 *BlueGreenController) HandlePostPromoteVersion(fiberCtx *fiber.Ctx) err
 	log.InfoC(ctx, "Request to Promote version '%s'", version)
 	var archiveSize int
 	var err error
-	archiveSizeString := string(fiberCtx.Context().FormValue("archiveSize"))
+	archiveSizeString := string(fiberCtx.RequestCtx().FormValue("archiveSize"))
 	if archiveSizeString == "" {
 		archiveSize = 1
 	} else {
@@ -184,8 +185,8 @@ func (v3 *BlueGreenController) HandlePostPromoteVersion(fiberCtx *fiber.Ctx) err
 // @Failure 409 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/rollback [post]
-func (v3 *BlueGreenController) HandlePostRollbackVersion(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (v3 *BlueGreenController) HandlePostRollbackVersion(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.InfoC(ctx, "Request to Rollback versions state")
 	if dr.GetMode() == dr.Standby {
 		return restutils.RespondWithJson(fiberCtx, http.StatusAccepted, []*domain.DeploymentVersion{})

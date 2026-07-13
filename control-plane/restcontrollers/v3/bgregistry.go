@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
@@ -14,7 +16,6 @@ import (
 	cfgres "github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/configresources"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
-	"net/http"
 )
 
 type VersionsRegistry[R dto.ServicesVersionPayload] interface {
@@ -47,7 +48,7 @@ func NewBGRegistryController(registry VersionsRegistry[dto.ServicesVersionPayloa
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/versions/registry [post]
-func (v3 *BGRegistryController) HandlePostMicroserviceVersions(fiberCtx *fiber.Ctx) error {
+func (v3 *BGRegistryController) HandlePostMicroserviceVersions(fiberCtx fiber.Ctx) error {
 	return v3.handleRegistrationRequest(fiberCtx, http.MethodPost)
 }
 
@@ -63,25 +64,25 @@ func (v3 *BGRegistryController) HandlePostMicroserviceVersions(fiberCtx *fiber.C
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/versions/registry/services [delete]
-func (v3 *BGRegistryController) HandleDeleteMicroserviceVersions(fiberCtx *fiber.Ctx) error {
+func (v3 *BGRegistryController) HandleDeleteMicroserviceVersions(fiberCtx fiber.Ctx) error {
 	return v3.handleRegistrationRequest(fiberCtx, http.MethodDelete)
 }
 
-func (v3 *BGRegistryController) handleRegistrationRequest(fiberCtx *fiber.Ctx, httpMethod string) error {
+func (v3 *BGRegistryController) handleRegistrationRequest(fiberCtx fiber.Ctx, httpMethod string) error {
 	payload, err := v3.getRequestPayload(fiberCtx, httpMethod)
 	if err != nil || payload == nil { // both err and payload can be nil in case we already have responded on HTTP request
 		return err
 	}
-	result, err := v3.registry.Apply(fiberCtx.UserContext(), *payload)
+	result, err := v3.registry.Apply(fiberCtx.Context(), *payload)
 	if err != nil {
-		log.ErrorC(fiberCtx.UserContext(), "Failed to %s microservice versions: %v", httpMethod, err)
+		log.ErrorC(fiberCtx.Context(), "Failed to %s microservice versions: %v", httpMethod, err)
 		return err
 	}
 	return restutils.ResponseOk(fiberCtx, result)
 }
 
-func (v3 *BGRegistryController) getRequestPayload(fiberCtx *fiber.Ctx, method string) (*dto.ServicesVersionPayload, error) {
-	ctx := fiberCtx.UserContext()
+func (v3 *BGRegistryController) getRequestPayload(fiberCtx fiber.Ctx, method string) (*dto.ServicesVersionPayload, error) {
+	ctx := fiberCtx.Context()
 	var payload dto.ServicesVersionPayload
 	if err := json.Unmarshal(fiberCtx.Body(), &payload); err != nil {
 		return nil, errorcodes.NewCpError(errorcodes.UnmarshalRequestError, fmt.Sprintf("Failed to unmarshal ServicesVersionPayload from %s request body JSON: %v", method, err), err)
@@ -122,12 +123,12 @@ func (v3 *BGRegistryController) getRequestPayload(fiberCtx *fiber.Ctx, method st
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/versions/registry [get]
-func (v3 *BGRegistryController) HandleGetMicroserviceVersions(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
-	version := string(fiberCtx.Context().FormValue("version"))
-	initialVersion := string(fiberCtx.Context().FormValue("initialVersion"))
-	serviceName := string(fiberCtx.Context().FormValue("serviceName"))
-	namespace := string(fiberCtx.Context().FormValue("namespace"))
+func (v3 *BGRegistryController) HandleGetMicroserviceVersions(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
+	version := string(fiberCtx.RequestCtx().FormValue("version"))
+	initialVersion := string(fiberCtx.RequestCtx().FormValue("initialVersion"))
+	serviceName := string(fiberCtx.RequestCtx().FormValue("serviceName"))
+	namespace := string(fiberCtx.RequestCtx().FormValue("namespace"))
 	log.DebugC(ctx, "HandleGetMicroserviceVersion from registry with params version=%s, initialVersion=%s, serviceName=%s, namespace=%s", version, initialVersion, serviceName, namespace)
 
 	if len(serviceName) == 0 {
@@ -157,36 +158,36 @@ func (v3 *BGRegistryController) HandleGetMicroserviceVersions(fiberCtx *fiber.Ct
 	return v3.getCurrentMicroserviceVersion(fiberCtx, serviceName, namespace, initialVersion)
 }
 
-func (v3 *BGRegistryController) getAllMicroserviceVersions(fiberCtx *fiber.Ctx) error {
-	if result, err := v3.registry.GetAll(fiberCtx.UserContext(), v3.dao); err != nil {
-		log.ErrorC(fiberCtx.UserContext(), "Failed to get all microservice versions: %v", err)
+func (v3 *BGRegistryController) getAllMicroserviceVersions(fiberCtx fiber.Ctx) error {
+	if result, err := v3.registry.GetAll(fiberCtx.Context(), v3.dao); err != nil {
+		log.ErrorC(fiberCtx.Context(), "Failed to get all microservice versions: %v", err)
 		return err
 	} else {
 		return restutils.ResponseOk(fiberCtx, result)
 	}
 }
 
-func (v3 *BGRegistryController) getMicroservicesByVersion(fiberCtx *fiber.Ctx, version string) error {
-	if result, err := v3.registry.GetMicroservicesForVersion(fiberCtx.UserContext(), v3.dao, &domain.DeploymentVersion{Version: version}); err != nil {
-		log.ErrorC(fiberCtx.UserContext(), "Failed to get microservice versions %s : %v", version, err)
+func (v3 *BGRegistryController) getMicroservicesByVersion(fiberCtx fiber.Ctx, version string) error {
+	if result, err := v3.registry.GetMicroservicesForVersion(fiberCtx.Context(), v3.dao, &domain.DeploymentVersion{Version: version}); err != nil {
+		log.ErrorC(fiberCtx.Context(), "Failed to get microservice versions %s : %v", version, err)
 		return err
 	} else {
 		return restutils.ResponseOk(fiberCtx, result)
 	}
 }
 
-func (v3 *BGRegistryController) getVersionsForMicroservice(fiberCtx *fiber.Ctx, serviceName, namespace string) error {
-	if result, err := v3.registry.GetVersionsForMicroservice(fiberCtx.UserContext(), v3.dao, serviceName, msaddr.Namespace{Namespace: namespace}); err != nil {
-		log.ErrorC(fiberCtx.UserContext(), "Failed to get microservice %s version in namespace %s: %v", serviceName, namespace, err)
+func (v3 *BGRegistryController) getVersionsForMicroservice(fiberCtx fiber.Ctx, serviceName, namespace string) error {
+	if result, err := v3.registry.GetVersionsForMicroservice(fiberCtx.Context(), v3.dao, serviceName, msaddr.Namespace{Namespace: namespace}); err != nil {
+		log.ErrorC(fiberCtx.Context(), "Failed to get microservice %s version in namespace %s: %v", serviceName, namespace, err)
 		return err
 	} else {
 		return restutils.ResponseOk(fiberCtx, result)
 	}
 }
 
-func (v3 *BGRegistryController) getCurrentMicroserviceVersion(fiberCtx *fiber.Ctx, serviceName, namespace, initialVersion string) error {
-	if result, err := v3.registry.GetMicroserviceCurrentVersion(fiberCtx.UserContext(), v3.dao, serviceName, msaddr.Namespace{Namespace: namespace}, initialVersion); err != nil {
-		log.ErrorC(fiberCtx.UserContext(), "Failed to get microservice %s version in namespace %s: %v", serviceName, namespace, err)
+func (v3 *BGRegistryController) getCurrentMicroserviceVersion(fiberCtx fiber.Ctx, serviceName, namespace, initialVersion string) error {
+	if result, err := v3.registry.GetMicroserviceCurrentVersion(fiberCtx.Context(), v3.dao, serviceName, msaddr.Namespace{Namespace: namespace}, initialVersion); err != nil {
+		log.ErrorC(fiberCtx.Context(), "Failed to get microservice %s version in namespace %s: %v", serviceName, namespace, err)
 		return err
 	} else {
 		return restutils.ResponseOk(fiberCtx, result)

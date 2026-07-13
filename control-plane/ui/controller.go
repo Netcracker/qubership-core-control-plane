@@ -3,14 +3,15 @@ package ui
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strconv"
+
 	"github.com/go-errors/errors"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/utils/v2"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/restutils"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"net/http"
-	"strconv"
 )
 
 const (
@@ -48,8 +49,8 @@ func NewV3Controller(service V3ApiUIService) *V3ApiController {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/ui/cloud-config [get]
-func (c *V3ApiController) HandleGetCloudConfig(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *V3ApiController) HandleGetCloudConfig(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	uiRouteConfigs, err := c.service.GetAllSimplifiedRouteConfigs(ctx)
 	if err != nil {
 		log.ErrorC(ctx, "Failed to get all simplified route configs caused error: %v", err)
@@ -73,8 +74,8 @@ func (c *V3ApiController) HandleGetCloudConfig(fiberCtx *fiber.Ctx) error {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/ui/{virtualHostId}/{versionId}/routes [get]
-func (c *V3ApiController) HandleGetRoutes(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *V3ApiController) HandleGetRoutes(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	params, err := ParseGetRoutesParameters(ctx, fiberCtx)
 	if err != nil {
 		return errorcodes.NewCpError(errorcodes.ValidationRequestError, fmt.Sprintf("Can't parse request parameters: %v", err), err)
@@ -99,8 +100,8 @@ func (c *V3ApiController) HandleGetRoutes(fiberCtx *fiber.Ctx) error {
 // @Success 200 {array} ui.Cluster
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/ui/clusters [get]
-func (c *V3ApiController) HandleGetClusters(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *V3ApiController) HandleGetClusters(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	uiClusters, err := c.service.GetAllClusters(ctx)
 	if err != nil {
 		log.ErrorC(ctx, "Failed to get all clusters caused error: %v", err)
@@ -120,8 +121,8 @@ func (c *V3ApiController) HandleGetClusters(fiberCtx *fiber.Ctx) error {
 // @Success 200 {object} ui.RouteDetails
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/ui/route/{routeUuid}/details [get]
-func (c *V3ApiController) HandleGetRouteDetails(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *V3ApiController) HandleGetRouteDetails(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	routeUUID := restutils.GetFiberParam(fiberCtx, "routeUuid")
 	log.DebugC(ctx, "Get route details for uuid %s", routeUUID)
 	routeDetails, err := c.service.GetRouteDetails(ctx, routeUUID)
@@ -148,7 +149,7 @@ func (p SearchRoutesParameters) UpperBound() int {
 	return p.Page * p.Size
 }
 
-func ParseGetRoutesParameters(ctx context.Context, fiberCtx *fiber.Ctx) (SearchRoutesParameters, error) {
+func ParseGetRoutesParameters(ctx context.Context, fiberCtx fiber.Ctx) (SearchRoutesParameters, error) {
 	var err error
 	var size, page int
 	if sizeRaw := fiberCtx.Query("size"); sizeRaw != "" {

@@ -2,12 +2,13 @@ package websocket
 
 import (
 	"context"
+	"time"
+
 	"github.com/fasthttp/websocket"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/valyala/fasthttp"
-	"time"
 )
 
 const (
@@ -104,8 +105,8 @@ func pingRecipient(ctx context.Context, conn *websocket.Conn) {
 	}
 }
 
-func UpgradeWsSocket(ctx context.Context, fiberCtx *fiber.Ctx, c Controller) interface{} {
-	return wsSocketUpgrader.Upgrade(fiberCtx.Context(), func(conn *websocket.Conn) {
+func UpgradeWsSocket(ctx context.Context, fiberCtx fiber.Ctx, c Controller) interface{} {
+	return wsSocketUpgrader.Upgrade(fiberCtx.RequestCtx(), func(conn *websocket.Conn) {
 		log.DebugC(ctx, "Websocket connection for config watch has opened.")
 		watcher := newWatcher()
 		closeConnGracefullyFunc := tuneConnAndReturnCancelFunc(ctx, conn, watcher)

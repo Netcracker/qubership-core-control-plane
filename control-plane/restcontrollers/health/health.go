@@ -1,10 +1,11 @@
 package health
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/restutils"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/health"
-	"net/http"
 )
 
 type Controller struct {
@@ -17,7 +18,7 @@ func NewController(service *health.HealthService) *Controller {
 	}
 }
 
-func (c *Controller) HandleReadinessProbe(ctx *fiber.Ctx) error {
+func (c *Controller) HandleReadinessProbe(ctx fiber.Ctx) error {
 	readiness := c.service.CheckReadiness()
 	switch readiness.Status {
 	case health.Ready:
@@ -28,7 +29,7 @@ func (c *Controller) HandleReadinessProbe(ctx *fiber.Ctx) error {
 	return nil
 }
 
-func (c *Controller) HandleLivenessProbe(ctx *fiber.Ctx) error {
+func (c *Controller) HandleLivenessProbe(ctx fiber.Ctx) error {
 	liveness := c.service.CheckLiveness()
 	switch liveness.Status {
 	case health.Up:

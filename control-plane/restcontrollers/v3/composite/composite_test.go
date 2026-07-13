@@ -12,7 +12,7 @@ import (
 	mock_dao "github.com/netcracker/qubership-core-control-plane/control-plane/v2/test/mock/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
-	security2 "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+	security2 "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/stretchr/testify/assert"
