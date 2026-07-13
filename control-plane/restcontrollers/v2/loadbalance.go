@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+	"reflect"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
@@ -15,8 +18,6 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/configresources"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/loadbalance"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
-	"net/http"
-	"reflect"
 )
 
 type LoadBalanceController struct {
@@ -43,8 +44,8 @@ func NewLoadBalanceController(service *loadbalance.LoadBalanceService, validator
 // @Success 200
 // @Failure 400 {object} map[string]string
 // @Router /api/v2/control-plane/load-balance [post]
-func (c *LoadBalanceController) HandlePostLoadBalance(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *LoadBalanceController) HandlePostLoadBalance(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	data := new(dto.LoadBalanceSpec)
 	if err := json.NewDecoder(bytes.NewReader(fiberCtx.Body())).Decode(data); err != nil {
 		logger.ErrorC(ctx, "Error during parsing data : %+v", err.Error())

@@ -3,7 +3,11 @@ package v2
 import (
 	"bytes"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"testing"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/hashicorp/go-memdb"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
@@ -13,9 +17,6 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/entity"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/loadbalance"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"net/http"
-	"testing"
 )
 
 const (
@@ -225,7 +226,7 @@ func prepareClusterWithEndpoints(t *testing.T, clusterName string, dao dao.Repos
 	return endpoint1.Id
 }
 
-func (c *LoadBalanceController) PostLBUnsecure(ctx *fiber.Ctx) error {
+func (c *LoadBalanceController) PostLBUnsecure(ctx fiber.Ctx) error {
 	return c.HandlePostLoadBalance(ctx)
 }
 

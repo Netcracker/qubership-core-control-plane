@@ -2,8 +2,9 @@ package websocket
 
 import (
 	"bytes"
+
 	"github.com/fasthttp/websocket"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/hashicorp/go-memdb"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/clustering"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
@@ -115,8 +116,8 @@ func unique(changes []Change) []Change {
 // @Failure 403 {object} map[string]string
 // @Failure 405 {object} map[string]string
 // @Router /api/v3/versions/watch [get]
-func (c *VersionController) HandleVersionsWatch(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *VersionController) HandleVersionsWatch(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	connHeader := fiberCtx.Request().Header.Peek("Connection")
 	if bytes.EqualFold(connHeader, []byte("upgrade")) {
 		fiberCtx.Request().Header.Set("Connection", "Upgrade")
@@ -144,7 +145,7 @@ func (c *VersionController) HandleVersionsWatch(fiberCtx *fiber.Ctx) error {
 // @Failure 403 {object} map[string]string
 // @Failure 405 {object} map[string]string
 // @Router /api/v2/control-plane/versions/watch [get]
-func (c *VersionController) HandleVersionsWatchv2(fiberCtx *fiber.Ctx) error {
+func (c *VersionController) HandleVersionsWatchv2(fiberCtx fiber.Ctx) error {
 	return c.HandleVersionsWatch(fiberCtx)
 }
 

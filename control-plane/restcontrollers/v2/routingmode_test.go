@@ -3,20 +3,21 @@ package v2
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"os"
+	"testing"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/ram"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/routingmode"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-	security2 "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+	security2 "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
-	"io"
-	"net/http"
-	"os"
-	"testing"
 )
 
 var (
@@ -43,7 +44,7 @@ func TestAllowedRoutesMiddlewareV1(t *testing.T) {
 	}
 
 	app.Use(controller.AllowedRoutesMiddlewareV1())
-	app.Get("/test", func(ctx *fiber.Ctx) error {
+	app.Get("/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(http.StatusOK)
 	})
 
@@ -72,7 +73,7 @@ func TestAllowedRoutesMiddlewareV1(t *testing.T) {
 func TestAllowedRoutesMiddlewareV2(t *testing.T) {
 	app, _ := fiberserver.New().Process()
 	app.Use(controller.ValidateRoutesApplicabilityToCurrentRoutingMode())
-	app.Get("/test", func(ctx *fiber.Ctx) error {
+	app.Get("/test", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(http.StatusOK)
 	})
 
@@ -205,7 +206,7 @@ func sendReq(app *fiber.App, method, path, payload string) (string, int, error) 
 		return "", 0, err
 	}
 
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	bodyBytes, _ := io.ReadAll(resp.Body)
 
 	return string(bodyBytes), resp.StatusCode, err

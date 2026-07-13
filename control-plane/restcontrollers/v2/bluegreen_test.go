@@ -4,7 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"sync/atomic"
+	"testing"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/hashicorp/go-memdb"
 	"github.com/hashicorp/go-uuid"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/constancy"
@@ -16,12 +21,8 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/bluegreen"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/entity"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/loadbalance"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"net/http"
-	"sync/atomic"
-	"testing"
 )
 
 const (
@@ -629,19 +630,19 @@ func TestV2Controller_Rollback_409(t *testing.T) {
 }
 
 // private
-func (v2 *BlueGreenController) RollbackHandlerUnsecure(ctx *fiber.Ctx) error {
+func (v2 *BlueGreenController) RollbackHandlerUnsecure(ctx fiber.Ctx) error {
 	return v2.HandlePostRollbackVersion(ctx)
 }
 
-func (v2 *BlueGreenController) PromoteHandlerUnsecure(ctx *fiber.Ctx) error {
+func (v2 *BlueGreenController) PromoteHandlerUnsecure(ctx fiber.Ctx) error {
 	return v2.HandlePostPromoteVersion(ctx)
 }
 
-func (v2 *BlueGreenController) DeleteDeploymentVersionUnsecure(ctx *fiber.Ctx) error {
+func (v2 *BlueGreenController) DeleteDeploymentVersionUnsecure(ctx fiber.Ctx) error {
 	return v2.HandleDeleteDeploymentVersionWithID(ctx)
 }
 
-func (v2 *BlueGreenController) GetAllDeploymentVersionsUnsecure(ctx *fiber.Ctx) error {
+func (v2 *BlueGreenController) GetAllDeploymentVersionsUnsecure(ctx fiber.Ctx) error {
 	return v2.HandleGetDeploymentVersions(ctx)
 }
 
@@ -671,20 +672,18 @@ func FlushChanges(changes []memdb.Change) error {
 	return flusher.Flush(changes)
 }
 
-func sendHttpRequest(t *testing.T, httpMethod, endpoint, reqUrl string, f func(fiberCtx *fiber.Ctx) error) *http.Response {
-	fiberConfig := fiber.Config{
-		ErrorHandler: errorcodes.DefaultErrorHandlerWrapper(errorcodes.UnknownErrorCode),
-	}
+func sendHttpRequest(t *testing.T, httpMethod, endpoint, reqUrl string, f func(fiberCtx fiber.Ctx) error) *http.Response {
+	fiberConfig := fiber.Config{ErrorHandler: errorcodes.DefaultErrorHandlerWrapper(errorcodes.UnknownErrorCode)}
 	app, err := fiberserver.New(fiberConfig).Process()
 	assert.Nil(t, err)
-	app.Add(httpMethod, endpoint, f)
+	app.Add([]string{httpMethod}, endpoint, f)
 	req, err := http.NewRequest(httpMethod,
 		reqUrl,
 		bytes.NewBufferString(""),
 	)
 	req.Host = "localhost"
 	assert.Nil(t, err)
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	return resp
 }
 

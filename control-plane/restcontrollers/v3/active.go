@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+	"strings"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/restutils"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/active"
-	"net/http"
-	"strings"
 )
 
 type ActiveDCsController struct {
@@ -34,8 +35,8 @@ func NewActiveDCsController(service active.ActiveDCsService) *ActiveDCsControlle
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/active-active [post]
-func (c *ActiveDCsController) HandleActiveActiveConfigPost(fiberCtx *fiber.Ctx) error {
-	context := fiberCtx.UserContext()
+func (c *ActiveDCsController) HandleActiveActiveConfigPost(fiberCtx fiber.Ctx) error {
+	context := fiberCtx.Context()
 	activeDCsConfig := &dto.ActiveDCsV3{}
 	if err := json.NewDecoder(bytes.NewReader(fiberCtx.Body())).Decode(activeDCsConfig); err != nil {
 		return errorcodes.NewCpError(errorcodes.UnmarshalRequestError, fmt.Sprintf("Failed to unmarshal ActiveActive config creation request body: %v", err), err)
@@ -66,8 +67,8 @@ func (c *ActiveDCsController) HandleActiveActiveConfigPost(fiberCtx *fiber.Ctx) 
 // @Success 200
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/active-active [delete]
-func (c *ActiveDCsController) HandleActiveActiveConfigDelete(fiberCtx *fiber.Ctx) error {
-	context := fiberCtx.UserContext()
+func (c *ActiveDCsController) HandleActiveActiveConfigDelete(fiberCtx fiber.Ctx) error {
+	context := fiberCtx.Context()
 	if dr.GetMode() == dr.Standby {
 		return restutils.RespondWithJson(fiberCtx, http.StatusOK, nil)
 	}
