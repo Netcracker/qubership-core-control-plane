@@ -174,7 +174,7 @@ func (m *MockLocker) UnlockByNumber(j int) {
 func startTestServer(path string, handler fiber.Handler) *fiber.App {
 	app := fiber.New()
 	app.Get(path, handler)
-	go app.Listen(":10801", fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})
+	go app.Listen(":10801")
 	time.Sleep(time.Second)
 	return app
 }
