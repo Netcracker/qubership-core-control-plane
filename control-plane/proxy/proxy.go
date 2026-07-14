@@ -2,14 +2,15 @@ package proxy
 
 import (
 	"bytes"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+	"strings"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/clustering"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/valyala/fasthttp"
-	"net/http"
-	"strings"
 )
 
 var (
@@ -23,17 +24,17 @@ func init() {
 
 type Service struct {
 	address          string
-	conditionToServe func(c *fiber.Ctx) bool
-	conditionToProxy func(c *fiber.Ctx) bool
-	fallbackFunc     func(c *fiber.Ctx) error
+	conditionToServe func(c fiber.Ctx) bool
+	conditionToProxy func(c fiber.Ctx) bool
+	fallbackFunc     func(c fiber.Ctx) error
 }
 
-func NewService(address string, conditionToServe func(c *fiber.Ctx) bool, conditionToProxy func(c *fiber.Ctx) bool, fallbackFunc func(c *fiber.Ctx) error) *Service {
+func NewService(address string, conditionToServe func(c fiber.Ctx) bool, conditionToProxy func(c fiber.Ctx) bool, fallbackFunc func(c fiber.Ctx) error) *Service {
 	return &Service{address: address, conditionToServe: conditionToServe, conditionToProxy: conditionToProxy, fallbackFunc: fallbackFunc}
 }
 
 func (srv *Service) ProxyHandler() fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		if srv.conditionToServe(ctx) {
 			logger.Debugf("Serving request with method %s on %s", ctx.Method(), ctx.Path())
 			return ctx.Next()
@@ -48,8 +49,8 @@ func (srv *Service) ProxyHandler() fiber.Handler {
 	}
 }
 
-func proxyRequest(addressToRedirect string, fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func proxyRequest(addressToRedirect string, fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	logger.InfoC(ctx, "Redirect incoming request %s to upstream node %s", fiberCtx.Path(), addressToRedirect)
 	req := fiberCtx.Request()
 	resp := fiberCtx.Response()
@@ -95,7 +96,7 @@ func getWebSocketUpgradeHeaderRequest(req *fasthttp.Request) string {
 }
 
 func ProxyRequestsToMaster() fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 
 		switch clustering.CurrentNodeState.GetRole() {
 		case clustering.Master:

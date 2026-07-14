@@ -2,7 +2,13 @@ package v3
 
 import (
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
@@ -11,13 +17,8 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/loadbalance"
 	testutils "github.com/netcracker/qubership-core-control-plane/control-plane/v2/test/util"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
 	asrt "github.com/stretchr/testify/assert"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
 )
 
 type TestEnvironment struct {
@@ -46,7 +47,7 @@ func TestApplyConfigController_HandlePostConfig(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/config", func(ctx *fiber.Ctx) error {
+	app.Post("/config", func(ctx fiber.Ctx) error {
 		return testEnv.ApplyConfigControllerV3.HandlePostConfig(ctx)
 	})
 
@@ -151,7 +152,7 @@ func TestApplyConfigController_HandlePostConfigWithEmptyVersion(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/config", func(ctx *fiber.Ctx) error {
+	app.Post("/config", func(ctx fiber.Ctx) error {
 		return testEnv.ApplyConfigControllerV3.HandlePostConfig(ctx)
 	})
 
@@ -213,7 +214,7 @@ func TestApplyConfigController_HandlePostConfigWithoutVersion(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/config", func(ctx *fiber.Ctx) error {
+	app.Post("/config", func(ctx fiber.Ctx) error {
 		return testEnv.ApplyConfigControllerV3.HandlePostConfig(ctx)
 	})
 
@@ -273,7 +274,7 @@ func TestApplyConfigController_HandlePostConfigCookieWithPath(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/config", func(ctx *fiber.Ctx) error {
+	app.Post("/config", func(ctx fiber.Ctx) error {
 		return testEnv.ApplyConfigControllerV3.HandlePostConfig(ctx)
 	})
 
@@ -351,12 +352,10 @@ func TestApplyConfigController_HandlePostConfigWithError_WrongYamlIndent(t *test
 	testEnv := InitCPTestEnvironment()
 	configresources.RegisterResource(testEnv.RouteServiceV2.GetRegisterRoutesResource())
 
-	fiberConfig := fiber.Config{
-		ErrorHandler: errorcodes.DefaultErrorHandlerWrapper(errorcodes.UnknownErrorCode),
-	}
+	fiberConfig := fiber.Config{ErrorHandler: errorcodes.DefaultErrorHandlerWrapper(errorcodes.UnknownErrorCode)}
 	app, err := fiberserver.New(fiberConfig).Process()
 	assert.Nil(err)
-	app.Post("/config", func(ctx *fiber.Ctx) error {
+	app.Post("/config", func(ctx fiber.Ctx) error {
 		return testEnv.ApplyConfigControllerV3.HandlePostConfig(ctx)
 	})
 
@@ -415,7 +414,7 @@ func TestApplyConfigController_HandlePostConfigWithComment(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/config", func(ctx *fiber.Ctx) error {
+	app.Post("/config", func(ctx fiber.Ctx) error {
 		return testEnv.ApplyConfigControllerV3.HandlePostConfig(ctx)
 	})
 
@@ -458,7 +457,7 @@ func TestApplyConfigController_HandlePostConfigWithHeaderMatcher(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/config", func(ctx *fiber.Ctx) error {
+	app.Post("/config", func(ctx fiber.Ctx) error {
 		return testEnv.ApplyConfigControllerV3.HandlePostConfig(ctx)
 	})
 

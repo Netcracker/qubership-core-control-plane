@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/lib"
-	fiberSec "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+	fiberSec "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 

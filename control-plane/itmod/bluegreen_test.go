@@ -2,16 +2,17 @@ package itmod
 
 import (
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
-	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
-	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-	asrt "github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
+	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+	asrt "github.com/stretchr/testify/assert"
 )
 
 const regProhibitRoutes = `[
@@ -109,25 +110,25 @@ func TestPromoteAndV2RegisterRoutes(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/routes/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV2.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/promote/:version", func(ctx *fiber.Ctx) error {
+	app.Post("/promote/:version", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostPromoteVersion(ctx)
 	})
-	app.Post("/rollback", func(ctx *fiber.Ctx) error {
+	app.Post("/rollback", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostRollbackVersion(ctx)
 	})
 
-	respMock, err := app.Test(makeV2Request(regRoutesV2Json), -1)
+	respMock, err := app.Test(makeV2Request(regRoutesV2Json), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
-	respMock, err = app.Test(makeV2Request(regProhibitRoutes), -1)
+	respMock, err = app.Test(makeV2Request(regProhibitRoutes), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
-	respMock, err = app.Test(makeV2Request(regRoutesV1Json), -1)
+	respMock, err = app.Test(makeV2Request(regRoutesV1Json), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
@@ -145,7 +146,7 @@ func TestPromoteAndV2RegisterRoutes(t *testing.T) {
 	assert.Equal("order-backend-v1", endpoints[0].Address)
 
 	// promote v2
-	respMock, err = app.Test(makePromoteRequest("v2"), -1)
+	respMock, err = app.Test(makePromoteRequest("v2"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, respMock.StatusCode)
 
@@ -190,11 +191,11 @@ func TestPromoteAndV2RegisterRoutes(t *testing.T) {
 	}
 
 	// register same routes once again
-	respMock, err = app.Test(makeV2Request(regRoutesV1Json), -1)
+	respMock, err = app.Test(makeV2Request(regRoutesV1Json), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
-	respMock, err = app.Test(makeV2Request(regRoutesV2Json), -1)
+	respMock, err = app.Test(makeV2Request(regRoutesV2Json), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
@@ -239,7 +240,7 @@ func TestPromoteAndV2RegisterRoutes(t *testing.T) {
 	}
 
 	// register order-backend routes without explicit version
-	respMock, err = app.Test(makeV2Request(regRoutesNoVersionJson), -1)
+	respMock, err = app.Test(makeV2Request(regRoutesNoVersionJson), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
@@ -277,7 +278,7 @@ func TestPromoteAndV2RegisterRoutes(t *testing.T) {
 	}
 
 	// register order-backend routes without explicit version
-	respMock, err = app.Test(makeV2Request(regRoutesNoVersionJson), -1)
+	respMock, err = app.Test(makeV2Request(regRoutesNoVersionJson), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
@@ -297,7 +298,7 @@ func TestPromoteAndV2RegisterRoutes(t *testing.T) {
 	}
 
 	// rollback to v1
-	respMock, err = app.Test(makeRollbackRequest(), -1)
+	respMock, err = app.Test(makeRollbackRequest(), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, respMock.StatusCode)
 
@@ -347,28 +348,28 @@ func TestPromoteAndRegisterRoutesV1(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/routes/v1/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/v1/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV1.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/routes/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV2.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/promote/:version", func(ctx *fiber.Ctx) error {
+	app.Post("/promote/:version", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostPromoteVersion(ctx)
 	})
-	app.Post("/rollback", func(ctx *fiber.Ctx) error {
+	app.Post("/rollback", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostRollbackVersion(ctx)
 	})
 
-	respMock, err := app.Test(makeV2Request(regRoutesV2Json), -1)
+	respMock, err := app.Test(makeV2Request(regRoutesV2Json), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
-	respMock, err = app.Test(makeV2Request(regProhibitRoutes), -1)
+	respMock, err = app.Test(makeV2Request(regProhibitRoutes), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
-	respMock, err = app.Test(makeV1Request(v1RegRoutesJson), -1)
+	respMock, err = app.Test(makeV1Request(v1RegRoutesJson), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
@@ -386,7 +387,7 @@ func TestPromoteAndRegisterRoutesV1(t *testing.T) {
 	assert.Equal("order-backend", endpoints[0].Address)
 
 	// promote v2
-	respMock, err = app.Test(makePromoteRequest("v2"), -1)
+	respMock, err = app.Test(makePromoteRequest("v2"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, respMock.StatusCode)
 
@@ -431,11 +432,11 @@ func TestPromoteAndRegisterRoutesV1(t *testing.T) {
 	}
 
 	// register same routes once again
-	respMock, err = app.Test(makeV1Request(v1RegRoutesJson), -1)
+	respMock, err = app.Test(makeV1Request(v1RegRoutesJson), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
-	respMock, err = app.Test(makeV2Request(regRoutesV2Json), -1)
+	respMock, err = app.Test(makeV2Request(regRoutesV2Json), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, respMock.StatusCode)
 
@@ -462,7 +463,7 @@ func TestPromoteAndRegisterRoutesV1(t *testing.T) {
 	}
 
 	// rollback to v1
-	respMock, err = app.Test(makeRollbackRequest(), -1)
+	respMock, err = app.Test(makeRollbackRequest(), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, respMock.StatusCode)
 
@@ -512,13 +513,13 @@ func TestPromoteAndRegisterExistV2Route(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/routes/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV2.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/routes/v1/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/v1/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV1.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/promote/:version", func(ctx *fiber.Ctx) error {
+	app.Post("/promote/:version", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostPromoteVersion(ctx)
 	})
 
@@ -534,11 +535,11 @@ func TestPromoteAndRegisterExistV2Route(t *testing.T) {
           }
       ],
       "version": "v2"
-  }]`), -1)
+  }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
-	rr, err = app.Test(makePromoteRequest("v2"), -1)
+	rr, err = app.Test(makePromoteRequest("v2"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, rr.StatusCode)
 
@@ -565,11 +566,11 @@ func TestPromoteAndRegisterExistV2Route(t *testing.T) {
           }
       ],
       "version": "v3"
-  }]`), -1)
+  }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
-	rr, err = app.Test(makePromoteRequest("v3"), -1)
+	rr, err = app.Test(makePromoteRequest("v3"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, rr.StatusCode)
 
@@ -585,7 +586,7 @@ func TestPromoteAndRegisterExistV2Route(t *testing.T) {
           }
       ],
       "version": "v2"
-  }]`), -1)
+  }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 }
@@ -596,13 +597,13 @@ func TestPromoteAndRegisterNewV2LegacyRoutesWithoutFoundEndpoints(t *testing.T) 
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/routes/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV2.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/routes/v1/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/v1/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV1.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/promote/:version", func(ctx *fiber.Ctx) error {
+	app.Post("/promote/:version", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostPromoteVersion(ctx)
 	})
 
@@ -630,11 +631,11 @@ func TestPromoteAndRegisterNewV2LegacyRoutesWithoutFoundEndpoints(t *testing.T) 
           }
       ],
       "version": "v2"
-  }]`), -1)
+  }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
-	rr, err = app.Test(makePromoteRequest("v2"), -1)
+	rr, err = app.Test(makePromoteRequest("v2"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, rr.StatusCode)
 
@@ -650,11 +651,11 @@ func TestPromoteAndRegisterNewV2LegacyRoutesWithoutFoundEndpoints(t *testing.T) 
           }
       ],
       "version": "v3"
-  }]`), -1)
+  }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
-	rr, err = app.Test(makePromoteRequest("v3"), -1)
+	rr, err = app.Test(makePromoteRequest("v3"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, rr.StatusCode)
 
@@ -670,7 +671,7 @@ func TestPromoteAndRegisterNewV2LegacyRoutesWithoutFoundEndpoints(t *testing.T) 
           }
       ],
       "version": "v2"
-  }]`), -1)
+  }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusBadRequest, rr.StatusCode)
 }
@@ -681,13 +682,13 @@ func TestPromoteAndRegisterNewV2LegacyRoutes(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/routes/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV2.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/routes/v1/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/v1/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV1.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/promote/:version", func(ctx *fiber.Ctx) error {
+	app.Post("/promote/:version", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostPromoteVersion(ctx)
 	})
 
@@ -715,7 +716,7 @@ func TestPromoteAndRegisterNewV2LegacyRoutes(t *testing.T) {
           }
       ],
       "version": "v2"
-  }]`), -1)
+  }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
@@ -731,11 +732,11 @@ func TestPromoteAndRegisterNewV2LegacyRoutes(t *testing.T) {
 	      }
 	  ],
 	  "version": "v2"
-	}]`), -1)
+	}]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
-	rr, err = app.Test(makePromoteRequest("v2"), -1)
+	rr, err = app.Test(makePromoteRequest("v2"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, rr.StatusCode)
 
@@ -751,7 +752,7 @@ func TestPromoteAndRegisterNewV2LegacyRoutes(t *testing.T) {
           }
       ],
       "version": "v1"
-  }]`), -1)
+  }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
@@ -767,7 +768,7 @@ func TestPromoteAndRegisterNewV2LegacyRoutes(t *testing.T) {
           }
       ],
       "version": "v1"
-  }]`), -1)
+  }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusBadRequest, rr.StatusCode)
 
@@ -781,7 +782,7 @@ func TestPromoteAndRegisterNewV2LegacyRoutes(t *testing.T) {
               "to": "/api/v2/action"
           }
       ]
-  }`), -1)
+  }`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
@@ -797,7 +798,7 @@ func TestPromoteAndRegisterNewV2LegacyRoutes(t *testing.T) {
 	      }
 	  ],
 	  "version": "v1"
-	}]`), -1)
+	}]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusBadRequest, rr.StatusCode)
 }
@@ -808,19 +809,19 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndOldRoute_ThenNoNew
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/routes/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV2.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/routes/v1/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/v1/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV1.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/promote/:version", func(ctx *fiber.Ctx) error {
+	app.Post("/promote/:version", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostPromoteVersion(ctx)
 	})
-	app.Delete("/versions/:version", func(ctx *fiber.Ctx) error {
+	app.Delete("/versions/:version", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandleDeleteDeploymentVersionWithID(ctx)
 	})
-	app.Get("/routes/:nodeGroup/:virtualServiceName", func(ctx *fiber.Ctx) error {
+	app.Get("/routes/:nodeGroup/:virtualServiceName", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV3.HandleGetVirtualService(ctx)
 	})
 
@@ -852,7 +853,7 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndOldRoute_ThenNoNew
            }
        ],
        "version": "v1"
-   }]`), -1)
+   }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
@@ -871,17 +872,17 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndOldRoute_ThenNoNew
            }
        ],
        "version": "v2"
-   }]`), -1)
+   }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
 	// promoting v2
-	rr, err = app.Test(makePromoteRequest("v2"), -1)
+	rr, err = app.Test(makePromoteRequest("v2"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, rr.StatusCode)
 
 	// switching to rolling mode. delete v1
-	rr, err = app.Test(deleteVersion("v1"), -1)
+	rr, err = app.Test(deleteVersion("v1"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, rr.StatusCode)
 
@@ -900,7 +901,7 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndOldRoute_ThenNoNew
            }
        ],
        "version": "v2"
-   }]`), -1)
+   }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
@@ -909,7 +910,7 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndOldRoute_ThenNoNew
 	//     http://some-micro-service-1-v1:8080/api/v2/some-micro-service-1/action  - initialDeploymentVersion=v1
 	// and http://some-micro-service-2-v2:8080/api/v2/some-micro-service-2/action  - initialDeploymentVersion=v2
 	// deploymentVersion=v2 for both
-	rr, err = app.Test(getRoutesWithNodeGroupAndVirtualServiceName("bg-test-ng-1", "bg-test-ng-1"), -1)
+	rr, err = app.Test(getRoutesWithNodeGroupAndVirtualServiceName("bg-test-ng-1", "bg-test-ng-1"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, rr.StatusCode)
 
@@ -930,19 +931,19 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndNewRoute_ThenNewRo
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/routes/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV2.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/routes/v1/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/v1/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV1.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/promote/:version", func(ctx *fiber.Ctx) error {
+	app.Post("/promote/:version", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostPromoteVersion(ctx)
 	})
-	app.Delete("/versions/:version", func(ctx *fiber.Ctx) error {
+	app.Delete("/versions/:version", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandleDeleteDeploymentVersionWithID(ctx)
 	})
-	app.Get("/routes/:nodeGroup/:virtualServiceName", func(ctx *fiber.Ctx) error {
+	app.Get("/routes/:nodeGroup/:virtualServiceName", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV3.HandleGetVirtualService(ctx)
 	})
 
@@ -974,7 +975,7 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndNewRoute_ThenNewRo
            }
        ],
        "version": "v1"
-   }]`), -1)
+   }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
@@ -993,12 +994,12 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndNewRoute_ThenNewRo
            }
        ],
        "version": "v2"
-   }]`), -1)
+   }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
 	// promoting v2
-	rr, err = app.Test(makePromoteRequest("v2"), -1)
+	rr, err = app.Test(makePromoteRequest("v2"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusAccepted, rr.StatusCode)
 
@@ -1014,12 +1015,12 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndNewRoute_ThenNewRo
 	      }
 	  ],
 	  "version": "v1"
-	}]`), -1)
+	}]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
 	// switching to rolling mode. delete v1
-	rr, err = app.Test(deleteVersion("v1"), -1)
+	rr, err = app.Test(deleteVersion("v1"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, rr.StatusCode)
 
@@ -1039,7 +1040,7 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndNewRoute_ThenNewRo
            }
        ],
        "version": "v2"
-   }]`), -1)
+   }]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
@@ -1055,7 +1056,7 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndNewRoute_ThenNewRo
 	      }
 	  ],
 	  "version": "v1"
-	}]`), -1)
+	}]`), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
@@ -1066,7 +1067,7 @@ func Test_AfterBlueGreenCycle_NewRequestForExistingEndpointAndNewRoute_ThenNewRo
 	//     http://some-micro-service-1-v1:8080/api/v2/some-micro-service-1/action/new1  - initialDeploymentVersion=v1
 	//     http://some-micro-service-2-v2:8080/api/v2/some-micro-service-2/action  		- initialDeploymentVersion=v2
 	// deploymentVersion=v2 for all
-	rr, err = app.Test(getRoutesWithNodeGroupAndVirtualServiceName("bg-test-ng-1", "bg-test-ng-1"), -1)
+	rr, err = app.Test(getRoutesWithNodeGroupAndVirtualServiceName("bg-test-ng-1", "bg-test-ng-1"), fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusOK, rr.StatusCode)
 
@@ -1087,16 +1088,16 @@ func Test_ProhibitRouteInActiveVersion(t *testing.T) {
 
 	app, err := fiberserver.New().Process()
 	assert.Nil(err)
-	app.Post("/routes/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV2.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/routes/v1/:nodeGroup", func(ctx *fiber.Ctx) error {
+	app.Post("/routes/v1/:nodeGroup", func(ctx fiber.Ctx) error {
 		return testEnv.RouteControllerV1.HandlePostRoutesWithNodeGroup(ctx)
 	})
-	app.Post("/promote/:version", func(ctx *fiber.Ctx) error {
+	app.Post("/promote/:version", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostPromoteVersion(ctx)
 	})
-	app.Post("/rollback", func(ctx *fiber.Ctx) error {
+	app.Post("/rollback", func(ctx fiber.Ctx) error {
 		return testEnv.BlueGreenControllerV2.HandlePostRollbackVersion(ctx)
 	})
 
@@ -1140,7 +1141,7 @@ func Test_ProhibitRouteInActiveVersion(t *testing.T) {
 		}
 	]`))
 
-	rr, err := app.Test(request, -1)
+	rr, err := app.Test(request, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 
@@ -1184,7 +1185,7 @@ func Test_ProhibitRouteInActiveVersion(t *testing.T) {
 		}
 	]`))
 
-	rr, err = app.Test(request, -1)
+	rr, err = app.Test(request, fiber.TestConfig{Timeout: 0, FailOnTimeout: false})
 	assert.Nil(err)
 	assert.Equal(http.StatusCreated, rr.StatusCode)
 

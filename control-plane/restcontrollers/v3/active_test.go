@@ -3,7 +3,12 @@ package v3
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"strings"
+	"testing"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/hashicorp/go-memdb"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
@@ -12,10 +17,6 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/active"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/entity"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"net/http"
-	"strings"
-	"testing"
 )
 
 const (
@@ -149,11 +150,11 @@ func TestActiveDCsController_HandleActiveActiveConfigDelete(t *testing.T) {
 	assert.Equal(t, http.StatusOK, responseRecorder.StatusCode)
 }
 
-func (c *ActiveDCsController) HandleActiveActiveConfigPostUnsecure(ctx *fiber.Ctx) error {
+func (c *ActiveDCsController) HandleActiveActiveConfigPostUnsecure(ctx fiber.Ctx) error {
 	return c.HandleActiveActiveConfigPost(ctx)
 }
 
-func (c *ActiveDCsController) HandleActiveActiveConfigDeleteUnsecure(ctx *fiber.Ctx) error {
+func (c *ActiveDCsController) HandleActiveActiveConfigDeleteUnsecure(ctx fiber.Ctx) error {
 	return c.HandleActiveActiveConfigDelete(ctx)
 }
 

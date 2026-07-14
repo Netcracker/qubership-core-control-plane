@@ -3,19 +3,20 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strconv"
+
 	"github.com/go-errors/errors"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/utils/v2"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/restutils"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/entity"
-	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/route/v1"
+	v1 "github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/route/v1"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"net/http"
-	"strconv"
 )
 
 var logger logging.Logger
@@ -51,8 +52,8 @@ func NewController(service *v1.Service, validator RequestValidator) *Controller 
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/routes/{nodeGroup} [post]
-func (c *Controller) HandlePostRoutesWithNodeGroup(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *Controller) HandlePostRoutesWithNodeGroup(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	nodeGroupParam := utils.CopyString(fiberCtx.Params("nodeGroup"))
 	logger.InfoC(ctx, "Request to create routes for %v", nodeGroupParam)
 
@@ -96,7 +97,7 @@ func (c *Controller) HandlePostRoutesWithNodeGroup(fiberCtx *fiber.Ctx) error {
 // @Success 200 {array} dto.ClusterResponse
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/routes/clusters [get]
-func (c *Controller) HandleGetClusters(fiberCtx *fiber.Ctx) error {
+func (c *Controller) HandleGetClusters(fiberCtx fiber.Ctx) error {
 	clusters, err := c.service.GetClusters()
 	if err != nil {
 		return restutils.RespondWithError(fiberCtx, http.StatusInternalServerError, err.Error())
@@ -117,8 +118,8 @@ func (c *Controller) HandleGetClusters(fiberCtx *fiber.Ctx) error {
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v1/routes/clusters/{clusterId} [delete]
-func (c *Controller) HandleDeleteClusterWithID(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *Controller) HandleDeleteClusterWithID(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	clusterIdVar := utils.CopyString(fiberCtx.Params("clusterId"))
 	logger.InfoC(ctx, "Request to delete cluster by id %v", clusterIdVar)
 	clusterId, err := strconv.Atoi(clusterIdVar)
@@ -151,7 +152,7 @@ func (c *Controller) HandleDeleteClusterWithID(fiberCtx *fiber.Ctx) error {
 // @Success 200 {array} dto.RouteConfigurationResponse
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/routes/route-configs [get]
-func (c *Controller) HandleGetRouteConfigs(fiberCtx *fiber.Ctx) error {
+func (c *Controller) HandleGetRouteConfigs(fiberCtx fiber.Ctx) error {
 	routeConfigs, err := c.service.GetRouteConfigurations()
 	if err != nil {
 		return restutils.RespondWithError(fiberCtx, 500, err.Error())
@@ -170,7 +171,7 @@ func (c *Controller) HandleGetRouteConfigs(fiberCtx *fiber.Ctx) error {
 // @Success 200 {array} domain.NodeGroup
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/routes/node-groups [get]
-func (c *Controller) HandleGetNodeGroups(fiberCtx *fiber.Ctx) error {
+func (c *Controller) HandleGetNodeGroups(fiberCtx fiber.Ctx) error {
 	nodeGroups, err := c.service.GetNodeGroups()
 	if err != nil {
 		return restutils.RespondWithError(fiberCtx, 500, err.Error())
@@ -189,7 +190,7 @@ func (c *Controller) HandleGetNodeGroups(fiberCtx *fiber.Ctx) error {
 // @Success 200 {array} domain.Listener
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/routes/listeners [get]
-func (c *Controller) HandleGetListeners(fiberCtx *fiber.Ctx) error {
+func (c *Controller) HandleGetListeners(fiberCtx fiber.Ctx) error {
 	listeners, err := c.service.GetListeners()
 	if err != nil {
 		return restutils.RespondWithError(fiberCtx, 500, err.Error())
@@ -212,9 +213,9 @@ func (c *Controller) HandleGetListeners(fiberCtx *fiber.Ctx) error {
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v1/routes/{nodeGroup} [delete]
-func (c *Controller) HandleDeleteRoutesWithNodeGroup(fiberCtx *fiber.Ctx) error {
+func (c *Controller) HandleDeleteRoutesWithNodeGroup(fiberCtx fiber.Ctx) error {
 	nodeGroup := utils.CopyString(fiberCtx.Params("nodeGroup"))
-	ctx := fiberCtx.UserContext()
+	ctx := fiberCtx.Context()
 	if nodeGroup == "" {
 		return restutils.RespondWithError(fiberCtx, http.StatusBadRequest, "Empty nodeGroup path param")
 	}
@@ -222,8 +223,8 @@ func (c *Controller) HandleDeleteRoutesWithNodeGroup(fiberCtx *fiber.Ctx) error 
 	if dr.GetMode() == dr.Standby {
 		return restutils.ResponseNoContent(fiberCtx, []*domain.Route{})
 	}
-	from := string(fiberCtx.Context().FormValue("from"))
-	namespace := string(fiberCtx.Context().FormValue("namespace"))
+	from := string(fiberCtx.RequestCtx().FormValue("from"))
+	namespace := string(fiberCtx.RequestCtx().FormValue("namespace"))
 	logger.Debugf("Deleting routes, from param: `%s`, namespace param: `%s`", from, namespace)
 
 	deletedRoutes, err := c.service.DeleteRoutes(ctx, nodeGroup, from, namespace)
