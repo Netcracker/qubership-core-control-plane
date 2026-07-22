@@ -1,6 +1,6 @@
 module trace-service/trace-service
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.14
