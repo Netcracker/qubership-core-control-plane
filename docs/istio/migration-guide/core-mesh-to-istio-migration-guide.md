@@ -5,7 +5,32 @@
 
 ## Overview
 
-This guide covers migrating your service from the Cloud-Core mesh to Istio.
+This guide describes migration from legacy Cloud Core Service Mesh to Istio Ambient Mesh.
+
+## Prerequisites
+
+### Istio
+
+Qubership Istio distribution should be installed on the cluster. See [qubership-istio installation notes](https://github.com/Netcracker/qubership-istio/blob/main/docs/public/installation.md).
+
+### Environment Enrollment into Mesh
+
+Having Istio installed on the cluster is not enough to enable Istio on the environment - you need to enroll namespace into mesh.
+Follow this guide to enroll namespace into Istio Ambient Mesh: [namespace enrollment](https://github.com/Netcracker/qubership-istio/blob/main/docs/public/namespace-enrollment.md).
+
+All namespaces of the same Composite Deployment must be enrolled into the mesh simultaneously.
+
+### Cloud-Core
+
+Cloud-Core supports Istio since version 9.27.2 (release 26.3).
+
+Migration of the existing environment to Istio must be performed via 2 sequentual deployment sessions:
+1. Deploy Cloud-Core 9.27.2+ with parameter `SERVICE_MESH_TYPE=Istio`;
+2. Deploy other migrated apps.
+
+## Service Migration
+
+This section covers migrating your service from the Cloud-Core mesh to Istio.
 
 There are **two ways** to perform the migration. Pick one:
 
