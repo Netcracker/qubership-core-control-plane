@@ -8,11 +8,27 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/data"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/event/events"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestIsExpectedTransientSubscribeError(t *testing.T) {
+	// expected transient errors during master pod restart -> not ERROR
+	assert.True(t, isExpectedTransientSubscribeError(context.Canceled))
+	assert.True(t, isExpectedTransientSubscribeError(context.DeadlineExceeded))
+	assert.True(t, isExpectedTransientSubscribeError(status.Error(codes.Canceled, "context canceled while waiting for connections to become ready")))
+	assert.True(t, isExpectedTransientSubscribeError(status.Error(codes.Unavailable, "connection refused")))
+	assert.True(t, isExpectedTransientSubscribeError(status.Error(codes.DeadlineExceeded, "deadline")))
+
+	// genuine errors stay ERROR
+	assert.False(t, isExpectedTransientSubscribeError(status.Error(codes.Internal, "boom")))
+	assert.False(t, isExpectedTransientSubscribeError(status.Error(codes.Unauthenticated, "no creds")))
+	assert.False(t, isExpectedTransientSubscribeError(errors.New("plain error")))
+}
 
 func TestALotOfGrpcSubs(t *testing.T) {
 	getNodeMetadataFunc = func() (metadata.MD, error) {

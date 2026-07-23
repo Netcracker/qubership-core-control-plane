@@ -4,6 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"math"
+	"net"
+	"sync"
+	"time"
+
 	"github.com/jellydator/ttlcache/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/clustering"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/data"
@@ -12,14 +18,11 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
 	errors2 "github.com/pkg/errors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-	"io"
-	"math"
-	"net"
-	"sync"
-	"time"
+	"google.golang.org/grpc/status"
 )
 
 // EventBusServerImpl provides implementation of EventBus gRPC service server stub.
@@ -423,7 +426,7 @@ func (s *GRPCBusSubscriber) subscribeInternal(topic string, handler func(data in
 
 	stream, err := client.Subscribe(ctx, &Topic{Name: topic})
 	if err != nil {
-		log.Errorf("gRPC client failed to subscribe: %v", err)
+		logSubscribeError("gRPC client failed to subscribe", err)
 		panic(err)
 	}
 	log.Infof("gRPC client successfully subscribed on topic %v", topic)
@@ -436,7 +439,7 @@ func (s *GRPCBusSubscriber) subscribeInternal(topic string, handler func(data in
 				log.Infof("gRPC client received EOF: %v", err)
 				panic(ErrConnGracefullyClosed)
 			}
-			log.Errorf("gRPC client failed to receive event: %v", err)
+			logSubscribeError("gRPC client failed to receive event", err)
 			panic(err)
 		}
 		if data, err := readProtobufEvent(event); err == nil && data != nil {
@@ -448,6 +451,35 @@ func (s *GRPCBusSubscriber) subscribeInternal(topic string, handler func(data in
 		} else if err != nil {
 			panic(err)
 		}
+	}
+}
+
+// logSubscribeError logs a subscriber connectivity error at the appropriate level.
+// When the master pod restarts, the subscribeWithRetry loop loses its connection and
+// keeps retrying until the master is back. The resulting errors (context canceled,
+// connection refused, deadline exceeded) are expected and self-healed by the retry loop,
+// so they are logged at WARN to avoid false-alarm ERRORs in log.
+// Any other status code still indicates a real problem and is logged at ERROR.
+func logSubscribeError(msg string, err error) {
+	if isExpectedTransientSubscribeError(err) {
+		log.Warnf("%s (will retry): %v", msg, err)
+	} else {
+		log.Errorf("%s: %v", msg, err)
+	}
+}
+
+// isExpectedTransientSubscribeError reports whether err is an expected transient
+// connectivity error that the subscribeWithRetry loop recovers from on its own,
+// typically caused by the master pod restarting.
+func isExpectedTransientSubscribeError(err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	switch status.Code(err) {
+	case codes.Canceled, codes.Unavailable, codes.DeadlineExceeded:
+		return true
+	default:
+		return false
 	}
 }
 
