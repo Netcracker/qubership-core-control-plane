@@ -13,7 +13,7 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <skipIT>true</skipIT>
-        <cloud-core-extension.version>8.9.3</cloud-core-extension.version>
+        <cloud-core-extension.version>8.9.4</cloud-core-extension.version>
     </properties>
 
     <profiles>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.21.4</version>
+            <version>2.21.5</version>
             <scope>test</scope>
         </dependency>
 

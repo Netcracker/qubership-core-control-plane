@@ -11,5 +11,7 @@
 
 Control-plane is a central microservice of Service Mesh. 
 
-Learn more: [Service Mesh Documentation](./docs/mesh/index.md)
+Cloud-Core Service Mesh docs: [Service Mesh Documentation](./docs/mesh/index.md)
+
+Istio Ambient Mesh docs: [Istio Documentation](./docs/istio/index.md)
 
