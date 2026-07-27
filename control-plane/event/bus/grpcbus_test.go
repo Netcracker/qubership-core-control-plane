@@ -4,15 +4,39 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/clustering"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/data"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/event/events"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"sync"
-	"testing"
-	"time"
+	"google.golang.org/grpc/status"
 )
+
+func TestIsExpectedTransientSubscribeError(t *testing.T) {
+	// expected transient errors during master pod restart -> not ERROR
+	assert.True(t, isExpectedTransientSubscribeError(context.Canceled))
+	assert.True(t, isExpectedTransientSubscribeError(context.DeadlineExceeded))
+	assert.True(t, isExpectedTransientSubscribeError(status.Error(codes.Canceled, "context canceled while waiting for connections to become ready")))
+	assert.True(t, isExpectedTransientSubscribeError(status.Error(codes.Unavailable, "connection refused")))
+	assert.True(t, isExpectedTransientSubscribeError(status.Error(codes.DeadlineExceeded, "deadline")))
+
+	// genuine errors stay ERROR
+	assert.False(t, isExpectedTransientSubscribeError(status.Error(codes.Internal, "boom")))
+	assert.False(t, isExpectedTransientSubscribeError(status.Error(codes.Unauthenticated, "no creds")))
+	assert.False(t, isExpectedTransientSubscribeError(errors.New("plain error")))
+}
+
+func TestLogSubscribeError(t *testing.T) {
+	logSubscribeError("transient subscribe error", status.Error(codes.Unavailable, "connection refused"))
+	logSubscribeError("transient context error", context.Canceled)
+	logSubscribeError("genuine subscribe error", status.Error(codes.Internal, "boom"))
+	logSubscribeError("genuine plain error", errors.New("plain error"))
+}
 
 func TestALotOfGrpcSubs(t *testing.T) {
 	getNodeMetadataFunc = func() (metadata.MD, error) {
