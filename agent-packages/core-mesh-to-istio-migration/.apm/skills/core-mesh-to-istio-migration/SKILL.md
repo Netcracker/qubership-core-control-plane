@@ -162,6 +162,7 @@ Language: <Go | Java | Go+Java>
 | 2.4  | Generate HTTPRoute CRs from code            | pending     |       |
 | 2.5  | Verify HTTPRoutes are Istio-guarded         | pending     |       |
 | 2.6  | Detect duplicate HTTPRoute rules            | pending     |       |
+| 2.7  | Flag control-plane calls in bash scripts    | pending     |       |
 
 ## Commands run
 
@@ -198,6 +199,7 @@ block a correct migration:
 | `FacadeService` with no port defined | FacadeService CR |
 | Named `{{- include }}` helpers producing mesh CRs | Helm templates |
 | `*` host on an east-west route | Generated HTTPRoute |
+| `curl`/`wget`/API call to the Cloud-Core Control-Plane | `*.sh` scripts, Helm-hook / init-container / Job shell commands |
 
 **Unknown values** — values the agent cannot safely infer and must not guess:
 
@@ -524,6 +526,56 @@ Log update:
 - **Done:** "duplicate-rule scan complete — N groups found" (or none).
 - **Needs review:** one entry per duplicate group (see above).
 
+### Step 2.7 — Flag control-plane calls in bash scripts
+
+Routes and other mesh config can also be pushed to the Cloud-Core
+Control-Plane **imperatively** — a `curl`/`wget` against the control-plane
+REST API from a shell script, a Helm hook, a Kubernetes `Job`, an
+init-container, or a lifecycle command. These calls bypass the declarative
+CRs, the route-registration libraries, and the `SERVICE_MESH_TYPE` guard
+entirely, so the automated steps above **never migrate them**. Under Istio
+the control-plane no longer routes this traffic, so every such call needs a
+human decision (drop it, or replace it with an equivalent HTTPRoute).
+
+**This step only reports. Never edit, delete, or rewrite a script — none of
+these calls are safe to auto-migrate.**
+
+**Idempotency check:** if a previous run already logged the bash-script
+findings and no shell scripts changed since, log under **Done**
+("already checked") and skip.
+
+1. Search the chart and the repo for shell that talks to the control-plane.
+   Cover both standalone scripts and shell embedded in manifests:
+   - files matching `*.sh` / `*.bash`,
+   - `command:` / `args:` shell in Kubernetes `Job`, `CronJob`,
+     init-containers, and container `lifecycle` hooks,
+   - Helm hook resources (`helm.sh/hook` annotations) that run scripts.
+
+   ```bash
+   grep -rniE 'control-plane|controlplane|/api/v[0-9]+/(routes|control-plane)' \
+     --include='*.sh' --include='*.bash' --include='*.yaml' --include='*.yml' <repo root>
+   ```
+
+   Treat any `curl`/`wget`/HTTP client call whose target host or path
+   references the control-plane (e.g. `control-plane:8080`,
+   `/api/v3/routes/...`, registration/blue-green endpoints) as a hit. When
+   in doubt, flag it — false positives cost a human a glance, a missed call
+   silently breaks routing after cutover.
+2. For **every** hit, add **one Needs review** entry containing:
+   - the file (and line) of the call,
+   - the control-plane endpoint and HTTP method invoked,
+   - suggested action: "Imperative control-plane call not covered by the
+     migration — under Istio the control-plane does not route this traffic.
+     Confirm the route is now served by an HTTPRoute (declarative or
+     generated), then remove or gate this call. Do not leave it firing
+     unconditionally against an Istio environment."
+3. If no hits are found → log under **Done** ("no control-plane calls found
+   in bash scripts").
+
+Log update:
+- **Done:** "control-plane bash-call scan complete — N calls found" (or none).
+- **Needs review:** one entry per call (see above).
+
 ---
 
 ## Final checklist and hand-off
@@ -543,6 +595,7 @@ at least one **Done** entry and zero unresolved **Needs review** entries:
 - [x/ ] HTTPRoute CRs generated from route registration code
 - [x/ ] All HTTPRoute CRs wrapped in the Istio conditional
 - [x/ ] HTTPRoutes scanned for duplicate rules (same parent + equal match)
+- [x/ ] Bash scripts scanned for control-plane API calls (flagged for review)
 
 Open items (require user review):
 - <list all remaining "Needs review" entries from MIGRATION_LOG.md>
@@ -560,7 +613,8 @@ Close with a plain-language summary telling the user:
    `tcpKeepalive`, `Rule.deny`, `Rule.statefulSession`,
    `Rule.idleTimeout`, `Rule.luaFilter`, `FacadeService` with no port,
    unresolved gateways, helper-produced CRs, placeholder library versions,
-   duplicate HTTPRoute rules from Step 2.6 (same parent + equal match), and
+   duplicate HTTPRoute rules from Step 2.6 (same parent + equal match),
+   imperative control-plane calls in bash scripts from Step 2.7, and
    any `.incomplete` files from Step 2.4).
 4. The recommended validation commands the user should run locally before pushing:
 
