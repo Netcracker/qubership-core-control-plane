@@ -4,10 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
-
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/db"
 	"github.com/uptrace/bun"
+	"time"
 )
 
 var dbCallTimeout = 5 * time.Second

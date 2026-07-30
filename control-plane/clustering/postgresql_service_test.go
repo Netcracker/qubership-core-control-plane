@@ -4,15 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net"
-	"testing"
-	"time"
-
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
+	"net"
+	"testing"
+	"time"
 )
 
 // Test error cases
