@@ -4,14 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
+	"testing"
+	"time"
+
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
-	"net"
-	"testing"
-	"time"
 )
 
 // Test error cases
@@ -162,4 +163,23 @@ func findFreePort() int {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 	return port
+}
+
+type BlockingDbProviderStub struct {
+	DbProviderStub
+}
+
+func (p *BlockingDbProviderStub) GetConn(ctx context.Context) (*bun.Conn, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestPostgreSqlService_Conn_PingTimeout(t *testing.T) {
+	service := NewPostgreSqlService(&BlockingDbProviderStub{})
+
+	conn, err := service.Conn()
+
+	assert.Nil(t, conn)
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }

@@ -4,10 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/db"
 	"github.com/uptrace/bun"
-	"time"
 )
+
+var dbCallTimeout = 5 * time.Second
 
 var ctx = context.Background()
 
@@ -28,6 +31,10 @@ type SqlService interface {
 
 type PostgreSqlService struct {
 	dbProvider db.DBProvider
+}
+
+func newDBContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), dbCallTimeout)
 }
 
 func NewPostgreSqlService(dbProvider db.DBProvider) *PostgreSqlService {
@@ -118,6 +125,8 @@ func (p *PostgreSqlService) Count(cnn *bun.Conn) (int, error) {
 }
 
 func (p *PostgreSqlService) Conn() (*bun.Conn, error) {
+	ctx, cancel := newDBContext()
+	defer cancel()
 	return p.dbProvider.GetConn(ctx)
 }
 
