@@ -174,6 +174,10 @@ func (p *BlockingDbProviderStub) GetConn(ctx context.Context) (*bun.Conn, error)
 }
 
 func TestPostgreSqlService_Conn_PingTimeout(t *testing.T) {
+	original := dbCallTimeout
+	dbCallTimeout = 50 * time.Millisecond
+	defer func() { dbCallTimeout = original }()
+
 	service := NewPostgreSqlService(&BlockingDbProviderStub{})
 
 	conn, err := service.Conn()
