@@ -35,7 +35,7 @@ require (
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.9.6
 	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.7.5
 	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.5.6
-	github.com/netcracker/qubership-core-lib-go/v3 v3.13.2
+	github.com/netcracker/qubership-core-lib-go/v3 v3.13.3-0.20260731185759-d563714f099a
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
