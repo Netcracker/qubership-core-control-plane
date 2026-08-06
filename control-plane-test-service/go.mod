@@ -6,7 +6,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.14
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.13.4
+	github.com/netcracker/qubership-core-lib-go/v3 v3.13.5
 	github.com/pkg/errors v0.9.1
 	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
@@ -41,13 +41,13 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.8 // indirect
-	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.6.2 // indirect
-	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.4.8 // indirect
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.6 // indirect
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.9.8 // indirect
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.7.7 // indirect
-	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.5.8 // indirect
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.10.9 // indirect
+	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.6.3 // indirect
+	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.4.9 // indirect
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.6.7 // indirect
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.9.9 // indirect
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.7.8 // indirect
+	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.5.9 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
