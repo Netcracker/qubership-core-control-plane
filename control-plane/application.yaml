@@ -2,6 +2,14 @@ microservice:
   name: control-plane
   namespace: core-dev
 
+# tracing.* overridden by TRACING_* env (configloader: TRACING_ENABLED → tracing.enabled)
+# TRACING_ENABLED also enables gateway Envoy XDS tracing (envoy.proxy.tracing.enabled)
+tracing:
+  enabled: false
+  host: nc-diagnostic-agent
+  sampler:
+    ratelimiting: 10
+
 http:
   server:
     bind: ":8080"
