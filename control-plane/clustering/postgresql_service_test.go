@@ -163,3 +163,26 @@ func findFreePort() int {
 	_ = listener.Close()
 	return port
 }
+
+type BlockingDbProviderStub struct {
+	DbProviderStub
+}
+
+func (p *BlockingDbProviderStub) GetConn(ctx context.Context) (*bun.Conn, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestPostgreSqlService_Conn_PingTimeout(t *testing.T) {
+	original := dbCallTimeout
+	dbCallTimeout = 50 * time.Millisecond
+	defer func() { dbCallTimeout = original }()
+
+	service := NewPostgreSqlService(&BlockingDbProviderStub{})
+
+	conn, err := service.Conn()
+
+	assert.Nil(t, conn)
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+}
