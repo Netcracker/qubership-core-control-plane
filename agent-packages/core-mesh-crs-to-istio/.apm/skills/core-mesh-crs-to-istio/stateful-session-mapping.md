@@ -25,7 +25,7 @@ Target:
   enabled    *bool            if false → skip, do not generate DestinationRule
   cookie     *Cookie          → spec.trafficPolicy.loadBalancer.consistentHash.httpCookie  (see Cookie below)
   route      *RouteMatcher    OMIT (read-only response field)
-  overridden bool             OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  overridden bool             OMIT ⚠ flag for MANUAL REVIEW if true
 
 If `cookie` is absent → delete/disable request; do **not** generate a DestinationRule.
 

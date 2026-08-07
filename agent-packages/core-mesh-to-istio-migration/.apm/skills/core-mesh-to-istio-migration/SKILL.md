@@ -197,9 +197,9 @@ block a correct migration:
 | `Rule.rateLimit` / `.luaFilter` non-empty | RouteConfiguration CR |
 | `Rule.deny` / `.idleTimeout` non-nil | RouteConfiguration CR |
 | `StatefulSession.hostname` / `.port` set (endpoint-level targeting) | StatefulSession CR |
-| `StatefulSession.overridden` non-empty | StatefulSession CR |
+| `StatefulSession.overridden` true | StatefulSession CR |
 | `LoadBalance` with more than one policy | LoadBalance CR |
-| `LoadBalance.overridden` non-empty | LoadBalance CR |
+| `LoadBalance.overridden` true | LoadBalance CR |
 | Multiple generated `DestinationRule`s targeting the same `spec.host` | Generated `-istio` files |
 | `FacadeService` with no port defined | FacadeService CR |
 | Named `{{- include }}` helpers producing mesh CRs | Helm templates |

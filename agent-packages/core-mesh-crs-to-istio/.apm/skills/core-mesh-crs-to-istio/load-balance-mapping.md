@@ -20,7 +20,7 @@ Target:
   namespace  string         OMIT
   version    string         OMIT
   endpoint   string         OMIT
-  overridden bool           OMIT ⚠ flag for MANUAL REVIEW if non-empty
+  overridden bool           OMIT ⚠ flag for MANUAL REVIEW if true
   policies   []HashPolicy   → spec.trafficPolicy.loadBalancer.consistentHash  (see HashPolicy below)
 
 If `policies` is empty or absent → do **not** generate a DestinationRule.
