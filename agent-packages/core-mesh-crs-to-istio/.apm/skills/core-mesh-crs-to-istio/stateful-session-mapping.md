@@ -70,10 +70,15 @@ cannot be expressed without a separate Service per endpoint group.
 **Migration path when `hostname` or `port` is set:**
 
 1. Check whether a dedicated Kubernetes Service already exists for that endpoint (e.g. `trace-service-v1`).
-2. If yes — generate the DestinationRule with `spec.host` pointing to that Service instead of the base cluster name.
-3. If no — flag for MANUAL REVIEW: create the Service first, then re-run the migration for this CR.
+2. If yes — generate the DestinationRule with `spec.host` pointing to that Service instead of the base
+   cluster name, plus a `# ⚠ MANUAL REVIEW` comment stating which Service was chosen and why.
+3. If no — generate the DestinationRule with `spec.host` set to the base cluster name, plus a
+   `# ⚠ MANUAL REVIEW` comment explaining that the rule now applies stickiness to the whole Service
+   (all pods) instead of the original endpoint, and that a dedicated Service must be created (and
+   `spec.host` repointed) to preserve endpoint-level precision.
 
-Do **not** silently fall back to cluster-level DR — add a `# ⚠ MANUAL REVIEW` comment explaining the situation.
+Never emit the fallback DestinationRule without the `# ⚠ MANUAL REVIEW` comment — the stickiness scope
+widens silently otherwise.
 
 ---
 
