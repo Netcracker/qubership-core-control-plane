@@ -19,8 +19,8 @@ This skill converts **standalone** traffic-policy CRs to Istio `DestinationRule`
 | `LoadBalance` | `nc.core.mesh/v2` or `nc.core.mesh/v3` | `DestinationRule` with `consistentHash.*` |
 
 > **Out of scope:** `StatefulSession` embedded inside a `RouteConfiguration` rule
-> is handled by the [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md) skill
-> as part of HTTPRoute generation.
+> is handled by the `core-mesh-crs-to-gatewayapi` skill as part of HTTPRoute
+> generation (see its `stateful-session-rule-mapping.md`).
 
 The transformation keeps charts deployable to **both mesh types** by wrapping originals in
 `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` and generated resources in

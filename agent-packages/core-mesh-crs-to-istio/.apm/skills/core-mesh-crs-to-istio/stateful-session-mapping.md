@@ -77,18 +77,6 @@ Do **not** silently fall back to cluster-level DR — add a `# ⚠ MANUAL REVIEW
 
 ---
 
-### Rule-level StatefulSession (inside RouteConfiguration)
-
-When `statefulSession` appears on a `RouteV3.Rule` inside a `RouteConfiguration`,
-generate a DestinationRule for the route's destination host alongside the HTTPRoute.
-
-- Destination host: parsed from `RouteDestination.endpoint` (same as backendRef resolution)
-- Cookie mapping: same as above
-- Multiple rules for the same host: first config wins, add `# ⚠ MANUAL REVIEW` comment for subsequent conflicts
-- Output: written **in the same generated file** as the HTTPRoute, after the HTTPRoute document (separated by `---`)
-
----
-
 ### Output example
 
 Input:

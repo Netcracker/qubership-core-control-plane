@@ -71,7 +71,7 @@ RouteConfiguration), do not edit the helper — flag it with
 `RouteConfiguration` maps to one or more **Gateway API `HTTPRoute`** resources.
 Parent ref kind (Gateway vs Service) is determined by the type of the referenced Gateway CR.
 If any rule inside the RouteConfiguration has a `statefulSession` field, an additional
-Istio **`DestinationRule`** is generated (see [stateful-session-mapping.md](../core-mesh-crs-to-istio/stateful-session-mapping.md)).
+Istio **`DestinationRule`** is generated (see [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md)).
 
 ---
 
@@ -366,6 +366,6 @@ Read these before transforming — they contain schemas, field mappings, and ful
 - [facade-service-mapping.md](facade-service-mapping.md) — FacadeService → Service
 - [gateway-mapping.md](gateway-mapping.md) — Gateway → Istio Gateway
 - [route-configuration-mapping.md](route-configuration-mapping.md) — RouteConfiguration → HTTPRoute
-- [stateful-session-mapping.md](../core-mesh-crs-to-istio/stateful-session-mapping.md) — StatefulSession → DestinationRule (rule-level only)
+- [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md) — Rule-level StatefulSession → DestinationRule
 - [labels.md](labels.md) — Common label resolution
 - [path-specificity-sorting.md](../path-specificity-sorting/SKILL.md) — Sort HTTPRoute `rules[]` by path specificity (shared with `httproute-from-code`)
