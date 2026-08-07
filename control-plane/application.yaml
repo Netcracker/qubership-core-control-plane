@@ -1,6 +1,7 @@
 microservice:
   name: control-plane
-  namespace: core-dev
+  # overridden by MICROSERVICE_NAMESPACE (metadata.namespace) in deployment
+  namespace: unknown
 
 # tracing.* overridden by TRACING_* env (configloader: TRACING_ENABLED → tracing.enabled)
 # TRACING_ENABLED also enables gateway Envoy XDS tracing (envoy.proxy.tracing.enabled)

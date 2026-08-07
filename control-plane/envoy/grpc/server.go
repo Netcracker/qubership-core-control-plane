@@ -2,6 +2,11 @@ package grpc
 
 import (
 	"context"
+	"net"
+	"os"
+	"strings"
+	"time"
+
 	v3core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v3clusterservice "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	v3discoveryservice "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -25,19 +30,31 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-	"net"
-	"time"
 )
 
-// IDHash uses ID field as the node hash.
 type ClusterHash struct{}
 
-// ID uses the node ID field
 func (ClusterHash) ID(node *v3core.Node) string {
 	if node == nil {
 		return ""
 	}
-	return node.Cluster
+	return stripNamespaceSuffixFromServiceCluster(node.Cluster)
+}
+
+func stripNamespaceSuffixFromServiceCluster(serviceCluster string) string {
+	ns := strings.TrimSpace(configloader.GetOrDefaultString("microservice.namespace", ""))
+	if ns == "" {
+		ns = strings.TrimSpace(os.Getenv("CLOUD_NAMESPACE"))
+	}
+	// Skip placeholder defaults from application.yaml (real ns comes from MICROSERVICE_NAMESPACE / CLOUD_NAMESPACE).
+	if ns == "" || ns == "unknown" || ns == "default" || ns == "local" || serviceCluster == "" {
+		return serviceCluster
+	}
+	suffix := "-" + ns
+	if strings.HasSuffix(serviceCluster, suffix) && len(serviceCluster) > len(suffix) {
+		return strings.TrimSuffix(serviceCluster, suffix)
+	}
+	return serviceCluster
 }
 
 var (
