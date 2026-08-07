@@ -112,4 +112,5 @@ spec:
         httpCookie:
           name: trace-service-sticky
           ttl: "0s"
-  
+          path: /
+```
