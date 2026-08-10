@@ -166,15 +166,19 @@ reason.
 
 ## Migration log — MANDATORY
 
-The skill **must** create and continuously update a migration log at the repo root:
+The skill **must** create and continuously update a migration log next to the
+sub-skill reports:
 
 ```
-MIGRATION_LOG.md
+.mesh-migration/MIGRATION_LOG.md
 ```
 
 The log is the single source of truth for what the automation did. It is updated
 **after every step** — never wait until the end. If the log file cannot be
 written for any reason, stop immediately and report the failure to the user.
+Like the reports, the log is a working file inside the gitignored
+`.mesh-migration/` folder; a full run starts a fresh log, a resumed run appends
+to the existing one.
 
 ### Log structure
 

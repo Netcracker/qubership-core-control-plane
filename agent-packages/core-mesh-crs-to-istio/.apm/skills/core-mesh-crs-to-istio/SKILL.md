@@ -296,7 +296,7 @@ Capture the label set applied to generated Istio resources, using
 2. If labels cannot be resolved unambiguously (for example helper indirection),
    mark labels as **unresolved** and include why.
 3. Record the result in the Output Summary as `Detected output labels`.
-4. If `MIGRATION_LOG.md` exists at repo root: append a **Done** entry when
+4. If `.mesh-migration/MIGRATION_LOG.md` exists: append a **Done** entry when
    resolved, or a **Needs review** entry (with reason and suggested action) when
    unresolved.
 
