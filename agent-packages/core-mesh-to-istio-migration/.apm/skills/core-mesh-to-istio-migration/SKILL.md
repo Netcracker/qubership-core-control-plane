@@ -252,8 +252,7 @@ and skip to Step 1.1.
    with the chart path.
 4. That skill will: convert standalone `StatefulSession` → `DestinationRule`,
    `LoadBalance` → `DestinationRule`, and `HttpFilters` + `RouteConfiguration`
-   Lua scripts → `EnvoyFilter` (&lt; 1.30: ingress/egress + waypoint with different
-   patch rules) or `TrafficExtension` (≥ 1.30), wrapping
+   Lua scripts → `TrafficExtension` (requires Istio ≥ 1.30), wrapping
    originals and generated files in the respective mesh-type guards.
 5. **Check for DestinationRule host conflicts across the two sub-skills.** Both
    sub-skills can emit a `DestinationRule` for the same `spec.host` — rule-level
@@ -266,19 +265,29 @@ and skip to Step 1.1.
    suggested action: "Consolidate into a single DestinationRule per host —
    confirm which stickiness/load-balancing policy is authoritative." Do not
    auto-delete either resource.
-6. **If a sub-skill pauses to ask about unresolved gateways** → forward the
+6. **Validate luaFilter reference consistency across the two sub-skills.**
+   Compare the "Detected luaFilter references" list from the
+   `core-mesh-crs-to-gatewayapi` output with the "Migrated luaFilter names"
+   list from the `core-mesh-crs-to-istio` output. Every detected name must
+   appear in the migrated list (a matching `TrafficExtension` was generated),
+   and every migrated name must have been detected on some rule. For each
+   mismatch add a **Needs review** entry naming the luaFilter, which side it
+   is missing from, and the suggested action: "Define the missing luaFilter
+   in `HttpFilters` / remove the stale `luaFilter` reference from the rule /
+   re-run the sub-skill on the missing pair." Do not auto-delete anything.
+7. **If a sub-skill pauses to ask about unresolved gateways** → forward the
    question to the user verbatim, wait for the answer, and resume the sub-skill.
    Log each decision under **Needs review** → move to **Done** once applied.
-7. Copy the sub-skills' output summaries (modified / generated files, transformed
+8. Copy the sub-skills' output summaries (modified / generated files, transformed
    resource counts, manual-review lists) into the log.
-8. **Capture the detected backend reference.** Read the `backendRefName` /
+9. **Capture the detected backend reference.** Read the `backendRefName` /
    `backendRefPort` reported in the sub-skill's "Detected backend reference"
    output. If both are resolved, record them in the log (under **Done**) as the
    migration-wide backend reference to reuse in Step 2.3 / Step 2.4. If the
    sub-skill reports them as unresolved, note that they must be asked from the
    user when first needed (see
    [Backend reference](#backend-reference-backendrefname--backendrefport--do-not-ask-up-front)).
-9. **Capture the detected labels.** Read the `Detected output labels` map from
+10. **Capture the detected labels.** Read the `Detected output labels` map from
    the sub-skill output (and corresponding `MIGRATION_LOG.md` entry). If
    resolved, store it as migration-wide `routeLabels` for Step 2.3 / Step 2.4.
    If unresolved, add a **Needs review** entry and ask user only when labels are

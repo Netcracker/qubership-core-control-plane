@@ -314,7 +314,7 @@ When the listed field is non-empty / non-nil on the source CR, omit it from the 
 | `RouteV3.Rule` | `idleTimeout` | non-nil |
 | `RouteV3.Rule` | `rateLimit` | non-empty |
 | `RouteV3.Rule` | `deny` | non-nil |
-| `RouteV3.Rule` | `luaFilter` | non-empty — migrated by `core-mesh-crs-to-istio` (see [lua-filter-mapping.md](../core-mesh-crs-to-istio/lua-filter-mapping.md)) |
+| `RouteV3.Rule` | `luaFilter` | non-empty — do not migrate here; report the name under "Detected luaFilter references" so the orchestrator can hand it to the `core-mesh-crs-to-istio` skill |
 | `FacadeService` | neither `spec.port` nor `spec.gatewayPorts` | — |
 | Any template helper | `{{- include ... }}` returns mesh-specific CRs | — |
 
@@ -345,6 +345,10 @@ Detected output labels (for Maven plugin / code-generated HTTPRoutes):
   # if unresolved, state why: helper indirection not resolvable
   #                           | conflicting label definitions
 
+Detected luaFilter references (to be migrated by core-mesh-crs-to-istio):
+  - <luaFilter name> — Rule <path> of RouteConfiguration <name>, gateways: <list>
+  # "none" when no rule references a luaFilter
+
 Items needing manual review:
   <list every omitted `⚠ MANUAL REVIEW REQUIRED` — one line per hit, e.g.:
    - rateLimit / overridden on VirtualService <name>
@@ -352,7 +356,6 @@ Items needing manual review:
    - cluster / httpVersion /
      circuitBreaker / tcpKeepalive on RouteDestination of <name>
    - deny / idleTimeout / statefulSession / rateLimit
-   - luaFilter on Rule <path> of <name> (if script/gateway context unresolved)
    - FacadeService <name> has no port defined
    - helper {{- include "<name>" }} produces mesh CRs — guards added manually
 ```
@@ -367,6 +370,5 @@ Read these before transforming — they contain schemas, field mappings, and ful
 - [gateway-mapping.md](gateway-mapping.md) — Gateway → Istio Gateway
 - [route-configuration-mapping.md](route-configuration-mapping.md) — RouteConfiguration → HTTPRoute
 - [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md) — Rule-level StatefulSession → DestinationRule
-- [lua-filter-mapping.md](../core-mesh-crs-to-istio/lua-filter-mapping.md) — HttpFilters + RouteConfiguration → EnvoyFilter / TrafficExtension
 - [labels.md](labels.md) — Common label resolution
 - [path-specificity-sorting.md](../path-specificity-sorting/SKILL.md) — Sort HTTPRoute `rules[]` by path specificity (shared with `httproute-from-code`)

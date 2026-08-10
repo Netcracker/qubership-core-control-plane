@@ -22,13 +22,11 @@ Compare the result with `tests/expected-output.yaml` and report any differences.
 ## Lua filters
 
 Skill input: one pair (`HttpFilters` + `RouteConfiguration`). `tests/lua-input.yaml` is an e2e
-fixture with **two gateway scenarios** — run the skill per pair and compare with expected output.
-Assume `ISTIO_VERSION` is known before comparing.
-
-### Istio ≥ 1.30
+fixture with **two gateway scenarios** in pre-migration state (no mesh-type guards) — run the
+skill per pair and compare with expected output.
 
 ```
-Run skill `core-mesh-crs-to-istio` on `tests/lua-input.yaml` (ISTIO_VERSION ≥ 1.30).
+Run skill `core-mesh-crs-to-istio` on `tests/lua-input.yaml`.
 
 Compare with `tests/lua-expected-output.yaml`.
 ```
@@ -37,16 +35,3 @@ Compare with `tests/lua-expected-output.yaml`.
 |---|---------|-----------------|
 | 1 | `public-gateway-service` | `TrafficExtension` → `public-gateway`, path guard |
 | 2 | `internal-gateway-service` | `TrafficExtension` → `waypoint`, path guard |
-
-### Istio < 1.30
-
-```
-Run skill `core-mesh-crs-to-istio` on `tests/lua-input.yaml` (ISTIO_VERSION < 1.30).
-
-Compare with `tests/lua-expected-output-lt130.yaml`.
-```
-
-| # | Gateway | Expected output |
-|---|---------|-----------------|
-| 1 | `public-gateway-service` | `EnvoyFilter` with base filter + `LuaPerRoute` |
-| 2 | `internal-gateway-service` | `EnvoyFilter` → `waypoint`, `HTTP_FILTER` without `context`, `inline_code` + path guard |

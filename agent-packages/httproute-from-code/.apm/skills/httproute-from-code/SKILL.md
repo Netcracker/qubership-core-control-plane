@@ -24,7 +24,7 @@ Run this skill against a file or directory of route-registration code. Examples:
 Besides `<path>`, this skill accepts optional `backendRefs` parameters and an
 optional `routeLabels` parameter. They control `backendRefs[]` and
 `metadata.labels` emitted in every generated HTTPRoute CR. When invoked by the
-[`core-mesh-to-istio-migration`](../core-mesh-to-istio-migration/SKILL.md)
+`core-mesh-to-istio-migration`
 orchestrator, these are passed in already resolved — either detected from the
 existing mesh CRs by the `core-mesh-crs-to-gatewayapi` skill or provided by the user.
 

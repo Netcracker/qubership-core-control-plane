@@ -4,159 +4,19 @@
 
 Inline Lua runs at the proxy for header manipulation, logging, path parsing, and similar logic.
 
-> Lua runs inside Envoy on the request path. A faulty script can break routing or take down traffic on the affected proxy. Test carefully and **use at your own risk**.
+> Lua runs inside Envoy on the request path. A faulty script can break routing or take down traffic
+> on the affected proxy. Test carefully and **use at your own risk**.
 
-Choose the resource by Istio version:
-
-| Istio version | Resource | Scope |
-|---|---|---|
-| **&lt; 1.30** | `EnvoyFilter` | Ingress/egress gateways and waypoint (different patch rules) |
-| **≥ 1.30** | `TrafficExtension` | All gateway types (ingress, egress, waypoint) |
-
-In ambient mode, waypoint Lua on Istio &lt; 1.30 uses `EnvoyFilter` with a **different**
-`configPatches` shape than ingress/egress gateways. Do **not** use `context: GATEWAY` or
-`LuaPerRoute` on waypoint — those patches apply on ingress/egress only.
+Lua filtering uses the `TrafficExtension` resource and requires **Istio 1.30 or later**.
+It applies to all gateway types (ingress, egress, waypoint).
 
 ---
 
-## Istio &lt; 1.30 — EnvoyFilter
-
-Ingress/egress gateways and waypoint require **different** `EnvoyFilter` resources — do not
-merge them in one CR because `configPatches` differ.
-
-When Lua is needed on **both** gateway(s) and waypoint, emit **separate** resources:
-
-| Target | EnvoyFilter | `targetRefs` |
-|---|---|---|
-| Ingress / egress gateway(s) | one CR with `context: GATEWAY` patches | one or more ingress/egress gateways (grouping allowed) |
-| Waypoint (mesh) | separate CR with `HTTP_FILTER` + full `inline_code` | `waypoint` only |
-
-For ingress/egress, multiple gateways (`public-gateway`, `private-gateway`, …) may share
-one `EnvoyFilter` — list each in `spec.targetRefs`. Waypoint always gets its own CR.
-
-### Ingress / egress gateway
-
-Attach Lua via `EnvoyFilter` with `context: GATEWAY`.
-Istio requires a base Lua filter in the HTTP chain and a per-route override via `LuaPerRoute`.
-
-```yaml
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: public-gateway-lua-filters
-  namespace: catalog-namespace
-spec:
-  targetRefs:
-  - kind: Gateway
-    group: gateway.networking.k8s.io
-    name: public-gateway
-  # additional ingress/egress gateways may be listed here
-  configPatches:
-  - applyTo: HTTP_FILTER
-    match:
-      context: GATEWAY
-      listener:
-        filterChain:
-          filter:
-            name: envoy.filters.network.http_connection_manager
-            subFilter:
-              name: envoy.filters.http.router
-    patch:
-      operation: INSERT_BEFORE
-      value:
-        name: envoy.filters.http.lua
-        typed_config:
-          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
-          stat_prefix: lua
-          inline_code: ""
-  - applyTo: HTTP_ROUTE
-    match:
-      context: GATEWAY
-      routeConfiguration:
-        vhost:
-          route:
-            name: catalog-routes-catalog-service-0
-    patch:
-      operation: MERGE
-      value:
-        typed_per_filter_config:
-          envoy.filters.http.lua:
-            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.LuaPerRoute
-            source_code:
-              inline_string: |
-                function envoy_on_request(request_handle)
-                    local path = request_handle:headers():get(":path")
-                    local uuid = string.match(path, ".*/([a-z0-9-]+)$")
-                    if uuid then
-                        request_handle:headers():add("X-Uuid", uuid)
-                    end
-                end
-```
-
-`route.name` must match the Envoy route name for the `HTTPRoute` rule:
-
-```bash
-istioctl proxy-config routes deploy/<gateway-pod> -n <namespace> --name http.8080 -o json
-```
-
-### Waypoint (ambient mesh gateway)
-
-Use a **separate** `EnvoyFilter` targeting the mesh `Gateway` (`waypoint`).
-Insert one `HTTP_FILTER` with the full script in `inline_code`. **Omit** `context: GATEWAY`.
-Add a path guard at the top of the script (waypoint has no per-route `LuaPerRoute` attachment
-in ambient for Istio &lt; 1.30).
-
-```yaml
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: waypoint-lua-filters
-  namespace: catalog-namespace
-spec:
-  targetRefs:
-  - kind: Gateway
-    group: gateway.networking.k8s.io
-    name: waypoint
-  configPatches:
-  - applyTo: HTTP_FILTER
-    match:
-      listener:
-        filterChain:
-          filter:
-            name: envoy.filters.network.http_connection_manager
-            subFilter:
-              name: envoy.filters.http.router
-    patch:
-      operation: INSERT_BEFORE
-      value:
-        name: envoy.filters.http.lua
-        typed_config:
-          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
-          stat_prefix: lua
-          inline_code: |
-            function envoy_on_request(request_handle)
-              local path = request_handle:headers():get(":path")
-              if not string.find(path, "/api/v1/service/catalogManagement", 1, true) then
-                return
-              end
-              local uuid = string.match(path, ".*/([a-z0-9-]+)$")
-              if uuid then
-                request_handle:headers():add("X-Uuid", uuid)
-              end
-            end
-```
-
-Other `EnvoyFilter` patch types (for example `applyTo: VIRTUAL_HOST` for header removal) also
-work on waypoint. `HTTP_ROUTE` + `LuaPerRoute` with `context: GATEWAY` does **not** attach on
-waypoint in ambient — verified via `istioctl proxy-config`.
-
----
-
-## Istio ≥ 1.30 — TrafficExtension
+## TrafficExtension
 
 Use `TrafficExtension` for Lua on any gateway type. Set `targetRefs` to the target
-**Gateway** (`gateway.networking.k8s.io`) or **Service** (waypoint proxy).
-Set `phase: STATS` and put the script in `spec.lua.inlineCode`.
+**Gateway** (`gateway.networking.k8s.io`). Set `phase: STATS` and put the script in
+`spec.lua.inlineCode`.
 
 `TrafficExtension` has no per-route attachment — add a path guard at the top of `inlineCode`
 when the script must run only for specific paths.
@@ -199,7 +59,8 @@ Reference: [TrafficExtension](https://istio.io/latest/docs/reference/config/prox
 Writes method, authority, path, and status to **proxy logs** (`logInfo`). Filters by
 `:authority` so only traffic to `example.com` is logged.
 
-Can be used on **egress gateway** for outbound external calls. Body logging is optional and limited — see notes below.
+Can be used on **egress gateway** for outbound external calls. Body logging is optional and
+limited — see notes below.
 
 ```lua
 local TARGET_AUTHORITY = "example.com"
@@ -286,10 +147,10 @@ function envoy_on_request(request_handle)
 end
 ```
 
-### Path guard template (`TrafficExtension` / waypoint)
+### Path guard template
 
-`TrafficExtension` and waypoint `EnvoyFilter` run on the whole listener — guard at the top of
-`envoy_on_request` (and `envoy_on_response` if used) to limit scope:
+`TrafficExtension` runs on the whole listener — guard at the top of `envoy_on_request`
+(and `envoy_on_response` if used) to limit scope:
 
 ```lua
 function envoy_on_request(request_handle)
