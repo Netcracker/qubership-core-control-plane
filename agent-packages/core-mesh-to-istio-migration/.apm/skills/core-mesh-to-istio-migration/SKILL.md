@@ -12,8 +12,8 @@ description: >
 # Core Mesh → Istio — Full Migration Orchestrator
 
 This skill runs the complete migration described in the guide.
-It is an **orchestrator**: the heavy lifting lives in two atomic sub-skills, and this
-skill coordinates them, performs the remaining steps, and keeps an auditable log.
+It is an **orchestrator**: the heavy lifting lives in four atomic sub-skills, and this
+skill coordinates them, resolves user questions, and keeps an auditable log.
 
 ## Invocation
 
@@ -29,7 +29,9 @@ Run this skill against the chart or service directory to migrate. Examples:
 | Sub-skill                                                                           | Used in step | Purpose                                                        |
 | ----------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------- |
 | [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert existing Helm mesh CRs to Gateway API + Istio resources |
+| [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md)                                | Steps 2.1–2.3 | Mesh-aware libraries, SERVICE_MESH_TYPE env, Maven plugin      |
 | [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
+| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.6 | Istio guards, render checks, duplicate-rule detection          |
 
 **How to invoke a sub-skill:** communicate only through the sub-skill's
 `## Contract` — resolved inputs in, report file out. When the harness provides a
@@ -316,134 +318,24 @@ route-registration annotations. Keep all generated HTTPRoute files committed in
 the branch and remind the user to rerun the generation whenever route annotations
 or registration code change.
 
-### Step 2.1 — Switch to mesh-type-aware route-registration libraries
+### Steps 2.1–2.3 — Wire build and deployment (delegate to `mesh-build-wiring`)
 
-Apply only to languages actually present in the repo.
+**Idempotency:** the sub-skill performs its own per-item idempotency checks and
+records "already compliant / already present" items under `done:`.
 
-#### Java
-
-**Idempotency check:** for each dependency below, check whether the current
-version already satisfies the minimum. If yes, log under **Done** ("already
-compliant") and skip that dependency.
-
-- **Spring** (`spring-boot-starter-*` detected in `pom.xml`):
-  - Replace old route-posting dependencies with either
-    `com.netcracker.cloud:route-registration-webclient` or
-    `com.netcracker.cloud:route-registration-resttemplate` at version `>= 7.1.0`.
-  - If the project uses `dependencyManagement`, prefer an existing or upgraded
-    `com.netcracker.cloud:rest-libraries-bom` at version `>= 7.1.0`, or
-    `com.netcracker.cloud:cloud-core-java-bom` at version `>= 12.0.2`, instead
-    of adding duplicate explicit dependency versions.
-- **Quarkus** (`quarkus-*` detected in `pom.xml`):
-  - Replace or add `com.netcracker.cloud.quarkus:routes-registrator` at version
-    `>= 9.1.0`.
-  - If the project uses `dependencyManagement`, prefer an existing or upgraded
-    `com.netcracker.cloud:cloud-core-quarkus-bom-publish` at version `>= 9.1.0`
-    instead of adding duplicate explicit dependency versions.
-- If the choice between webclient and resttemplate variants is ambiguous, add a
-  **Needs review** entry (unknown artifact choice) rather than guessing.
-
-#### Go
-
-**Idempotency check:** read `go.mod` before making any changes.
-
-- In `go.mod`, find `github.com/netcracker/qubership-core-lib-go-rest-utils/v2`.
-- If present with version `>= v2.5.0` → log under **Done** ("already compliant"). No changes needed.
-- If present with a lower version → bump to at least `v2.5.0`, run
-  `go mod tidy`, and record the exit code in **Commands run**. If `go mod tidy`
-  exits non-zero, apply the [Error policy](#error-policy--read-before-executing-any-step).
-- If absent → do not add it automatically; add a **Needs review** entry:
-  "Go route-registration dependency not found — confirm the service does not
-  register routes in code."
-- If the repo contains a `go.work` file (Go workspace), add a **Needs review**
-  entry: "Go workspace (`go.work`) detected — multi-module dependency bumps are
-  out of scope for this skill and require manual handling."
-- If multiple modules import `rest-utils` at different versions, add a
-  **Needs review** entry for each conflicting module.
-
-Log update:
-- **Done:** each dependency already compliant or updated; `go mod tidy` exit code.
-- **Skipped:** language/framework not present.
-- **Needs review:** ambiguous artifact choice, unknown versions, missing
-  route-registration dependency, Go workspace, or conflicting module versions.
-
-### Step 2.2 — Set the `SERVICE_MESH_TYPE` environment variable
-
-**Idempotency check:** before editing any file, check whether `SERVICE_MESH_TYPE`
-is already present with the correct value and schema entry. If yes, log under
-**Done** ("already present") for that file and skip it.
-
-All services that use route registration libraries must receive
-`SERVICE_MESH_TYPE`. By default, set Helm values to `Core` for compatibility with
-environments where Istio is not installed yet; deployments can override the value
-to `Istio` when migrating an environment.
-
-| Deployment source                          | Action                                                                                           |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Helm values drive a `Deployment` template  | Ensure `values.yaml` has `SERVICE_MESH_TYPE: "Core"` and the Deployment `env:` uses `value: '{{ .Values.SERVICE_MESH_TYPE }}'`. |
-| `values.schema.json` exists                | Ensure `SERVICE_MESH_TYPE` has a full schema entry: `"type": "string"`, `"enum": ["Istio", "Core"]`, `"default": "Core"`, `"$id": "#/properties/SERVICE_MESH_TYPE"`, `"internal": true`, exact `"description": "Service mesh type. Use `Core` for Cloud Core Mesh or `Istio` for Istio Ambient Mesh."`, and an entry in the root-level `"examples"` array (`{"SERVICE_MESH_TYPE": "Core"}`). Also confirm `"additionalProperties": true` is set at the root. |
-| Plain Kubernetes `Deployment` manifest     | Add `- name: SERVICE_MESH_TYPE` with `value: Core`, or template it if the manifest is Helm-rendered. |
-
-Log under **Done** the exact files edited. If multiple Deployments exist, list
-each. If the desired runtime mesh for an environment is unclear, keep the default
-`Core` and add a **Needs review** entry telling the user where to set `Istio`.
-
-### Step 2.3 — Add the Maven plugin (Java services only)
-
-**Idempotency check:** if `httproutes-generator-maven-plugin` is already present
-in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
-
-- **If no `pom.xml`** → skip this step. Log under **Skipped**
-  ("No pom.xml found — Go-only service").
-- **If the Java service does not use route-registration annotations** → skip this
-  step and log the reason.
-- **If `pom.xml` exists and annotations are used**, follow these five sub-steps
-  (from the [plugin README](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-maven-plugins/httproutes-generator-maven-plugin/README.md)):
-  1. **Add plugin to `pom.xml`** with the following configuration:
-     - `<groupId>com.netcracker.cloud.plugins</groupId>`
-     - `<artifactId>httproutes-generator-maven-plugin</artifactId>`
-     - `<version>` must use the latest available release, but never lower than
-       `1.0.2` (`>= 1.0.2`).
-     - `<goal>generate-routes</goal>`
-     - `<packages>` resolved from `src/main/java/...`. If ambiguous, set
-       `com.example` and add a **Needs review** entry.
-     - `<servicePort>` set to the resolved **`backendRefPort`** — detected by
-       Step 1, or asked from the user here (default `8080`) if Step 1 did not
-       resolve it. Do not silently re-read `server.port`.
-     - `<outputFile>` pointing inside the chart templates directory, defaulting
-       to `<chart>/templates/annotations-httproutes.yaml`.
-     - `<backendRefVal>` set to the resolved **`backendRefName`** — detected by
-       Step 1, or asked from the user here (default
-       `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`) if Step 1 did not resolve it,
-       e.g. `<backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>`.
-     - `<labels>` set to resolved migration-wide `routeLabels` from Step 1. If
-       Step 1 labels are unresolved, ask user for the label map and use it
-       verbatim. Do not invent values.
-       Use Maven plugin label format:
-       `<labels><label><key>my/special-key</key><value>value1</value></label></labels>`.
-  2. **Confirm `<outputFile>`** is set to a path inside the Helm chart templates
-     directory (see above). This file must be committed to the branch.
-  3. **Build the project** to generate the output file. Run `mvn -q clean process-classes`
-     if Maven is available in the environment. Record the exit code in
-     **Commands run**. If Maven is not available, log under **Skipped**
-     ("mvn not available in environment") and continue. If Maven is available
-     but exits non-zero, apply the
-     [Error policy](#error-policy--read-before-executing-any-step).
-  4. **Commit the generated `<outputFile>`** to the branch. Remind the user:
-     > The plugin generates the output file at compile time. Every time route
-     > annotations change, run `mvn clean compile` locally and commit the updated
-     > output file before raising a PR.
-  5. Log the selected plugin version and committed file path under **Done**.
-
-Log update:
-- **Done:** `pom.xml` edited; `mvn -q clean process-classes` exit code (if run); generated
-  output file path committed.
-- **Skipped:** non-Java service, no route-registration annotations, or Maven
-  not available in the environment.
-- **Needs review:** any default value that could not be confirmed from project
-  files (`<packages>`). `<servicePort>` / `<backendRefVal>` come from the
-  `backendRefPort` / `backendRefName` resolved in Step 1 (or asked from the
-  user) and do not need review.
+1. Invoke the sub-skill [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md)
+   with: `codePath`, `chartPath`, `language`, and — for Java — the resolved
+   `backendRefName` / `backendRefPort` / `routeLabels` (detected by Step 1, or
+   asked from the user here if still unresolved — propose the defaults
+   `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080`).
+2. That skill will: switch route-registration libraries to mesh-aware versions
+   (Spring / Quarkus / Go), set `SERVICE_MESH_TYPE` in Helm values, schema, and
+   Deployment env, and add the `httproutes-generator-maven-plugin` for Java
+   services (building and committing its output when Maven is available).
+3. Read `.migration/reports/mesh-build-wiring.yaml`; copy `done:` / `skipped:` /
+   `commandsRun:` / `needsReview:` items into the log and the per-step status
+   rows for 2.1, 2.2, and 2.3. `status: failed` → apply the
+   [Error policy](#error-policy--read-before-executing-any-step).
 
 ### Step 2.4 — Generate HTTPRoute CRs from route registration code
 
@@ -483,76 +375,20 @@ last run), log under **Done** ("already present") and skip.
 7. For every `needsReview` entry in the report (skipped rows, `ERROR:`
    sections), add a **Needs review** log entry.
 
-### Step 2.5 — Verify all HTTPRoutes are wrapped in Istio conditionals
+### Steps 2.5–2.6 — Validate the result (delegate to `istio-migration-validate`)
 
-**Idempotency check:** if all HTTPRoute files already have the correct guard,
-log under **Done** ("already guarded") for each and skip to validation.
-
-1. List every file under `<chart>/templates/` (and any generated
-   `-istio.yaml` / `source-code-httproutes.yaml`) that contains
-   `kind: HTTPRoute`.
-2. For each file, confirm the HTTPRoute block is inside a single
-   `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` … `{{- end }}`. If a file
-   has multiple HTTPRoute documents, the guard must wrap the whole block with
-   `---` separators kept inside.
-3. If a file is missing the guard → add it (safe automatic fix). Log under
-   **Done**.
-
-**Validation:**
-
-```bash
-helm dependency update && helm template <chart> --set SERVICE_MESH_TYPE=Core \
-  | grep 'kind: HTTPRoute'
-```
-
-Expected output: empty (no HTTPRoutes leak under Core mode). Record the command
-and exit code in **Commands run**.
-- Empty output → log under **Done**.
-- Any HTTPRoute lines in output → log each offending file path under
-  **Needs review** and apply the
-  [Error policy](#error-policy--read-before-executing-any-step).
-
-### Step 2.6 — Detect duplicate HTTPRoute rules
-
-After all HTTPRoutes exist (Step 1 conversions + Step 2.3 annotations +
-Step 2.4 code generation), the same route can be emitted twice — e.g. a route
-declared in a `RouteConfiguration` CR **and** registered in code. Duplicate
-rules with the same parent and identical match are ambiguous and **must not be
-auto-removed** (deleting the wrong one can change runtime behaviour). Flag them
-for the user instead.
-
-**Idempotency check:** if a previous run already logged the duplicate-rule
-findings and no HTTPRoute files changed since, log under **Done**
-("already checked") and skip.
-
-1. Collect every HTTPRoute rule across all generated/modified files guarded by
-   `SERVICE_MESH_TYPE=Istio` (`-istio.yaml`, `annotations-httproutes.yaml`,
-   `source-code-httproutes.yaml`, and any inline HTTPRoutes).
-2. For each rule, build a comparison key from:
-   - the **parent** — every `parentRefs[]` entry it belongs to
-     (`group` + `kind` + `name`), and
-   - the **match parameters** — the normalized `matches[]`: path `type` + `value`,
-     plus any `headers[]` / `queryParams[]` / `method`.
-   Resolve `{{ .Values.* }}` expressions textually (compare the literal template
-   string); do not attempt to render Helm.
-3. A **duplicate** is two or more rules that share **at least one common parent**
-   AND have an **equal match key**. Rules that share a match but target only
-   different parents are NOT duplicates.
-4. For every duplicate group, add **one Needs review** entry containing:
-   - the shared parent(s) and the match value,
-   - every file + HTTPRoute `metadata.name` (and rule index) that contributes a
-     copy,
-   - suggested action: "Two routes resolve to the same parent and match —
-     confirm which source is authoritative and remove the redundant rule (often
-     a route present both in a `RouteConfiguration` CR and in registration
-     code)."
-5. **Do not modify any file.** This step only reports.
-6. If no duplicates are found → log under **Done** ("no duplicate HTTPRoute
-   rules detected").
-
-Log update:
-- **Done:** "duplicate-rule scan complete — N groups found" (or none).
-- **Needs review:** one entry per duplicate group (see above).
+1. Invoke the sub-skill
+   [`istio-migration-validate`](../istio-migration-validate/SKILL.md) with the
+   chart path.
+2. That skill will: verify every HTTPRoute file carries the Istio guard (adding
+   missing guards — the one safe automatic fix), run the two `helm template`
+   render checks (Istio mode produces HTTPRoutes/Gateways; Core mode leaks
+   none), and flag duplicate HTTPRoute rules (same parent + equal match)
+   without modifying anything else.
+3. Read `.migration/reports/istio-migration-validate.yaml`; copy `guardsAdded:`
+   (log under **Done**), `commandsRun:`, and `needsReview:` items into the log
+   and the per-step status rows for 2.5 and 2.6. `status: failed` → apply the
+   [Error policy](#error-policy--read-before-executing-any-step).
 
 ---
 
