@@ -1,9 +1,10 @@
 package bus
 
 import (
-	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"sync"
 	"sync/atomic"
+
+	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 )
 
 var log = logging.GetLogger("bus")
@@ -12,6 +13,7 @@ const (
 	TopicChanges         = "changes"
 	TopicMultipleChanges = "multiple-change"
 	TopicReload          = "reload"
+	Test                 = "test"
 
 	EventBusPort = 5431 // port for event base that is used for communication between CP nodes
 )
