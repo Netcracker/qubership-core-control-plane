@@ -26,7 +26,7 @@ optional `routeLabels` parameter. They control `backendRefs[]` and
 `metadata.labels` emitted in every generated HTTPRoute CR. When invoked by the
 `core-mesh-to-istio-migration`
 orchestrator, these are passed in already resolved — either detected from the
-existing mesh CRs by the `core-mesh-crs-to-gatewayapi` skill or provided by the user.
+existing mesh CRs by the `core-mesh-crs-to-istio` skill or provided by the user.
 
 | Parameter | Controls | Default |
 |---|---|---|

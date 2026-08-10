@@ -28,8 +28,7 @@ Run this skill against the chart or service directory to migrate. Examples:
 
 | Sub-skill                                                                           | Used in step | Purpose                                                        |
 | ----------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------- |
-| [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md)            | Step 1       | Convert existing Helm mesh CRs to Gateway + HTTPRoute          |
-| [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert StatefulSession / LoadBalance CRs to DestinationRule   |
+| [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert existing Helm mesh CRs to Gateway API + Istio resources |
 | [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
 
 **How to invoke a sub-skill:** read its `SKILL.md` in full and execute its steps
@@ -55,7 +54,7 @@ The `backendRefs[].name` and `backendRefs[].port` applied to generated HTTPRoute
 are **migration-wide** values, but they are **not** collected at orchestrator
 start. Resolve them as follows:
 
-1. **Step 1** invokes [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md),
+1. **Step 1** invokes [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md),
    which detects the service's own backend `name`/`port` from the existing mesh
    `RouteConfiguration` destinations (one migrated service contains only routes
    for itself) and reports them in its output as `backendRefName` /
@@ -80,7 +79,7 @@ Once resolved (detected or user-provided), the same values MUST be:
 The `metadata.labels` map used by generated HTTPRoutes must be consistent between:
 
 - declarative CR migration output from
-  [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md) **Step 1**,
+  [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md) **Step 1**,
 - Maven-plugin-generated routes in **Step 2.3**, and
 - [`httproute-from-code`](../httproute-from-code/SKILL.md) output in **Step 2.4**.
 
@@ -239,55 +238,32 @@ already containing `kind: HTTPRoute` guarded by
 step already exists, log all affected files under **Done** ("already present")
 and skip to Step 1.1.
 
-1. Invoke the sub-skill [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md)
+1. Invoke the sub-skill [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)
    with the chart path.
-2. That skill will: wrap originals in `SERVICE_MESH_TYPE=Core` guards, generate
-   `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`, convert
-   `Gateway(ingress/egress)` → Istio Gateway, convert `RouteConfiguration`
-   → HTTPRoute (including any rule-level `statefulSession` → `DestinationRule`),
-   omit `FacadeService` and mesh-type `Gateway` (generates east-west HTTPRoutes
-   instead, where parent is of kind Service, processed by waypoint proxy), and
-   update `values.yaml` / `values.schema.json`.
-3. Invoke the sub-skill [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)
-   with the chart path.
-4. That skill will: convert standalone `StatefulSession` → `DestinationRule`,
-   `LoadBalance` → `DestinationRule`, and `HttpFilters` + `RouteConfiguration`
-   Lua scripts → `TrafficExtension` (requires Istio ≥ 1.30), wrapping
-   originals and generated files in the respective mesh-type guards.
-5. **Check for DestinationRule host conflicts across the two sub-skills.** Both
-   sub-skills can emit a `DestinationRule` for the same `spec.host` — rule-level
-   `statefulSession` (from `core-mesh-crs-to-gatewayapi`) and a standalone
-   `StatefulSession` / `LoadBalance` CR (from `core-mesh-crs-to-istio`). Istio's
-   behaviour with multiple DestinationRules on one host is merge-order-dependent,
-   so this is ambiguous. Collect every generated `DestinationRule` `spec.host`
-   across all `-istio` files; for each host with more than one DestinationRule,
-   add a **Needs review** entry listing the files and resource names, with
-   suggested action: "Consolidate into a single DestinationRule per host —
-   confirm which stickiness/load-balancing policy is authoritative." Do not
-   auto-delete either resource.
-6. **Validate luaFilter reference consistency across the two sub-skills.**
-   Compare the "Detected luaFilter references" list from the
-   `core-mesh-crs-to-gatewayapi` output with the "Migrated luaFilter names"
-   list from the `core-mesh-crs-to-istio` output. Every detected name must
-   appear in the migrated list (a matching `TrafficExtension` was generated),
-   and every migrated name must have been detected on some rule. For each
-   mismatch add a **Needs review** entry naming the luaFilter, which side it
-   is missing from, and the suggested action: "Define the missing luaFilter
-   in `HttpFilters` / remove the stale `luaFilter` reference from the rule /
-   re-run the sub-skill on the missing pair." Do not auto-delete anything.
-7. **If a sub-skill pauses to ask about unresolved gateways** → forward the
+2. That skill will, in a single pass: wrap originals in `SERVICE_MESH_TYPE=Core`
+   guards, generate `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`,
+   convert `Gateway(ingress/egress)` → Istio Gateway, convert
+   `RouteConfiguration` → HTTPRoute (including any rule-level `statefulSession`
+   → `DestinationRule`), omit `FacadeService` and mesh-type `Gateway` (generates
+   east-west HTTPRoutes instead, where parent is of kind Service, processed by
+   waypoint proxy), convert standalone `StatefulSession` / `LoadBalance` →
+   `DestinationRule` (one per host — conflicting policies are flagged
+   `⚠ MANUAL REVIEW` inside the skill), convert `HttpFilters` +
+   `RouteConfiguration` Lua scripts → `TrafficExtension` (requires Istio
+   ≥ 1.30), and update `values.yaml` / `values.schema.json`.
+3. **If the sub-skill pauses to ask about unresolved gateways** → forward the
    question to the user verbatim, wait for the answer, and resume the sub-skill.
    Log each decision under **Needs review** → move to **Done** once applied.
-8. Copy the sub-skills' output summaries (modified / generated files, transformed
-   resource counts, manual-review lists) into the log.
-9. **Capture the detected backend reference.** Read the `backendRefName` /
+4. Copy the sub-skill's output summary (modified / generated files, transformed
+   resource counts, manual-review list) into the log.
+5. **Capture the detected backend reference.** Read the `backendRefName` /
    `backendRefPort` reported in the sub-skill's "Detected backend reference"
    output. If both are resolved, record them in the log (under **Done**) as the
    migration-wide backend reference to reuse in Step 2.3 / Step 2.4. If the
    sub-skill reports them as unresolved, note that they must be asked from the
    user when first needed (see
    [Backend reference](#backend-reference-backendrefname--backendrefport--do-not-ask-up-front)).
-10. **Capture the detected labels.** Read the `Detected output labels` map from
+6. **Capture the detected labels.** Read the `Detected output labels` map from
    the sub-skill output (and corresponding `MIGRATION_LOG.md` entry). If
    resolved, store it as migration-wide `routeLabels` for Step 2.3 / Step 2.4.
    If unresolved, add a **Needs review** entry and ask user only when labels are
@@ -617,7 +593,7 @@ Close with a plain-language summary telling the user:
 - **Never skip the log.** If the log file cannot be written, stop and report.
 - **Never invent values.** Versions, package names, ports, microservice names —
   if unknown, add a **Needs review** entry instead of guessing.
-- **Never bypass a sub-skill's user prompt.** If `core-mesh-crs-to-gatewayapi` asks
+- **Never bypass a sub-skill's user prompt.** If `core-mesh-crs-to-istio` asks
   about an unresolved gateway, forward the question before proceeding.
 - **Never run destructive commands.** Do not push, tag, or delete branches. Do
   not modify git config.

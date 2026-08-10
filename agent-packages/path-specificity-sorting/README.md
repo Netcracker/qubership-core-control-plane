@@ -2,7 +2,7 @@
 
 A small shared APM package holding one procedure: how to sort Gateway API
 `HTTPRoute` `rules[]` by **path specificity** (most specific match first). It is a
-dependency of both [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi)
+dependency of both [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio)
 and [`httproute-from-code`](../httproute-from-code) so the rule lives in exactly
 one place.
 

@@ -67,8 +67,8 @@ Rules without `luaFilter` → no extension resource.
 
 ### Gateway name resolution
 
-Resolve platform gateway names with the same table the `core-mesh-crs-to-gatewayapi` skill uses
-for `parentRefs` (reproduced here in full — no need to consult that skill):
+Resolve platform gateway names with the same table used for HTTPRoute `parentRefs`
+(see [route-configuration-mapping.md](route-configuration-mapping.md)):
 
 | Gateway value | Resolved `targetRefs.name` |
 |---|---|

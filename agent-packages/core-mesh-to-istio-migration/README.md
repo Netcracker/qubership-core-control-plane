@@ -2,7 +2,7 @@
 
 An APM package that drives the **full** Cloud-Core Mesh → Istio migration
 end-to-end. It is an orchestrator: it delegates the heavy lifting to the
-[`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi) and
+[`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio) and
 [`httproute-from-code`](../httproute-from-code) packages, performs the remaining
 steps itself, and keeps an auditable `MIGRATION_LOG.md`.
 
@@ -13,7 +13,7 @@ apm install Netcracker/qubership-core-control-plane/agent-packages/core-mesh-to-
 ```
 
 This pulls in the two atomic sub-skills it delegates to
-([`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi) and
+([`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio) and
 [`httproute-from-code`](../httproute-from-code)) — and transitively the shared
 [`path-specificity-sorting`](../path-specificity-sorting) procedure — as declared
 `dependencies`, so they all resolve as siblings under `.claude/skills/`.
