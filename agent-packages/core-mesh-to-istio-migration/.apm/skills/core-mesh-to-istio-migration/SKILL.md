@@ -31,9 +31,27 @@ Run this skill against the chart or service directory to migrate. Examples:
 | [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert existing Helm mesh CRs to Gateway API + Istio resources |
 | [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
 
-**How to invoke a sub-skill:** read its `SKILL.md` in full and execute its steps
-inline as an embedded procedure. Do not spawn subprocesses or defer to external
-tooling — carry out each instruction as if it were written directly in this skill.
+**How to invoke a sub-skill:** communicate only through the sub-skill's
+`## Contract` — resolved inputs in, report file out. When the harness provides a
+sub-agent / Task tool, run the sub-skill in a sub-agent with its own context and
+consume its report file afterwards. Otherwise read its `SKILL.md` in full and
+execute its steps inline as an embedded procedure. Either way, take results from
+the report file, not from the sub-skill's transcript.
+
+## Sub-skill reports
+
+Sub-skills write machine-readable reports to `.migration/reports/<skill>.yaml`
+(gitignored). Lifecycle:
+
+- **Delete `.migration/reports/` before Step 1** — a run must never read a
+  previous run's answers.
+- After each sub-skill finishes, read its report. Ignore unknown fields. If
+  `reportSchema` is missing or newer than the value documented in that skill's
+  Contract, stop and add a **Needs review** entry (contract mismatch) instead of
+  guessing field meanings.
+- `status: partial` means the `unresolved:` list blocks part of the output —
+  batch the questions to the user in one round and re-invoke the sub-skill with
+  the answers as inputs (see Step 1).
 
 ---
 
@@ -57,8 +75,7 @@ start. Resolve them as follows:
 1. **Step 1** invokes [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md),
    which detects the service's own backend `name`/`port` from the existing mesh
    `RouteConfiguration` destinations (one migrated service contains only routes
-   for itself) and reports them in its output as `backendRefName` /
-   `backendRefPort`.
+   for itself) and reports them in its report file's `backendRef` field.
 2. **If Step 1 resolved both values** → capture them, record them in
    `MIGRATION_LOG.md` (under **Done**), and reuse them in **Step 2.3** and
    **Step 2.4** without prompting.
@@ -251,23 +268,24 @@ and skip to Step 1.1.
    `⚠ MANUAL REVIEW` inside the skill), convert `HttpFilters` +
    `RouteConfiguration` Lua scripts → `TrafficExtension` (requires Istio
    ≥ 1.30), and update `values.yaml` / `values.schema.json`.
-3. **If the sub-skill pauses to ask about unresolved gateways** → forward the
-   question to the user verbatim, wait for the answer, and resume the sub-skill.
-   Log each decision under **Needs review** → move to **Done** once applied.
-4. Copy the sub-skill's output summary (modified / generated files, transformed
-   resource counts, manual-review list) into the log.
-5. **Capture the detected backend reference.** Read the `backendRefName` /
-   `backendRefPort` reported in the sub-skill's "Detected backend reference"
-   output. If both are resolved, record them in the log (under **Done**) as the
-   migration-wide backend reference to reuse in Step 2.3 / Step 2.4. If the
-   sub-skill reports them as unresolved, note that they must be asked from the
+3. Read `.migration/reports/core-mesh-crs-to-istio.yaml`. **If
+   `status: partial`**, collect every entry under `unresolved:` and ask the user
+   all questions in **one batch** (for each unresolved gateway: ingress or
+   mesh?). Re-invoke the sub-skill with the answers as the `gatewayResolutions`
+   input and re-read the report. Log each decision under **Needs review** → move
+   to **Done** once applied.
+4. Copy the report's `filesModified` / `filesGenerated`, resource counts, and
+   `needsReview` items into the log.
+5. **Capture the detected backend reference** from the report's `backendRef`
+   field. If both `name` and `port` are set, record them in the log (under
+   **Done**) as the migration-wide backend reference to reuse in Step 2.3 /
+   Step 2.4. If `unresolvedReason` is set, note that they must be asked from the
    user when first needed (see
    [Backend reference](#backend-reference-backendrefname--backendrefport--do-not-ask-up-front)).
-6. **Capture the detected labels.** Read the `Detected output labels` map from
-   the sub-skill output (and corresponding `MIGRATION_LOG.md` entry). If
-   resolved, store it as migration-wide `routeLabels` for Step 2.3 / Step 2.4.
-   If unresolved, add a **Needs review** entry and ask user only when labels are
-   first needed.
+6. **Capture the detected labels** from the report's `labels` field. If
+   resolved, store the map as migration-wide `routeLabels` for Step 2.3 /
+   Step 2.4. If `unresolvedReason` is set, add a **Needs review** entry and ask
+   the user only when labels are first needed.
 
 Log update:
 - **Done:** every file in `Files modified` and `Files generated`; the detected
@@ -460,9 +478,10 @@ last run), log under **Done** ("already present") and skip.
    > The generated `source-code-httproutes.yaml` must stay committed. Any time
    > route registration code changes, rerun the `httproute-from-code` skill and
    > commit the updated output before raising a PR.
-6. Copy the sub-skill's summary table into the log.
-7. For every row where `Skipped = yes` or the skill emitted an `ERROR:` section,
-   add a **Needs review** entry.
+6. Read `.migration/reports/httproute-from-code.yaml` and copy its
+   `filesGenerated`, `routesGenerated`, and `needsReview` items into the log.
+7. For every `needsReview` entry in the report (skipped rows, `ERROR:`
+   sections), add a **Needs review** log entry.
 
 ### Step 2.5 — Verify all HTTPRoutes are wrapped in Istio conditionals
 
@@ -593,8 +612,9 @@ Close with a plain-language summary telling the user:
 - **Never skip the log.** If the log file cannot be written, stop and report.
 - **Never invent values.** Versions, package names, ports, microservice names —
   if unknown, add a **Needs review** entry instead of guessing.
-- **Never bypass a sub-skill's user prompt.** If `core-mesh-crs-to-istio` asks
-  about an unresolved gateway, forward the question before proceeding.
+- **Never guess an unresolved item.** When a sub-skill report says
+  `status: partial`, batch its `unresolved:` questions to the user in one round
+  and re-invoke with the answers — do not infer gateway types or names yourself.
 - **Never run destructive commands.** Do not push, tag, or delete branches. Do
   not modify git config.
 - **Be explicit in chat.** After each step, print a one-line summary plus the

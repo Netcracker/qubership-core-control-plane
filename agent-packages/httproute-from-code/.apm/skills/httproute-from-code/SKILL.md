@@ -57,6 +57,32 @@ Resolution rules:
   - `deployer.cleanup/allow: "true"`
   - `app.kubernetes.io/processed-by-operator: istiod`
 
+## Contract — report output
+
+In addition to the chat summary, write a machine-readable report to
+`.migration/reports/httproute-from-code.yaml` (create the directory; the path
+is gitignored):
+
+```yaml
+reportSchema: 1
+skill: httproute-from-code
+status: complete            # complete | failed
+generatedAt: <ISO-8601>
+inputsUsed:
+  backendRefName: <value>
+  backendRefPort: <value>
+  routeLabels: <map>
+filesGenerated: [<paths>]
+routesGenerated: <N>
+unresolved: []              # e.g. microservice name fell back to <microservice-name>
+needsReview:
+  - <one line per skipped row or ERROR>
+```
+
+Consumers must ignore unknown report fields. A consumer that sees a
+`reportSchema` newer than its own documentation must stop and report a contract
+mismatch instead of guessing field meanings.
+
 ---
 
 ## Step 1 — Discover files and detect language

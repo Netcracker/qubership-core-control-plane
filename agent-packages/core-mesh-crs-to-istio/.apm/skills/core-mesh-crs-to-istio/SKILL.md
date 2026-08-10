@@ -35,6 +35,68 @@ old resources in `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` and new Istio r
 
 ---
 
+## Contract
+
+### Inputs
+
+| Input | Type | Required | Notes |
+|---|---|---|---|
+| `chartPath` | path | yes | Chart or templates folder to transform |
+| `gatewayResolutions` | map `<gateway-name>: ingress \| mesh` | no | Types for gateways a previous run reported as unresolved |
+
+If invoked by an orchestrator, inputs arrive resolved — do not ask the user for
+them. If invoked standalone and a required input is missing, ask the user before
+starting.
+
+### Outputs
+
+In addition to the chat Output Summary, write a machine-readable report to
+`.migration/reports/core-mesh-crs-to-istio.yaml` (create the directory; the
+path is gitignored):
+
+```yaml
+reportSchema: 1
+skill: core-mesh-crs-to-istio
+status: complete            # complete | partial (unresolved items block part of the output)
+generatedAt: <ISO-8601>
+filesModified: [<paths>]
+filesGenerated: [<paths>]
+resources:
+  facadeService: <N>
+  gatewayIngressEgress: <N>
+  gatewayMesh: <N>
+  routeConfiguration: <N>
+  statefulSession: <N>
+  loadBalance: <N>
+  luaFilters: <N>
+  skipped: <N>
+backendRef:
+  name: <value or null>
+  port: <value or null>
+  unresolvedReason: <string or null>
+labels:
+  values: <map or null>
+  unresolvedReason: <string or null>
+unresolved:                 # empty when status is complete
+  - kind: gateway
+    name: <gateway-name>
+    question: "ingress or mesh?"
+    referencedBy: [<CR names>]
+needsReview:
+  - <one line per ⚠ MANUAL REVIEW hit>
+```
+
+Consumers must ignore unknown report fields. A consumer that sees a
+`reportSchema` newer than its own documentation must stop and report a contract
+mismatch instead of guessing field meanings.
+
+### Side effects
+
+Modifies only mesh-CR files and their `-istio` siblings, `values.yaml`, and
+`values.schema.json` under `chartPath`, plus the report file.
+
+---
+
 ## Scope — only touch mesh-entity files
 
 This skill operates **exclusively** on the Core Mesh custom resources listed above.
@@ -124,11 +186,16 @@ review instead.
 **Checkpoint — do not generate Istio output until this is done:**
 
 1. Collect every gateway name referenced in `spec.gateways[]` across all discovered CRs.
-2. Resolve each using only Gateway CRs and FacadeService resources in the **current chart/folder** (strict name match).
-3. For every **unresolved** gateway name:
-   - **Ask the user explicitly** (in your reply): "Gateway '<name>' is referenced in routes but not defined in this chart. Should it be treated as **ingress** (HTTPRoute parentRef = Gateway) or **mesh** (HTTPRoute parentRef = Service)?"
+2. Resolve each using the `gatewayResolutions` input first, then Gateway CRs and
+   FacadeService resources in the **current chart/folder** (strict name match).
+3. For every gateway name still **unresolved**:
+   - **Standalone invocation:** ask the user explicitly (in your reply): "Gateway '<name>' is referenced in routes but not defined in this chart. Should it be treated as **ingress** (HTTPRoute parentRef = Gateway) or **mesh** (HTTPRoute parentRef = Service)?" Wait for the answer.
+   - **Orchestrated invocation:** do not ask. Skip Istio output for CRs that
+     reference only unresolved gateways, record each name under `unresolved:` in
+     the report, and finish with `status: partial`. The orchestrator collects the
+     answers and re-invokes this skill with `gatewayResolutions`; on
+     re-invocation, process only the previously skipped CRs.
    - **Do not infer** gateway type from the gateway name alone.
-   - **Do not generate** Istio output for CRs that reference only unresolved gateways until the user has answered.
 
 ### Step 3 — Wrap originals in Core condition
 
@@ -304,6 +371,9 @@ resource is fully omitted).
 ---
 
 ## Output Summary (report after completion)
+
+Write the contract report file first (see [Contract → Outputs](#outputs)), then
+print this summary in chat:
 
 ```
 Transformation complete.
