@@ -23,6 +23,11 @@ Run this skill against the chart or service directory to migrate. Examples:
 - `helm-templates/my-service`
 - `.`
 
+The user may also name a **start step** ("start from Step 2.4", "rerun the
+validation") to resume a migration instead of running from scratch. Default is
+a full run from Step 1. See the report lifecycle below for how a resumed run
+treats earlier steps' reports.
+
 
 ## Sub-skills invoked
 
@@ -47,12 +52,26 @@ from the report file, not from the sub-skill's transcript.
 Sub-skills write machine-readable reports to `.mesh-migration/reports/<skill>.yaml`.
 Lifecycle:
 
-- **Ensure `.mesh-migration/` is gitignored before Step 1** — check the target
-  repo's `.gitignore` for a `.mesh-migration/` entry and append it (with a
-  short comment) if missing. Reports are working files and must never be
-  committed. Log the edit under **Done**.
-- **Delete `.mesh-migration/reports/` before Step 1** — a run must never read a
-  previous run's answers.
+- **Ensure `.mesh-migration/` is gitignored before the first executed step** —
+  check the target repo's `.gitignore` for a `.mesh-migration/` entry and
+  append it (with a short comment) if missing. Reports are working files and
+  must never be committed. Log the edit under **Done**.
+- **Full run (no start step): delete `.mesh-migration/reports/` before
+  Step 1** — a fresh run must never read a previous run's answers.
+- **Resumed run (start step given): keep existing reports.** Steps before the
+  start step are not re-executed — their results come from the reports on disk.
+  Before executing anything, list every report that will be reused (`skill`,
+  `generatedAt`, `status`) and tell the user: "Resuming from <step>; reusing
+  these previous results — rerun from Step 1 instead if they are stale." Then:
+  - a report **required by a later step is missing or `status: failed`**
+    (e.g. Step 2.3 / 2.4 need `backendRef` and `labels` from the Step 1
+    report) → ask the user to either start from the earlier step or provide
+    the missing values as inputs; do not proceed silently.
+  - a reused report has `status: partial` → treat its `unresolved:` entries
+    exactly as if the sub-skill had just run (batch questions, deliver
+    `resolutions`).
+  - mark the skipped steps' rows in the per-step status table as
+    `reused (report of <generatedAt>)`.
 - After each sub-skill finishes, read its report. Ignore unknown fields. If
   `reportSchema` is missing or newer than the value documented in that skill's
   Contract, stop and add a **Needs review** entry (contract mismatch) instead of
@@ -75,6 +94,8 @@ Before starting any step, confirm or ask the user for:
 2. **Source code path** — path to Go/Java route registration code (often `./` or `src/`).
 3. **Service language(s)** — Go, Java, or both. Affects Step 2 substeps.
 4. **Build system** — Maven (Java) or `go.mod` (Go). Needed for Step 2.
+5. **Start step** — optional; defaults to Step 1 (full run). When given, earlier
+   steps are skipped and their reports reused (see the report lifecycle).
 
 If any is missing, ask before proceeding. Do not guess the chart path.
 
@@ -256,8 +277,11 @@ commands not available in the environment.
 
 ## Execution plan (Step 1 + Step 2 substeps)
 
-Run steps in order. After each step: update the log, record the per-step status
-row, and print a one-line chat status.
+Run steps in order, beginning at the user-selected start step (Step 1 by
+default). On a resumed run, apply the reused-report notification from the
+[report lifecycle](#sub-skill-reports) before executing anything. After each
+step: update the log, record the per-step status row, and print a one-line chat
+status.
 
 ### Step 1 — Migrate existing mesh CRs to Gateway API CRs
 
