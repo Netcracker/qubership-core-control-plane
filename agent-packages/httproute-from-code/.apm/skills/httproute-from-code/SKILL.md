@@ -33,14 +33,17 @@ existing mesh CRs by the `core-mesh-crs-to-istio` skill or provided by the user.
 | `backendRefName` | `backendRefs[].name` in every rule | `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` |
 | `backendRefPort` | `backendRefs[].port` in every rule | `8080` |
 | `routeLabels` | `metadata.labels` on every generated HTTPRoute CR | default label set from |
+| `interactive` | ability to ask the user; `true` only for direct user invocation | `false` |
+| `resolutions` | answers to a previous run's `unresolved:` entries, by id | — |
 
 Resolution rules:
 
 - If a value is provided by the caller (or the orchestrator), use it verbatim for
   **all** generated CRs — do not infer per-route values.
-- If `backendRefName` / `backendRefPort` are not provided, propose the defaults
-  to the user and ask for confirmation before generating. When running standalone
-  with no opportunity to ask, use the defaults and note the used values in the summary.
+- If `backendRefName` / `backendRefPort` are not provided: with
+  `interactive: true`, propose the defaults to the user and ask for
+  confirmation before generating; with `interactive: false`, use the defaults
+  and record the used values under `inputsUsed:` in the report.
 - `backendRefName` is used as-is, including Helm template expressions such as
   `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`.
 - `backendRefPort` must be a positive integer. If a non-integer value is given,
@@ -75,7 +78,8 @@ inputsUsed:
   routeLabels: <map>
 filesGenerated: [<paths>]
 routesGenerated: <N>
-unresolved: []              # e.g. microservice name fell back to <microservice-name>
+unresolved: []              # blocking user decisions, each {id, question, options, default}
+                            # e.g. id microservice-name when it fell back to <microservice-name>
 needsReview:
   - <one line per skipped row or ERROR>
 ```

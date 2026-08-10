@@ -42,11 +42,15 @@ old resources in `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` and new Istio r
 | Input | Type | Required | Notes |
 |---|---|---|---|
 | `chartPath` | path | yes | Chart or templates folder to transform |
-| `gatewayResolutions` | map `<gateway-name>: ingress \| mesh` | no | Types for gateways a previous run reported as unresolved |
+| `interactive` | bool | no | `true` only when a user invokes the skill directly in their own session; orchestrators and sub-agent wrappers pass `false` |
+| `resolutions` | map `<unresolved id>: <answer>` | no | Answers to a previous run's `unresolved:` entries |
 
-If invoked by an orchestrator, inputs arrive resolved — do not ask the user for
-them. If invoked standalone and a required input is missing, ask the user before
-starting.
+With `interactive: false` (the default for orchestrated and sub-agent runs),
+never ask the user: every blocking question becomes an `unresolved:` entry and
+the run finishes with `status: partial`. With `interactive: true`, ask blocking
+questions in chat and wait for the answer. A sub-agent has no user channel —
+its questions die in its transcript — so a delegated run must always be
+`interactive: false`.
 
 ### Outputs
 
@@ -79,9 +83,10 @@ labels:
   values: <map or null>
   unresolvedReason: <string or null>
 unresolved:                 # empty when status is complete
-  - kind: gateway
-    name: <gateway-name>
-    question: "ingress or mesh?"
+  - id: gateway/<gateway-name>
+    question: "Gateway '<gateway-name>' is referenced in routes but not defined in this chart — ingress or mesh?"
+    options: [ingress, mesh]
+    default: null
     referencedBy: [<CR names>]
 needsReview:
   - <one line per ⚠ MANUAL REVIEW hit>
@@ -187,15 +192,17 @@ review instead.
 **Checkpoint — do not generate Istio output until this is done:**
 
 1. Collect every gateway name referenced in `spec.gateways[]` across all discovered CRs.
-2. Resolve each using the `gatewayResolutions` input first, then Gateway CRs and
-   FacadeService resources in the **current chart/folder** (strict name match).
+2. Resolve each using the `resolutions` input first (key `gateway/<name>`), then
+   Gateway CRs and FacadeService resources in the **current chart/folder**
+   (strict name match).
 3. For every gateway name still **unresolved**:
-   - **Standalone invocation:** ask the user explicitly (in your reply): "Gateway '<name>' is referenced in routes but not defined in this chart. Should it be treated as **ingress** (HTTPRoute parentRef = Gateway) or **mesh** (HTTPRoute parentRef = Service)?" Wait for the answer.
-   - **Orchestrated invocation:** do not ask. Skip Istio output for CRs that
-     reference only unresolved gateways, record each name under `unresolved:` in
-     the report, and finish with `status: partial`. The orchestrator collects the
-     answers and re-invokes this skill with `gatewayResolutions`; on
-     re-invocation, process only the previously skipped CRs.
+   - **`interactive: true`:** ask the user explicitly (in your reply): "Gateway '<name>' is referenced in routes but not defined in this chart. Should it be treated as **ingress** (HTTPRoute parentRef = Gateway) or **mesh** (HTTPRoute parentRef = Service)?" Wait for the answer.
+   - **`interactive: false`:** do not ask. Skip Istio output for CRs that
+     reference only unresolved gateways, record each under `unresolved:` in the
+     report (id `gateway/<name>`, options `[ingress, mesh]`), and finish with
+     `status: partial`. The caller obtains the answers and delivers them via the
+     `resolutions` input; on the follow-up run, process only the previously
+     skipped CRs.
    - **Do not infer** gateway type from the gateway name alone.
 
 ### Step 3 — Wrap originals in Core condition

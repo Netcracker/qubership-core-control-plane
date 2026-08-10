@@ -34,11 +34,13 @@ Run this skill against the chart or service directory to migrate. Examples:
 | [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.6 | Istio guards, render checks, duplicate-rule detection          |
 
 **How to invoke a sub-skill:** communicate only through the sub-skill's
-`## Contract` — resolved inputs in, report file out. When the harness provides a
-sub-agent / Task tool, run the sub-skill in a sub-agent with its own context and
-consume its report file afterwards. Otherwise read its `SKILL.md` in full and
-execute its steps inline as an embedded procedure. Either way, take results from
-the report file, not from the sub-skill's transcript.
+`## Contract` — resolved inputs in, report file out. Always pass
+`interactive: false`: sub-skills must never address the user directly; their
+questions come back as `unresolved:` report entries. When the harness provides
+a sub-agent / Task tool, run the sub-skill in a sub-agent with its own context
+and consume its report file afterwards. Otherwise read its `SKILL.md` in full
+and execute its steps inline as an embedded procedure. Either way, take results
+from the report file, not from the sub-skill's transcript.
 
 ## Sub-skill reports
 
@@ -55,9 +57,13 @@ Lifecycle:
   `reportSchema` is missing or newer than the value documented in that skill's
   Contract, stop and add a **Needs review** entry (contract mismatch) instead of
   guessing field meanings.
-- `status: partial` means the `unresolved:` list blocks part of the output —
-  batch the questions to the user in one round and re-invoke the sub-skill with
-  the answers as inputs (see Step 1).
+- `status: partial` means the `unresolved:` list blocks part of the output.
+  Relay each entry's `question` (and `options`) to the user verbatim, in **one**
+  batched round. Deliver the answers as a `resolutions` map keyed by the
+  entries' `id` — by **continuing the same sub-agent** when the harness
+  supports it (context intact, no rework), otherwise by **re-invoking** the
+  sub-skill with `resolutions` as an input (its idempotency checks make the
+  second pass cheap).
 
 ---
 
@@ -277,9 +283,10 @@ and skip to Step 1.1.
 3. Read `.mesh-migration/reports/core-mesh-crs-to-istio.yaml`. **If
    `status: partial`**, collect every entry under `unresolved:` and ask the user
    all questions in **one batch** (for each unresolved gateway: ingress or
-   mesh?). Re-invoke the sub-skill with the answers as the `gatewayResolutions`
-   input and re-read the report. Log each decision under **Needs review** → move
-   to **Done** once applied.
+   mesh?). Deliver the answers as a `resolutions` map keyed by entry `id` —
+   continue the same sub-agent when possible, otherwise re-invoke the sub-skill
+   with `resolutions` — and re-read the report. Log each decision under
+   **Needs review** → move to **Done** once applied.
 4. Copy the report's `filesModified` / `filesGenerated`, resource counts, and
    `needsReview` items into the log.
 5. **Capture the detected backend reference** from the report's `backendRef`

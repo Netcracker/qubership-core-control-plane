@@ -23,11 +23,14 @@ description: >
 | `backendRefName` | string | for Java | `<backendRefVal>` for the Maven plugin; Helm expressions allowed |
 | `backendRefPort` | integer | for Java | `<servicePort>` for the Maven plugin |
 | `routeLabels` | map | for Java | `<labels>` for the Maven plugin |
+| `interactive` | bool | no | `true` only when a user invokes the skill directly; orchestrators and sub-agent wrappers pass `false` |
+| `resolutions` | map `<unresolved id>: <answer>` | no | Answers to a previous run's `unresolved:` entries |
 
-If invoked by an orchestrator, inputs arrive resolved — do not ask the user for
-them. If invoked standalone and a required input is missing, ask the user before
-starting (propose the defaults `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080`
-for the backend reference).
+With `interactive: false` (the default for orchestrated and sub-agent runs),
+never ask the user: every blocking question becomes an `unresolved:` entry and
+the run finishes with `status: partial`. With `interactive: true`, ask blocking
+questions in chat — including missing required inputs (propose the defaults
+`{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080` for the backend reference).
 
 ### Outputs
 
@@ -48,7 +51,7 @@ skipped:
 commandsRun:
   - command: <cmd>
     exitCode: <N>
-unresolved: []              # items that need a user decision (see steps)
+unresolved: []              # blocking user decisions, each {id, question, options, default}
 needsReview:
   - <one line per item requiring human review>
 ```
@@ -92,8 +95,12 @@ compliant") and skip that dependency.
   - If the project uses `dependencyManagement`, prefer an existing or upgraded
     `com.netcracker.cloud:cloud-core-quarkus-bom-publish` at version `>= 9.1.0`
     instead of adding duplicate explicit dependency versions.
-- If the choice between webclient and resttemplate variants is ambiguous, add a
-  `needsReview:` entry (unknown artifact choice) rather than guessing.
+- If the choice between webclient and resttemplate variants is ambiguous, do
+  not guess: check the `resolutions` input for id
+  `java-registration-artifact`; if absent, with `interactive: true` ask the
+  user, otherwise add an `unresolved:` entry (id `java-registration-artifact`,
+  options `[route-registration-webclient, route-registration-resttemplate]`),
+  skip the dependency change, and finish with `status: partial`.
 
 ### Go
 
