@@ -51,8 +51,9 @@ starting.
 ### Outputs
 
 In addition to the chat Output Summary, write a machine-readable report to
-`.migration/reports/core-mesh-crs-to-istio.yaml` (create the directory; the
-path is gitignored):
+`.mesh-migration/reports/core-mesh-crs-to-istio.yaml` (create the directory, and ensure
+`.mesh-migration/` is listed in the repo's `.gitignore` — reports are working
+files, never committed; the orchestrator handles both in orchestrated runs):
 
 ```yaml
 reportSchema: 1

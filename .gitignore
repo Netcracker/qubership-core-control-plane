@@ -14,6 +14,3 @@ control-plane/.vscode/settings.json
 
 # APM dependencies
 apm_modules/
-
-# Sub-skill contract reports (core-mesh-to-istio-migration)
-.migration/

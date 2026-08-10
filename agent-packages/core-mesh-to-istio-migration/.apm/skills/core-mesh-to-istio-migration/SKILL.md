@@ -42,10 +42,14 @@ the report file, not from the sub-skill's transcript.
 
 ## Sub-skill reports
 
-Sub-skills write machine-readable reports to `.migration/reports/<skill>.yaml`
-(gitignored). Lifecycle:
+Sub-skills write machine-readable reports to `.mesh-migration/reports/<skill>.yaml`.
+Lifecycle:
 
-- **Delete `.migration/reports/` before Step 1** — a run must never read a
+- **Ensure `.mesh-migration/` is gitignored before Step 1** — check the target
+  repo's `.gitignore` for a `.mesh-migration/` entry and append it (with a
+  short comment) if missing. Reports are working files and must never be
+  committed. Log the edit under **Done**.
+- **Delete `.mesh-migration/reports/` before Step 1** — a run must never read a
   previous run's answers.
 - After each sub-skill finishes, read its report. Ignore unknown fields. If
   `reportSchema` is missing or newer than the value documented in that skill's
@@ -270,7 +274,7 @@ and skip to Step 1.1.
    `⚠ MANUAL REVIEW` inside the skill), convert `HttpFilters` +
    `RouteConfiguration` Lua scripts → `TrafficExtension` (requires Istio
    ≥ 1.30), and update `values.yaml` / `values.schema.json`.
-3. Read `.migration/reports/core-mesh-crs-to-istio.yaml`. **If
+3. Read `.mesh-migration/reports/core-mesh-crs-to-istio.yaml`. **If
    `status: partial`**, collect every entry under `unresolved:` and ask the user
    all questions in **one batch** (for each unresolved gateway: ingress or
    mesh?). Re-invoke the sub-skill with the answers as the `gatewayResolutions`
@@ -332,7 +336,7 @@ records "already compliant / already present" items under `done:`.
    (Spring / Quarkus / Go), set `SERVICE_MESH_TYPE` in Helm values, schema, and
    Deployment env, and add the `httproutes-generator-maven-plugin` for Java
    services (building and committing its output when Maven is available).
-3. Read `.migration/reports/mesh-build-wiring.yaml`; copy `done:` / `skipped:` /
+3. Read `.mesh-migration/reports/mesh-build-wiring.yaml`; copy `done:` / `skipped:` /
    `commandsRun:` / `needsReview:` items into the log and the per-step status
    rows for 2.1, 2.2, and 2.3. `status: failed` → apply the
    [Error policy](#error-policy--read-before-executing-any-step).
@@ -370,7 +374,7 @@ last run), log under **Done** ("already present") and skip.
    > The generated `source-code-httproutes.yaml` must stay committed. Any time
    > route registration code changes, rerun the `httproute-from-code` skill and
    > commit the updated output before raising a PR.
-6. Read `.migration/reports/httproute-from-code.yaml` and copy its
+6. Read `.mesh-migration/reports/httproute-from-code.yaml` and copy its
    `filesGenerated`, `routesGenerated`, and `needsReview` items into the log.
 7. For every `needsReview` entry in the report (skipped rows, `ERROR:`
    sections), add a **Needs review** log entry.
@@ -385,7 +389,7 @@ last run), log under **Done** ("already present") and skip.
    render checks (Istio mode produces HTTPRoutes/Gateways; Core mode leaks
    none), and flag duplicate HTTPRoute rules (same parent + equal match)
    without modifying anything else.
-3. Read `.migration/reports/istio-migration-validate.yaml`; copy `guardsAdded:`
+3. Read `.mesh-migration/reports/istio-migration-validate.yaml`; copy `guardsAdded:`
    (log under **Done**), `commandsRun:`, and `needsReview:` items into the log
    and the per-step status rows for 2.5 and 2.6. `status: failed` → apply the
    [Error policy](#error-policy--read-before-executing-any-step).

@@ -32,8 +32,9 @@ for the backend reference).
 ### Outputs
 
 In addition to the chat summary, write a machine-readable report to
-`.migration/reports/mesh-build-wiring.yaml` (create the directory; the path is
-gitignored):
+`.mesh-migration/reports/mesh-build-wiring.yaml` (create the directory, and ensure
+`.mesh-migration/` is listed in the repo's `.gitignore` — reports are working
+files, never committed; the orchestrator handles both in orchestrated runs):
 
 ```yaml
 reportSchema: 1
