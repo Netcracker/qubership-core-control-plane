@@ -73,6 +73,12 @@ Lifecycle:
     `resolutions`).
   - mark the skipped steps' rows in the per-step status table as
     `reused (report of <generatedAt>)`.
+- **Never skip a sub-skill invocation to save work.** Idempotency belongs to
+  the sub-skills, which detect their own already-present output; skipping at
+  the orchestrator level leaves no report on disk, and every downstream step
+  reads reports. The only steps that legitimately run without invoking are the
+  ones before a resumed run's start step, which reuse the reports already
+  there.
 - After each sub-skill finishes, read its report. Ignore unknown fields. If
   `reportSchema` is missing or newer than the value documented in that skill's
   Contract, stop and add a **Needs review** entry (contract mismatch) instead of
@@ -298,11 +304,12 @@ status.
 
 ### Step 1 — Migrate existing mesh CRs to Gateway API CRs
 
-**Idempotency check:** before running, scan `<chart>/templates/` for files
-already containing `kind: HTTPRoute` guarded by
-`{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}`. If the full output of this
-step already exists, log all affected files under **Done** ("already present")
-and skip to Step 1.1.
+**Idempotency:** always invoke the sub-skill — do not skip it because the chart
+already contains `kind: HTTPRoute` guarded by
+`{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}`. The sub-skill detects existing
+output itself (its wrapping and generation steps are idempotent), reports
+already-present files under **Done**, and — crucially — writes the current
+report that Steps 2.3 and 2.4 read for `backendRef` and `labels.values`.
 
 1. Invoke the sub-skill [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)
    with inputs: `chartPath: <chart path>`, `interactive: false`.
@@ -393,9 +400,10 @@ records "already compliant / already present" items under `done:`.
 
 ### Step 2.4 — Generate HTTPRoute CRs from route registration code
 
-**Idempotency check:** if `source-code-httproutes.yaml` already exists and its
-content matches what the sub-skill would generate (no source-code changes since
-last run), log under **Done** ("already present") and skip.
+**Idempotency:** always invoke the sub-skill, even when
+`source-code-httproutes.yaml` already exists — generation is deterministic, so
+an unchanged source tree reproduces the same file, and the run produces the
+report this step's follow-up items read.
 
 1. Invoke sub-skill [`httproute-from-code`](../httproute-from-code/SKILL.md) with
    `interactive: false`, the source-code path, **and** the resolved `backendRefName` / `backendRefPort`
@@ -512,9 +520,10 @@ Close with a plain-language summary telling the user:
   not modify git config.
 - **Be explicit in chat.** After each step, print a one-line summary plus the
   updated per-step status row.
-- **Idempotent reruns.** Each step begins with an explicit idempotency check
-  (described inline). If the step's outputs are already in place and correct,
-  log them as **Done** ("already present") and move on without re-applying changes.
+- **Idempotent reruns.** Rerunning a step must not duplicate or corrupt its
+  output. For delegated steps the sub-skill owns that check and logs
+  already-present items under **Done** — always invoke it anyway, so its report
+  is on disk for the steps that read it.
 - **Follow the Error policy.** On any unrecoverable failure, stop the step, log
   it, and ask the user whether to continue or abort before taking further action.
 

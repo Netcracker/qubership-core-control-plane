@@ -148,6 +148,7 @@ grep -rl \
   -e 'kind: FacadeService' \
   -e 'kind: Gateway' \
   -e 'kind: Mesh' \
+  -e 'kind: RouteConfiguration' \
   -e 'kind: StatefulSession' \
   -e 'kind: LoadBalance' \
   -e 'kind: HttpFilters' \
@@ -180,7 +181,9 @@ review instead.
         * `"egress-gateway"` → **egress** type
         * `"public-gateway-service"` → **ingress** type
         * `"private-gateway-service"` → **ingress** type
-        * `"internal-gateway-service"` → **ingress** type
+        * `"internal-gateway-service"` → **mesh** type (parentRef = Service;
+          Lua and other extensions target the mesh Gateway from discovery,
+          `waypoint` on Cloud Core)
     2. **Gateway CR in the scanned chart/folder** — used only if the name is not well-known:
         - `spec.gatewayType: ingress` or `egress` → ingress/egress Gateway
         - `spec.gatewayType: mesh` or absent → mesh (parentRef = Service)
