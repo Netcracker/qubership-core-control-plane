@@ -32,7 +32,7 @@ Reference:
 
   JSON key     Go type        Transformation
   ─────────────────────────────────────────────────────────────────────────────
-  gateways     []string       → [gateway name resolution](#gateway-name-resolution); OMIT from output
+  gateways     []string       → [gateway target resolution](#gateway-target-resolution); OMIT from output
   luaFilters   []LuaFilter    → script library; resolve `Rule.luaFilter` references
   wasmFilters  []WasmFilter   OMIT
   extAuthzFilter *ExtAuthz   OMIT
