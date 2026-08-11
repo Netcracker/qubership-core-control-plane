@@ -317,9 +317,10 @@ report that Steps 2.3 and 2.4 read for `backendRef` and `labels.values`.
    guards, generate `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`,
    convert `Gateway(ingress/egress)` → Istio Gateway, convert
    `RouteConfiguration` → HTTPRoute (including any rule-level `statefulSession`
-   → `DestinationRule`), omit `FacadeService` and mesh-type `Gateway` (generates
-   east-west HTTPRoutes instead, where parent is of kind Service, processed by
-   waypoint proxy), convert standalone `StatefulSession` / `LoadBalance` →
+   → `DestinationRule`), convert `FacadeService` → `Service`, omit mesh-type
+   `Gateway` (generates east-west HTTPRoutes instead, where parent is of kind
+   Service, processed by waypoint proxy), convert standalone `StatefulSession` /
+   `LoadBalance` →
    `DestinationRule` (one per host — conflicting policies are flagged
    `⚠ MANUAL REVIEW` inside the skill), convert `HttpFilters` +
    `RouteConfiguration` Lua scripts → `TrafficExtension` (requires Istio
