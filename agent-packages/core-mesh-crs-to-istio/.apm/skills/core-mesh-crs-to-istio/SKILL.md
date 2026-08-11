@@ -46,11 +46,12 @@ old resources in `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` and new Istio r
 | `resolutions` | map `<unresolved id>: <answer>` | no | Answers to a previous run's `unresolved:` entries |
 
 With `interactive: false` (the default for orchestrated and sub-agent runs),
-never ask the user: every blocking question becomes an `unresolved:` entry and
-the run finishes with `status: partial`. With `interactive: true`, ask blocking
-questions in chat and wait for the answer. A sub-agent has no user channel —
-its questions die in its transcript — so a delegated run must always be
-`interactive: false`.
+never ask the user: every blocking question becomes an `unresolved:` entry.
+Skip only the work that depends on the answer, continue with everything else,
+and set `status: partial` when writing the final report. With
+`interactive: true`, ask blocking questions in chat and wait for the answer. A
+sub-agent has no user channel — its questions die in its transcript — so a
+delegated run must always be `interactive: false`.
 
 ### Outputs
 
@@ -202,12 +203,20 @@ review instead.
      report (id `gateway/<name>`, options `[ingress, mesh]`), and finish with
      `status: partial`. The caller obtains the answers and delivers them via the
      `resolutions` input; on the follow-up run, process only the previously
-     skipped CRs.
+     skipped CRs — already-wrapped originals and already-generated `-istio`
+     files must not be produced twice (see the Step 3 and Step 4 idempotency
+     checks).
    - **Do not infer** gateway type from the gateway name alone.
 
 ### Step 3 — Wrap originals in Core condition
 
-In the **original files**, wrap each mesh CR document with the Core guard:
+**Idempotency check:** a document already enclosed in
+`{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` … `{{- end }}` is left
+untouched — never nest a second guard. This matters on a follow-up run with
+`resolutions`, where previously processed documents are already wrapped.
+
+In the **original files**, wrap each not-yet-guarded mesh CR document with the
+Core guard:
 
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Core" }}
@@ -221,6 +230,9 @@ Legacy declarative files keep their `nc.core.mesh/*` apiVersion inside the guard
 For multi-document YAML files (separated by `---`): wrap each document individually.
 
 ### Step 4 — Generate Istio files (single pass)
+
+**Idempotency check:** if the `-istio` sibling already exists, add only the
+resources it is missing; do not duplicate documents a previous run generated.
 
 Create a **new file** for each original, with `-istio` before the extension:
 

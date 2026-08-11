@@ -27,10 +27,12 @@ description: >
 | `resolutions` | map `<unresolved id>: <answer>` | no | Answers to a previous run's `unresolved:` entries |
 
 With `interactive: false` (the default for orchestrated and sub-agent runs),
-never ask the user: every blocking question becomes an `unresolved:` entry and
-the run finishes with `status: partial`. With `interactive: true`, ask blocking
-questions in chat — including missing required inputs (propose the defaults
-`{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080` for the backend reference).
+never ask the user: every blocking question becomes an `unresolved:` entry.
+Skip only the work that depends on the answer, **continue with every other
+step**, and set `status: partial` when writing the final report. With
+`interactive: true`, ask blocking questions in chat — including missing
+required inputs (propose the defaults `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`
+/ `8080` for the backend reference).
 
 ### Outputs
 
@@ -99,8 +101,9 @@ compliant") and skip that dependency.
   not guess: check the `resolutions` input for id
   `java-registration-artifact`; if absent, with `interactive: true` ask the
   user, otherwise add an `unresolved:` entry (id `java-registration-artifact`,
-  options `[route-registration-webclient, route-registration-resttemplate]`),
-  skip the dependency change, and finish with `status: partial`.
+  options `[route-registration-webclient, route-registration-resttemplate]`)
+  and skip **only this dependency swap** — Steps 2 and 3 still run. Set
+  `status: partial` when writing the final report.
 
 ### Go
 

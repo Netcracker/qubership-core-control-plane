@@ -70,7 +70,7 @@ files, never committed; the orchestrator handles both in orchestrated runs):
 ```yaml
 reportSchema: 1
 skill: httproute-from-code
-status: complete            # complete | failed
+status: complete            # complete | partial | failed
 generatedAt: <ISO-8601>
 inputsUsed:
   backendRefName: <value>
@@ -358,7 +358,12 @@ module github.com/company/billing-service → billing-service
 
 6. Java — `pom.xml` artifactId
 
-7. Fallback: `<microservice-name>` — warn in summary
+7. Fallback: check the `resolutions` input for id `microservice-name`; if
+   absent, with `interactive: true` ask the user for the service name,
+   otherwise use the literal `<microservice-name>` placeholder, add an
+   `unresolved:` entry (id `microservice-name`, question "What is the
+   microservice name for the generated HTTPRoutes?"), and set
+   `status: partial` in the report
 
 ---
 
@@ -493,7 +498,8 @@ Naming rules:
 - Use the microservice name resolved in [Step 7](#step-7--resolve-microservice-name).
 - Emit exactly one HTTPRoute name per RouteType that has routes (see Step 6).
 - If Step 7 cannot resolve the service name, use `<microservice-name>` in the
-  generated name and report it as a warning in the summary / needs-review flow.
+  generated name and record the `unresolved:` entry per Step 7 — the caller
+  supplies the real name via the `resolutions` input.
 
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}

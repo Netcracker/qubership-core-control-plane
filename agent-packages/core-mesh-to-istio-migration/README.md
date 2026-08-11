@@ -6,7 +6,7 @@ end-to-end. It is an orchestrator: it delegates the heavy lifting to the
 [`mesh-build-wiring`](../mesh-build-wiring),
 [`httproute-from-code`](../httproute-from-code), and
 [`istio-migration-validate`](../istio-migration-validate) packages, resolves
-user questions, and keeps an auditable `MIGRATION_LOG.md`.
+user questions, and keeps an auditable `.mesh-migration/MIGRATION_LOG.md`.
 
 ## Install
 
@@ -27,7 +27,7 @@ pick up a new version.
 
 - The [`SKILL.md`](.apm/skills/core-mesh-to-istio-migration/SKILL.md) — the full
   migration procedure (Step 1 mesh-CR conversion through Step 2.6 duplicate-rule
-  detection), the mandatory `MIGRATION_LOG.md` format, the error policy, and
+  detection), the mandatory `.mesh-migration/MIGRATION_LOG.md` format, the error policy, and
   idempotent reruns.
 - An instruction that fires when you ask to run an Istio migration on a service
   or Helm chart, steering the agent to the skill.
@@ -41,4 +41,4 @@ helm-templates/my-service".
 
 It runs every step in order, delegates to the four atomic skills,
 validates the result, and writes a Done / Skipped / Needs-review log to
-`MIGRATION_LOG.md` — review every **Needs review** entry before raising a PR.
+`.mesh-migration/MIGRATION_LOG.md` — review every **Needs review** entry before raising a PR.
