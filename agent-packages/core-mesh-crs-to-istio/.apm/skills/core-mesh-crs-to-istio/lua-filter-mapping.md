@@ -65,20 +65,17 @@ Rules without `luaFilter` → no extension resource.
 
 ---
 
-### Gateway name resolution
+### Gateway target resolution
 
-Resolve platform gateway names with the same table used for HTTPRoute `parentRefs`
-(see [route-configuration-mapping.md](route-configuration-mapping.md)):
+Classify gateways using Step 2 of the main skill.
 
-| Gateway value | Resolved `targetRefs.name` |
-|---|---|
-| `public-gateway-service` | `public-gateway` |
-| `private-gateway-service` | `private-gateway` |
-| `egress-gateway` | `egress-gateway` |
-| `internal-gateway-service` | mesh Gateway from discovery (Cloud Core: `waypoint`) |
-| Custom `Gateway` CR (`spec.gatewayType` ingress/egress/mesh) | `metadata.name` |
-
-Unresolvable gateway → `# ⚠ MANUAL REVIEW`.
+- For ingress/egress gateways, reuse the resolved Gateway name from
+  [route-configuration-mapping.md](route-configuration-mapping.md), priorities
+  1–2.
+- For internal/mesh gateways, do not reuse the HTTPRoute Service parentRefs.
+  Resolve the mesh Gateway discovered from the source CR (`waypoint` for
+  `internal-gateway-service` on Cloud Core) and use it as `targetRefs.name`.
+- If the Gateway target cannot be resolved, add `# ⚠ MANUAL REVIEW`.
 
 ---
 
