@@ -17,8 +17,16 @@ description: >
 | Input | Type | Required | Notes |
 |---|---|---|---|
 | `chartPath` | path | yes | Helm chart to validate |
+| `interactive` | bool | no | `true` only when a user invokes the skill directly; orchestrators and sub-agent wrappers pass `false` |
 
-If invoked standalone and `chartPath` is missing, ask the user before starting.
+With `interactive: false` (the default for orchestrated and sub-agent runs),
+never ask the user: every blocking question becomes an `unresolved:` entry and
+the report finishes with `status: partial` (or `failed` if a render check
+fails). With `interactive: true`, ask blocking questions in chat and wait.
+
+If `chartPath` is missing: with `interactive: true`, ask before starting; with
+`interactive: false`, add `unresolved:` id `chartPath` and stop with
+`status: partial`.
 
 ### Outputs
 
@@ -30,7 +38,7 @@ files, never committed; the orchestrator handles both in orchestrated runs):
 ```yaml
 reportSchema: 1
 skill: istio-migration-validate
-status: complete            # complete | failed (a render check failed)
+status: complete            # complete | partial | failed (a render check failed)
 generatedAt: <ISO-8601>
 guardsAdded: [<files that were missing the Istio guard and got it>]
 renderChecks:
