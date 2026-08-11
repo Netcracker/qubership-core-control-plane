@@ -32,7 +32,7 @@ existing mesh CRs by the `core-mesh-crs-to-istio` skill or provided by the user.
 |---|---|---|
 | `backendRefName` | `backendRefs[].name` in every rule | `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` |
 | `backendRefPort` | `backendRefs[].port` in every rule | `8080` |
-| `routeLabels` | `metadata.labels` on every generated HTTPRoute CR | default label set from |
+| `routeLabels` | `metadata.labels` on every generated HTTPRoute CR | default label set below |
 | `interactive` | ability to ask the user; `true` only for direct user invocation | `false` |
 | `resolutions` | answers to a previous run's `unresolved:` entries, by id | — |
 
@@ -463,13 +463,7 @@ If `routeLabels` is provided:
 If `routeLabels` is not provided:
 
 - Render `metadata.labels` using the default label set from
-  `httproute-generator/README.md`:
-  - `app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}`
-  - `app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}`
-  - `app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}`
-  - `deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`
-  - `deployer.cleanup/allow: "true"`
-  - `app.kubernetes.io/processed-by-operator: istiod`
+  [Inputs / parameters](#inputs--parameters).
 
 ### HTTPRoute naming schema
 
@@ -613,7 +607,7 @@ backendRefPort: 8080                                     (detected | user-provid
 Also report labels applied to generated CRs:
 
 ```
-routeLabels: <map or "default labels from README used">
+routeLabels: <map or "default label set">
 ```
 
 ---
