@@ -387,8 +387,9 @@ records "already compliant / already present" items under `done:`.
    asked from the user here if still unresolved — propose the defaults
    `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080`).
 2. That skill will: switch route-registration libraries to mesh-aware versions
-   (Spring / Quarkus / Go), set `SERVICE_MESH_TYPE` in Helm values, schema, and
-   Deployment env, and add the `httproutes-generator-maven-plugin` for Java
+   (Spring / Quarkus / Go), ensure `SERVICE_MESH_TYPE` in Helm values / schema
+   (may already be present from Step 1 — idempotent) and wire it into
+   Deployment `env:`, and add the `httproutes-generator-maven-plugin` for Java
    services (building and committing its output when Maven is available).
 3. Read `.mesh-migration/reports/mesh-build-wiring.yaml`. **If
    `status: partial`**, batch its `unresolved:` questions to the user in one

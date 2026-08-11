@@ -123,22 +123,40 @@ compliant") and skip that dependency.
 - If multiple modules import `rest-utils` at different versions, add a
   `needsReview:` entry for each conflicting module.
 
-## Step 2 — Set the `SERVICE_MESH_TYPE` environment variable
+## Step 2 — Wire `SERVICE_MESH_TYPE` into the Deployment
 
-**Idempotency check:** before editing any file, check whether `SERVICE_MESH_TYPE`
-is already present with the correct value and schema entry. If yes, record
-under `done:` ("already present") for that file and skip it.
+**Ownership:** this skill owns Deployment / pod `env:` wiring. Chart
+`values.yaml` / `values.schema.json` may already contain `SERVICE_MESH_TYPE`
+(same property contract below) — treat those as ensure-only.
+
+**Idempotency check:** before editing any file, check whether the target is
+already correct. If yes, record under `done:` ("already present") and skip that
+file.
 
 All services that use route registration libraries must receive
-`SERVICE_MESH_TYPE`. By default, set Helm values to `Core` for compatibility with
-environments where Istio is not installed yet; deployments can override the value
-to `Istio` when migrating an environment.
+`SERVICE_MESH_TYPE`. Default Helm value is `Core` (Istio not required yet);
+environments override to `Istio` when ready.
 
-| Deployment source                          | Action                                                                                           |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Helm values drive a `Deployment` template  | Ensure `values.yaml` has `SERVICE_MESH_TYPE: "Core"` and the Deployment `env:` uses `value: '{{ .Values.SERVICE_MESH_TYPE }}'`. |
-| `values.schema.json` exists                | Ensure `SERVICE_MESH_TYPE` has a full schema entry: `"type": "string"`, `"enum": ["Istio", "Core"]`, `"default": "Core"`, `"$id": "#/properties/SERVICE_MESH_TYPE"`, `"internal": true`, exact `"description": "Service mesh type. Use `Core` for Cloud Core Mesh or `Istio` for Istio Ambient Mesh."`, and an entry in the root-level `"examples"` array (`{"SERVICE_MESH_TYPE": "Core"}`). Also confirm `"additionalProperties": true` is set at the root. |
-| Plain Kubernetes `Deployment` manifest     | Add `- name: SERVICE_MESH_TYPE` with `value: Core`, or template it if the manifest is Helm-rendered. |
+| Target | Action |
+| --- | --- |
+| `values.yaml` | Ensure `SERVICE_MESH_TYPE: "Core"` (add if missing; do not overwrite a deliberate non-default). |
+| `values.schema.json` (if present) | Ensure the property entry below under `properties`, a root `"examples"` entry `{"SERVICE_MESH_TYPE": "Core"}`, and root `"additionalProperties": true`. |
+| Helm `Deployment` template | Ensure `env:` has `SERVICE_MESH_TYPE` with `value: '{{ .Values.SERVICE_MESH_TYPE }}'`. |
+| Plain Kubernetes `Deployment` | Add `- name: SERVICE_MESH_TYPE` with `value: Core`, or template it if Helm-rendered. |
+
+Exact `values.schema.json` property entry:
+
+```json
+    "SERVICE_MESH_TYPE": {
+      "$id": "#/properties/SERVICE_MESH_TYPE",
+      "type": "string",
+      "title": "The SERVICE_MESH_TYPE schema",
+      "description": "Service mesh type. Use `Core` for Cloud Core Mesh or `Istio` for Istio Ambient Mesh.",
+      "enum": ["Istio", "Core"],
+      "default": "Core",
+      "internal": true
+    }
+```
 
 Record under `done:` the exact files edited. If multiple Deployments exist, list
 each. If the desired runtime mesh for an environment is unclear, keep the default

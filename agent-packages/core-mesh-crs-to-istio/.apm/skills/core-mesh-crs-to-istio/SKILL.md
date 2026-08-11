@@ -319,8 +319,16 @@ Do not invent missing label values. If uncertain, mark unresolved.
 
 ### Step 7 — Update values.yaml
 
-* Add `SERVICE_MESH_TYPE = Core` to the end of values.yaml.
-* Update values.schema.json accordingly with exact description:
+Dual-mesh guards require this Helm value. **Idempotent:** if `SERVICE_MESH_TYPE`
+is already present in `values.yaml` with value `Core` (or a Helm expression that
+resolves to it) and `values.schema.json` already has the full property entry
+below, skip — do not duplicate keys or nest a second copy.
+
+1. Ensure `values.yaml` has `SERVICE_MESH_TYPE: "Core"` (add at the end if
+   missing).
+2. If `values.schema.json` exists, ensure it has this exact property entry under
+   `properties`, a root `"examples"` entry `{"SERVICE_MESH_TYPE": "Core"}`, and
+   root `"additionalProperties": true`:
 
 ```json
     "SERVICE_MESH_TYPE": {
