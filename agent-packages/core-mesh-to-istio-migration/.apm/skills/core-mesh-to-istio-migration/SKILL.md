@@ -254,31 +254,15 @@ Language: <Go | Java | Go+Java>
 
 ### What belongs in each bucket
 
-**Structural blockers** — fields or patterns that cannot be auto-converted and
-block a correct migration:
+**Structural blockers / flagged conversions** — Copy every `needsReview:` line and every `# ⚠ MANUAL REVIEW` hit from
+sub-skill reports into **Needs review**.
+
+**Unknown values** — values the agent cannot safely infer and must not guess
+(orchestrator / wiring concerns, not CR field mapping):
 
 | Item | Example location |
 |------|-----------------|
-| `RouteConfiguration.spec.overridden` non-empty | RouteConfiguration CR |
-| `VirtualService.rateLimit` / `.overridden` non-empty | VirtualService CR |
-| `RouteDestination.httpVersion` / `.circuitBreaker` / `.tcpKeepalive` non-empty | RouteConfiguration CR |
-| `Rule.rateLimit` non-empty | RouteConfiguration CR |
-| `Rule.luaFilter` non-empty | RouteConfiguration CR — auto-migrated by `core-mesh-crs-to-istio`; flag only if script/gateway/route name unresolved |
-| `Rule.deny` / `.idleTimeout` non-nil | RouteConfiguration CR |
-| `StatefulSession.hostname` / `.port` set (endpoint-level targeting) | StatefulSession CR |
-| `StatefulSession.overridden` true | StatefulSession CR |
-| `LoadBalance` with more than one policy | LoadBalance CR |
-| `LoadBalance.overridden` true | LoadBalance CR |
-| Multiple generated `DestinationRule`s targeting the same `spec.host` | Generated `-istio` files |
-| `FacadeService` with no port defined | FacadeService CR |
-| Named `{{- include }}` helpers producing mesh CRs | Helm templates |
-| `*` host on an east-west route | Generated HTTPRoute |
-
-**Unknown values** — values the agent cannot safely infer and must not guess:
-
-| Item | Example location |
-|------|-----------------|
-| Unresolved gateway references | HTTPRoute `parentRefs` |
+| Unresolved gateway references (`unresolved:` from Step 1) | HTTPRoute `parentRefs` |
 | Missing microservice name (placeholder `<microservice-name>` in output) | Generated HTTPRoute / `source-code-httproutes.yaml` |
 | Ambiguous Java route-registration artifact (webclient vs resttemplate) | `pom.xml` |
 | Unknown library versions | `pom.xml` / `go.mod` |
@@ -351,15 +335,7 @@ Log update:
   `backendRefName` / `backendRefPort` and `routeLabels` (if resolved).
 - **Needs review:** every item from the sub-skill's "Items needing manual review".
 
-**Validation:**
-```bash
-helm dependency update;
-helm template <chart> --set SERVICE_MESH_TYPE=Istio \
-  | grep -E 'kind: (HTTPRoute|Gateway)'
-```
 
-Expected: the command returns at least one matching line. If it fails, apply the
-[Error policy](#error-policy--read-before-executing-any-step).
 
 ### Step 1.1 — Log manually handle flagged features
 
@@ -486,16 +462,10 @@ Close with a plain-language summary telling the user:
 
 1. **What was applied automatically** (reference the Done section count).
 2. **What was skipped and why** (reference the Skipped section).
-3. **What requires careful human review before merging** (enumerate the Needs
-   review section, highlighting structural blockers that could change runtime
-   behaviour — `RouteConfiguration.spec.overridden`,
-   `rateLimit`, `VirtualService.overridden`, `*` hosts on east-west routes,
-   `RouteDestination` / `httpVersion` / `circuitBreaker` /
-   `tcpKeepalive`, `Rule.deny`, `Rule.statefulSession`,
-   `Rule.idleTimeout`, `Rule.luaFilter`, `FacadeService` with no port,
-   unresolved gateways, helper-produced CRs, placeholder library versions,
-   duplicate HTTPRoute rules from Step 2.6 (same parent + equal match), and
-   any `.incomplete` files from Step 2.4).
+3. **What requires careful human review before merging** — enumerate every
+   remaining **Needs review** entry from `.mesh-migration/MIGRATION_LOG.md`
+   (sourced from sub-skill `needsReview:` / `# ⚠ MANUAL REVIEW` / `unresolved:`
+   items).
 4. The recommended validation commands the user should run locally before pushing:
 
    ```bash
