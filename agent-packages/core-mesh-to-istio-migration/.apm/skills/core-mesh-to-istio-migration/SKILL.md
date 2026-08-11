@@ -363,7 +363,7 @@ Expected: the command returns at least one matching line. If it fails, apply the
 
 ### Step 1.1 — Log manually handle flagged features
 
-For each `# ⚠ MANUAL REVIEW REQUIRED` comment the sub-skill emitted, add a
+For each `# ⚠ MANUAL REVIEW` comment the sub-skill emitted, add a
 **Needs review** entry. **None of these are safe to auto-fix** — they all
 require human judgement or a design change. Leave the flag comment in place in
 the file; do not remove it.

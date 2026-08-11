@@ -127,7 +127,7 @@ documents in the same file.
   to add the `SERVICE_MESH_TYPE` key per Step 7. Make no other value changes.
 
 If a mesh CR is produced by a template helper (a `{{- include }}` that renders a
-mesh CR), do not edit the helper — flag it with `# ⚠ MANUAL REVIEW REQUIRED` and
+mesh CR), do not edit the helper — flag it with `# ⚠ MANUAL REVIEW` and
 leave it to the user.
 
 `HttpFilters` entries for `wasmFilters` / `extAuthzFilter` alone (no `luaFilters`)
@@ -339,7 +339,7 @@ Do not invent missing label values. If uncertain, mark unresolved.
 - Keep all `{{ .Values.X }}` expressions — never hardcode parameterized values
 - Always use `{{ .Release.Namespace }}` for namespace fields
 - Preserve `{{- if }}` conditionals, `{{- range }}` loops, `{{- include }}` calls
-- If a named helper produces mesh-specific output, add `# ⚠ MANUAL REVIEW REQUIRED`
+- If a named helper produces mesh-specific output, add `# ⚠ MANUAL REVIEW`
 - Do not add comments to generated resources
 
 ### Step 9 — Validation checklist
