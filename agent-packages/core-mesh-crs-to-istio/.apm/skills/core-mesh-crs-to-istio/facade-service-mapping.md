@@ -32,8 +32,6 @@ Port mapping priority:
   ELSE:
     generate no ports + add: # ⚠ MANUAL REVIEW: no port defined
 
-NO spec.selector field — Service is used as HTTPRoute parent only.
-
 Output template (spec.port only, no gatewayPorts):
   kind: Service
   apiVersion: v1

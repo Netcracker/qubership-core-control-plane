@@ -71,7 +71,7 @@ orchestrator cannot fully handle.
 | Skill | Purpose |
 |---|---|
 | [`core-mesh-to-istio-migration`](../../../agent-packages/core-mesh-to-istio-migration/.apm/skills/core-mesh-to-istio-migration/SKILL.md) | **Orchestrator** (Option A) — runs the full migration end-to-end, delegates to the two skills below, and maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items |
-| [`core-mesh-crs-to-gatewayapi`](../../../agent-packages/core-mesh-crs-to-gatewayapi/.apm/skills/core-mesh-crs-to-gatewayapi/SKILL.md) | Convert existing Helm mesh CRs (FacadeService, Gateway, RouteConfiguration) to Istio Gateway API resources |
+| [`core-mesh-crs-to-istio`](../../../agent-packages/core-mesh-crs-to-istio/.apm/skills/core-mesh-crs-to-istio/SKILL.md) | Convert existing Helm mesh CRs (FacadeService, Gateway, RouteConfiguration) to Istio Gateway API resources |
 | [`httproute-from-code`](../../../agent-packages/httproute-from-code/.apm/skills/httproute-from-code/SKILL.md) | Generate HTTPRoute CRs from Go/Java route registration source code |
 
 > The rest of this guide documents the individual steps. With **Option A** the
@@ -98,7 +98,7 @@ to pick up a new version.
 
 ## Step 1 — Migrate declarative routes - existing Mesh CRs to HTTPRoute CRs
 
-Use the skill [`core-mesh-crs-to-gatewayapi`](../../../agent-packages/core-mesh-crs-to-gatewayapi/.apm/skills/core-mesh-crs-to-gatewayapi/SKILL.md) to automatically convert your existing mesh custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`) into GatewayAPI HTTPRoute manifests while keeping the chart deployable on both mesh types.
+Use the skill [`core-mesh-crs-to-istio`](../../../agent-packages/core-mesh-crs-to-istio/.apm/skills/core-mesh-crs-to-istio/SKILL.md) to automatically convert your existing mesh custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`) into GatewayAPI HTTPRoute manifests while keeping the chart deployable on both mesh types.
 
 ### How to run
 
@@ -488,7 +488,7 @@ duplicates and need no action.
 
 Before raising a PR, verify all of the following:
 
-- [ ] [`core-mesh-crs-to-gatewayapi`](../../../agent-packages/core-mesh-crs-to-gatewayapi/.apm/skills/core-mesh-crs-to-gatewayapi/SKILL.md) skill run: existing mesh CRs converted to HTTPRoute CRs
+- [ ] [`core-mesh-crs-to-istio`](../../../agent-packages/core-mesh-crs-to-istio/.apm/skills/core-mesh-crs-to-istio/SKILL.md) skill run: existing mesh CRs converted to HTTPRoute CRs
 - [ ] Flagged features from Step 1.1 manually resolved
 - [ ] New mesh-aware libraries replace old route-posting libraries
 - [ ] `SERVICE_MESH_TYPE=Istio` set in Helm values / Deployment

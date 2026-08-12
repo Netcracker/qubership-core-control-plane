@@ -4,7 +4,7 @@ description: >
   Orchestrate the full Cloud-Core Mesh to Istio migration end-to-end — convert
   declarative mesh CRs to Gateway API, migrate route-registration libraries, wire
   SERVICE_MESH_TYPE, add the Java HTTPRoute generator, generate HTTPRoutes from
-  Go/Java code, validate Istio guards, and maintain MIGRATION_LOG.md. Use when
+  Go/Java code, validate Istio guards, and maintain .mesh-migration/MIGRATION_LOG.md. Use when
   asked to migrate a service from Core Mesh to Istio (Ambient Mesh) or run the
   migration guide end-to-end.
 ---
@@ -12,8 +12,8 @@ description: >
 # Core Mesh → Istio — Full Migration Orchestrator
 
 This skill runs the complete migration described in the guide.
-It is an **orchestrator**: the heavy lifting lives in two atomic sub-skills, and this
-skill coordinates them, performs the remaining steps, and keeps an auditable log.
+It is an **orchestrator**: the heavy lifting lives in four atomic sub-skills, and this
+skill coordinates them, resolves user questions, and keeps an auditable log.
 
 ## Invocation
 
@@ -23,17 +23,80 @@ Run this skill against the chart or service directory to migrate. Examples:
 - `helm-templates/my-service`
 - `.`
 
+The user may also name a **start step** ("start from Step 2.4", "rerun the
+validation") to resume a migration instead of running from scratch. Default is
+a full run from Step 1. See the report lifecycle below for how a resumed run
+treats earlier steps' reports.
+
 
 ## Sub-skills invoked
 
 | Sub-skill                                                                           | Used in step | Purpose                                                        |
 | ----------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------- |
-| [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md)            | Step 1       | Convert existing Helm mesh CRs to Gateway + HTTPRoute          |
+| [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert existing Helm mesh CRs to Gateway API + Istio resources |
+| [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md)                                | Steps 2.1–2.3 | Mesh-aware libraries, SERVICE_MESH_TYPE env, Maven plugin      |
 | [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
+| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.6 | Istio guards, render checks, duplicate-rule detection          |
 
-**How to invoke a sub-skill:** read its `SKILL.md` in full and execute its steps
-inline as an embedded procedure. Do not spawn subprocesses or defer to external
-tooling — carry out each instruction as if it were written directly in this skill.
+**How to invoke a sub-skill:** communicate only through the sub-skill's
+`## Contract` — resolved inputs in, report file out. Always pass
+`interactive: false`: sub-skills must never address the user directly; their
+questions come back as `unresolved:` report entries. When the harness provides
+a sub-agent / Task tool, run the sub-skill in a sub-agent with its own context
+and consume its report file afterwards. Otherwise read its `SKILL.md` in full
+and execute its steps inline as an embedded procedure. Either way, take results
+from the report file, not from the sub-skill's transcript.
+
+## Sub-skill reports
+
+Sub-skills write machine-readable reports to `.mesh-migration/reports/<skill>.yaml`.
+Lifecycle:
+
+- **Ensure `.mesh-migration/` is gitignored before the first executed step** —
+  check the target repo's `.gitignore` for a `.mesh-migration/` entry and
+  append it (with a short comment) if missing. Reports are working files and
+  must never be committed. Log the edit under **Done**.
+- **Full run (no start step): delete `.mesh-migration/reports/` and any
+  existing `.mesh-migration/MIGRATION_LOG.md` before Step 1** — a fresh run
+  must never read a previous run's answers or append to its log.
+- **Resumed run (start step given): keep existing reports.** Steps before the
+  start step are not re-executed — their results come from the reports on disk.
+  Before executing anything, list every report that will be reused (`skill`,
+  `generatedAt`, `status`) and tell the user: "Resuming from <step>; reusing
+  these previous results — rerun from Step 1 instead if they are stale." Then:
+  - a report **required by a later step is missing or `status: failed`**
+    (e.g. Step 2.3 / 2.4 need `backendRef` and `labels` from the Step 1
+    report) → ask the user to either start from the earlier step or provide
+    the missing values as inputs; do not proceed silently.
+  - a reused report has `status: partial` → treat its `unresolved:` entries
+    exactly as if the sub-skill had just run (batch questions, deliver
+    `resolutions`).
+  - mark the skipped steps' rows in the per-step status table as
+    `reused (report of <generatedAt>)`.
+- **Never skip a sub-skill invocation to save work.** Idempotency belongs to
+  the sub-skills, which detect their own already-present output; skipping at
+  the orchestrator level leaves no report on disk, and every downstream step
+  reads reports. The only steps that legitimately run without invoking are the
+  ones before a resumed run's start step, which reuse the reports already
+  there.
+- After each sub-skill finishes, read its report. Ignore unknown fields. If
+  `reportSchema` is missing or newer than the value documented in that skill's
+  Contract, stop and add a **Needs review** entry (contract mismatch) instead of
+  guessing field meanings.
+- `status: partial` means the `unresolved:` list blocks part of the output.
+  Relay each entry's `question` (and `options`) to the user verbatim, in **one**
+  batched round. Deliver the answers as a `resolutions` map keyed by the
+  entries' `id` — by **continuing the same sub-agent** when the harness
+  supports it (context intact, no rework), otherwise by **re-invoking** the
+  sub-skill with `resolutions` as an input (its idempotency checks make the
+  second pass cheap).
+- **After delivering `resolutions`, re-read the report and confirm
+  `status: complete` before continuing to the next step.** If it is still
+  `partial`, the answers did not resolve everything: repeat the question round
+  for the remaining `unresolved:` entries. Do this at most twice; if the third
+  read is still `partial`, stop, log each surviving entry under **Needs
+  review**, and ask the user whether to continue with the incomplete output or
+  abort. Never treat a `partial` report as done.
 
 ---
 
@@ -45,6 +108,8 @@ Before starting any step, confirm or ask the user for:
 2. **Source code path** — path to Go/Java route registration code (often `./` or `src/`).
 3. **Service language(s)** — Go, Java, or both. Affects Step 2 substeps.
 4. **Build system** — Maven (Java) or `go.mod` (Go). Needed for Step 2.
+5. **Start step** — optional; defaults to Step 1 (full run). When given, earlier
+   steps are skipped and their reports reused (see the report lifecycle).
 
 If any is missing, ask before proceeding. Do not guess the chart path.
 
@@ -54,14 +119,13 @@ The `backendRefs[].name` and `backendRefs[].port` applied to generated HTTPRoute
 are **migration-wide** values, but they are **not** collected at orchestrator
 start. Resolve them as follows:
 
-1. **Step 1** invokes [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md),
+1. **Step 1** invokes [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md),
    which detects the service's own backend `name`/`port` from the existing mesh
    `RouteConfiguration` destinations (one migrated service contains only routes
-   for itself) and reports them in its output as `backendRefName` /
-   `backendRefPort`.
+   for itself) and reports them in its report file's `backendRef` field.
 2. **If Step 1 resolved both values** → capture them, record them in
-   `MIGRATION_LOG.md` (under **Done**), and reuse them in **Step 2.3** and
-   **Step 2.4** without prompting.
+   `.mesh-migration/MIGRATION_LOG.md` (under **Done**), and reuse them in
+   **Step 2.3** and **Step 2.4** without prompting.
 3. **If Step 1 could not resolve them** (no declarative mesh CRs, ambiguous /
    conflicting destinations, or Step 1 was skipped) → ask the user **explicitly**
    at the point they are first needed (Step 2.3 for Java, Step 2.4 otherwise),
@@ -79,17 +143,18 @@ Once resolved (detected or user-provided), the same values MUST be:
 The `metadata.labels` map used by generated HTTPRoutes must be consistent between:
 
 - declarative CR migration output from
-  [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md) **Step 1**,
+  [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md) **Step 1**,
 - Maven-plugin-generated routes in **Step 2.3**, and
 - [`httproute-from-code`](../httproute-from-code/SKILL.md) output in **Step 2.4**.
 
 Resolve labels as follows:
 
-1. Capture `Detected output labels` from Step 1 sub-skill output (it also writes
-   them to `MIGRATION_LOG.md`).
-2. If labels are resolved, treat them as migration-wide `routeLabels`.
-3. If labels are unresolved, ask the user for a label map only when first needed
-   (Step 2.3 for Java or Step 2.4 otherwise), and record it in the log.
+1. Capture `labels.values` from Step 1's report file
+   (`.mesh-migration/reports/core-mesh-crs-to-istio.yaml`) — the map itself,
+   not the whole `labels` object.
+2. If `labels.values` is non-null, treat that map as migration-wide `routeLabels`.
+3. If `labels.unresolvedReason` is set, ask the user for a label map only when
+   first needed (Step 2.3 for Java or Step 2.4 otherwise), and record it in the log.
 4. Never silently invent label values.
 
 ---
@@ -116,15 +181,19 @@ reason.
 
 ## Migration log — MANDATORY
 
-The skill **must** create and continuously update a migration log at the repo root:
+The skill **must** create and continuously update a migration log next to the
+sub-skill reports:
 
 ```
-MIGRATION_LOG.md
+.mesh-migration/MIGRATION_LOG.md
 ```
 
 The log is the single source of truth for what the automation did. It is updated
 **after every step** — never wait until the end. If the log file cannot be
 written for any reason, stop immediately and report the failure to the user.
+Like the reports, the log is a working file inside the gitignored
+`.mesh-migration/` folder; a full run starts a fresh log, a resumed run appends
+to the existing one.
 
 ### Log structure
 
@@ -186,26 +255,15 @@ Language: <Go | Java | Go+Java>
 
 ### What belongs in each bucket
 
-**Structural blockers** — fields or patterns that cannot be auto-converted and
-block a correct migration:
+**Structural blockers / flagged conversions** — Copy every `needsReview:` line and every `# ⚠ MANUAL REVIEW` hit from
+sub-skill reports, plus every control-plane call flagged by Step 2.7, into **Needs review**.
+
+**Unknown values** — values the agent cannot safely infer and must not guess
+(orchestrator / wiring concerns, not CR field mapping):
 
 | Item | Example location |
 |------|-----------------|
-| `RouteConfiguration.spec.overridden` non-empty | RouteConfiguration CR |
-| `VirtualService.rateLimit` / `.overridden` non-empty | VirtualService CR |
-| `RouteDestination.httpVersion` / `.circuitBreaker` / `.tcpKeepalive` non-empty | RouteConfiguration CR |
-| `Rule.rateLimit` / `.luaFilter` non-empty | RouteConfiguration CR |
-| `Rule.deny` / `.idleTimeout` / `.statefulSession` non-nil | RouteConfiguration CR |
-| `FacadeService` with no port defined | FacadeService CR |
-| Named `{{- include }}` helpers producing mesh CRs | Helm templates |
-| `*` host on an east-west route | Generated HTTPRoute |
-| `curl`/`wget`/API call to the Cloud-Core Control-Plane | `*.sh` scripts, Helm-hook / init-container / Job shell commands |
-
-**Unknown values** — values the agent cannot safely infer and must not guess:
-
-| Item | Example location |
-|------|-----------------|
-| Unresolved gateway references | HTTPRoute `parentRefs` |
+| Unresolved gateway references (`unresolved:` from Step 1) | HTTPRoute `parentRefs` |
 | Missing microservice name (placeholder `<microservice-name>` in output) | Generated HTTPRoute / `source-code-httproutes.yaml` |
 | Ambiguous Java route-registration artifact (webclient vs resttemplate) | `pom.xml` |
 | Unknown library versions | `pom.xml` / `go.mod` |
@@ -223,61 +281,66 @@ commands not available in the environment.
 
 ## Execution plan (Step 1 + Step 2 substeps)
 
-Run steps in order. After each step: update the log, record the per-step status
-row, and print a one-line chat status.
+Run steps in order, beginning at the user-selected start step (Step 1 by
+default). On a resumed run, apply the reused-report notification from the
+[report lifecycle](#sub-skill-reports) before executing anything. After each
+step: update the log, record the per-step status row, and print a one-line chat
+status.
 
 ### Step 1 — Migrate existing mesh CRs to Gateway API CRs
 
-**Idempotency check:** before running, scan `<chart>/templates/` for files
-already containing `kind: HTTPRoute` guarded by
-`{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}`. If the full output of this
-step already exists, log all affected files under **Done** ("already present")
-and skip to Step 1.1.
+**Idempotency:** always invoke the sub-skill — do not skip it because the chart
+already contains `kind: HTTPRoute` guarded by
+`{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}`. The sub-skill detects existing
+output itself (its wrapping and generation steps are idempotent), reports
+already-present files under **Done**, and — crucially — writes the current
+report that Steps 2.3 and 2.4 read for `backendRef` and `labels.values`.
 
-1. Invoke the sub-skill [`core-mesh-crs-to-gatewayapi`](../core-mesh-crs-to-gatewayapi/SKILL.md)
-   with the chart path.
-2. That skill will: wrap originals in `SERVICE_MESH_TYPE=Core` guards, generate
-   `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`, convert
-   `Gateway(ingress/egress)` → Istio Gateway, convert `RouteConfiguration`
-   → HTTPRoute, omit `FacadeService` and mesh-type `Gateway` (generates
-   east-west HTTPRoutes instead, where parent is of kind Service, processed by
-   waypoint proxy), and update `values.yaml` / `values.schema.json`.
-3. **If the sub-skill pauses to ask about unresolved gateways** → forward the
-   question to the user verbatim, wait for the answer, and resume the sub-skill.
-   Log each decision under **Needs review** → move to **Done** once applied.
-4. Copy the sub-skill's output summary (modified / generated files, transformed
-   resource counts, manual-review list) into the log.
-5. **Capture the detected backend reference.** Read the `backendRefName` /
-   `backendRefPort` reported in the sub-skill's "Detected backend reference"
-   output. If both are resolved, record them in the log (under **Done**) as the
-   migration-wide backend reference to reuse in Step 2.3 / Step 2.4. If the
-   sub-skill reports them as unresolved, note that they must be asked from the
+1. Invoke the sub-skill [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)
+   with inputs: `chartPath: <chart path>`, `interactive: false`.
+2. That skill will, in a single pass: wrap originals in `SERVICE_MESH_TYPE=Core`
+   guards, generate `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`,
+   convert `Gateway(ingress/egress)` → Istio Gateway, convert
+   `RouteConfiguration` → HTTPRoute (including any rule-level `statefulSession`
+   → `DestinationRule`), convert `FacadeService` → `Service`, omit mesh-type
+   `Gateway` (generates east-west HTTPRoutes instead, where parent is of kind
+   Service, processed by waypoint proxy), convert standalone `StatefulSession` /
+   `LoadBalance` →
+   `DestinationRule` (one per host — conflicting policies are flagged
+   `⚠ MANUAL REVIEW` inside the skill), convert `HttpFilters` +
+   `RouteConfiguration` Lua scripts → `TrafficExtension` (requires Istio
+   ≥ 1.30), and update `values.yaml` / `values.schema.json`.
+3. Read `.mesh-migration/reports/core-mesh-crs-to-istio.yaml`. **If
+   `status: partial`**, collect every entry under `unresolved:` and ask the user
+   all questions in **one batch** (for each unresolved gateway: ingress or
+   mesh?). Deliver the answers as a `resolutions` map keyed by entry `id` —
+   continue the same sub-agent when possible, otherwise re-invoke the sub-skill
+   with `resolutions` — and re-read the report. Log each decision under
+   **Needs review** → move to **Done** once applied.
+4. Copy the report's `filesModified` / `filesGenerated`, resource counts, and
+   `needsReview` items into the log.
+5. **Capture the detected backend reference** from the report's `backendRef`
+   field. If both `name` and `port` are set, record them in the log (under
+   **Done**) as the migration-wide backend reference to reuse in Step 2.3 /
+   Step 2.4. If `unresolvedReason` is set, note that they must be asked from the
    user when first needed (see
    [Backend reference](#backend-reference-backendrefname--backendrefport--do-not-ask-up-front)).
-6. **Capture the detected labels.** Read the `Detected output labels` map from
-   the sub-skill output (and corresponding `MIGRATION_LOG.md` entry). If
-   resolved, store it as migration-wide `routeLabels` for Step 2.3 / Step 2.4.
-   If unresolved, add a **Needs review** entry and ask user only when labels are
-   first needed.
+6. **Capture the detected labels** from the report's `labels.values` map (not
+   the enclosing `labels` object). If non-null, store that map as
+   migration-wide `routeLabels` for Step 2.3 / Step 2.4. If
+   `labels.unresolvedReason` is set, add a **Needs review** entry and ask
+   the user only when labels are first needed.
 
 Log update:
 - **Done:** every file in `Files modified` and `Files generated`; the detected
   `backendRefName` / `backendRefPort` and `routeLabels` (if resolved).
 - **Needs review:** every item from the sub-skill's "Items needing manual review".
 
-**Validation:**
-```bash
-helm dependency update;
-helm template <chart> --set SERVICE_MESH_TYPE=Istio \
-  | grep -E 'kind: (HTTPRoute|Gateway)'
-```
 
-Expected: the command returns at least one matching line. If it fails, apply the
-[Error policy](#error-policy--read-before-executing-any-step).
 
 ### Step 1.1 — Log manually handle flagged features
 
-For each `# ⚠ MANUAL REVIEW REQUIRED` comment the sub-skill emitted, add a
+For each `# ⚠ MANUAL REVIEW` comment the sub-skill emitted, add a
 **Needs review** entry. **None of these are safe to auto-fix** — they all
 require human judgement or a design change. Leave the flag comment in place in
 the file; do not remove it.
@@ -289,143 +352,40 @@ route-registration annotations. Keep all generated HTTPRoute files committed in
 the branch and remind the user to rerun the generation whenever route annotations
 or registration code change.
 
-### Step 2.1 — Switch to mesh-type-aware route-registration libraries
+### Steps 2.1–2.3 — Wire build and deployment (delegate to `mesh-build-wiring`)
 
-Apply only to languages actually present in the repo.
+**Idempotency:** the sub-skill performs its own per-item idempotency checks and
+records "already compliant / already present" items under `done:`.
 
-#### Java
-
-**Idempotency check:** for each dependency below, check whether the current
-version already satisfies the minimum. If yes, log under **Done** ("already
-compliant") and skip that dependency.
-
-- **Spring** (`spring-boot-starter-*` detected in `pom.xml`):
-  - Replace old route-posting dependencies with either
-    `com.netcracker.cloud:route-registration-webclient` or
-    `com.netcracker.cloud:route-registration-resttemplate` at version `>= 7.1.0`.
-  - If the project uses `dependencyManagement`, prefer an existing or upgraded
-    `com.netcracker.cloud:rest-libraries-bom` at version `>= 7.1.0`, or
-    `com.netcracker.cloud:cloud-core-java-bom` at version `>= 12.0.2`, instead
-    of adding duplicate explicit dependency versions.
-- **Quarkus** (`quarkus-*` detected in `pom.xml`):
-  - Replace or add `com.netcracker.cloud.quarkus:routes-registrator` at version
-    `>= 9.1.0`.
-  - If the project uses `dependencyManagement`, prefer an existing or upgraded
-    `com.netcracker.cloud:cloud-core-quarkus-bom-publish` at version `>= 9.1.0`
-    instead of adding duplicate explicit dependency versions.
-- If the choice between webclient and resttemplate variants is ambiguous, add a
-  **Needs review** entry (unknown artifact choice) rather than guessing.
-
-#### Go
-
-**Idempotency check:** read `go.mod` before making any changes.
-
-- In `go.mod`, find `github.com/netcracker/qubership-core-lib-go-rest-utils/v2`.
-- If present with version `>= v2.5.0` → log under **Done** ("already compliant"). No changes needed.
-- If present with a lower version → bump to at least `v2.5.0`, run
-  `go mod tidy`, and record the exit code in **Commands run**. If `go mod tidy`
-  exits non-zero, apply the [Error policy](#error-policy--read-before-executing-any-step).
-- If absent → do not add it automatically; add a **Needs review** entry:
-  "Go route-registration dependency not found — confirm the service does not
-  register routes in code."
-- If the repo contains a `go.work` file (Go workspace), add a **Needs review**
-  entry: "Go workspace (`go.work`) detected — multi-module dependency bumps are
-  out of scope for this skill and require manual handling."
-- If multiple modules import `rest-utils` at different versions, add a
-  **Needs review** entry for each conflicting module.
-
-Log update:
-- **Done:** each dependency already compliant or updated; `go mod tidy` exit code.
-- **Skipped:** language/framework not present.
-- **Needs review:** ambiguous artifact choice, unknown versions, missing
-  route-registration dependency, Go workspace, or conflicting module versions.
-
-### Step 2.2 — Set the `SERVICE_MESH_TYPE` environment variable
-
-**Idempotency check:** before editing any file, check whether `SERVICE_MESH_TYPE`
-is already present with the correct value and schema entry. If yes, log under
-**Done** ("already present") for that file and skip it.
-
-All services that use route registration libraries must receive
-`SERVICE_MESH_TYPE`. By default, set Helm values to `Core` for compatibility with
-environments where Istio is not installed yet; deployments can override the value
-to `Istio` when migrating an environment.
-
-| Deployment source                          | Action                                                                                           |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Helm values drive a `Deployment` template  | Ensure `values.yaml` has `SERVICE_MESH_TYPE: "Core"` and the Deployment `env:` uses `value: '{{ .Values.SERVICE_MESH_TYPE }}'`. |
-| `values.schema.json` exists                | Ensure `SERVICE_MESH_TYPE` has a full schema entry: `"type": "string"`, `"enum": ["Istio", "Core"]`, `"default": "Core"`, `"$id": "#/properties/SERVICE_MESH_TYPE"`, `"internal": true`, exact `"description": "Service mesh type. Use `Core` for Cloud Core Mesh or `Istio` for Istio Ambient Mesh."`, and an entry in the root-level `"examples"` array (`{"SERVICE_MESH_TYPE": "Core"}`). Also confirm `"additionalProperties": true` is set at the root. |
-| Plain Kubernetes `Deployment` manifest     | Add `- name: SERVICE_MESH_TYPE` with `value: Core`, or template it if the manifest is Helm-rendered. |
-
-Log under **Done** the exact files edited. If multiple Deployments exist, list
-each. If the desired runtime mesh for an environment is unclear, keep the default
-`Core` and add a **Needs review** entry telling the user where to set `Istio`.
-
-### Step 2.3 — Add the Maven plugin (Java services only)
-
-**Idempotency check:** if `httproutes-generator-maven-plugin` is already present
-in `pom.xml`, log under **Done** ("already present") and skip to Step 2.4.
-
-- **If no `pom.xml`** → skip this step. Log under **Skipped**
-  ("No pom.xml found — Go-only service").
-- **If the Java service does not use route-registration annotations** → skip this
-  step and log the reason.
-- **If `pom.xml` exists and annotations are used**, follow these five sub-steps
-  (from the [plugin README](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-maven-plugins/httproutes-generator-maven-plugin/README.md)):
-  1. **Add plugin to `pom.xml`** with the following configuration:
-     - `<groupId>com.netcracker.cloud.plugins</groupId>`
-     - `<artifactId>httproutes-generator-maven-plugin</artifactId>`
-     - `<version>` must use the latest available release, but never lower than
-       `1.0.2` (`>= 1.0.2`).
-     - `<goal>generate-routes</goal>`
-     - `<packages>` resolved from `src/main/java/...`. If ambiguous, set
-       `com.example` and add a **Needs review** entry.
-     - `<servicePort>` set to the resolved **`backendRefPort`** — detected by
-       Step 1, or asked from the user here (default `8080`) if Step 1 did not
-       resolve it. Do not silently re-read `server.port`.
-     - `<outputFile>` pointing inside the chart templates directory, defaulting
-       to `<chart>/templates/annotations-httproutes.yaml`.
-     - `<backendRefVal>` set to the resolved **`backendRefName`** — detected by
-       Step 1, or asked from the user here (default
-       `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`) if Step 1 did not resolve it,
-       e.g. `<backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>`.
-     - `<labels>` set to resolved migration-wide `routeLabels` from Step 1. If
-       Step 1 labels are unresolved, ask user for the label map and use it
-       verbatim. Do not invent values.
-       Use Maven plugin label format:
-       `<labels><label><key>my/special-key</key><value>value1</value></label></labels>`.
-  2. **Confirm `<outputFile>`** is set to a path inside the Helm chart templates
-     directory (see above). This file must be committed to the branch.
-  3. **Build the project** to generate the output file. Run `mvn -q clean process-classes`
-     if Maven is available in the environment. Record the exit code in
-     **Commands run**. If Maven is not available, log under **Skipped**
-     ("mvn not available in environment") and continue. If Maven is available
-     but exits non-zero, apply the
-     [Error policy](#error-policy--read-before-executing-any-step).
-  4. **Commit the generated `<outputFile>`** to the branch. Remind the user:
-     > The plugin generates the output file at compile time. Every time route
-     > annotations change, run `mvn clean compile` locally and commit the updated
-     > output file before raising a PR.
-  5. Log the selected plugin version and committed file path under **Done**.
-
-Log update:
-- **Done:** `pom.xml` edited; `mvn -q clean process-classes` exit code (if run); generated
-  output file path committed.
-- **Skipped:** non-Java service, no route-registration annotations, or Maven
-  not available in the environment.
-- **Needs review:** any default value that could not be confirmed from project
-  files (`<packages>`). `<servicePort>` / `<backendRefVal>` come from the
-  `backendRefPort` / `backendRefName` resolved in Step 1 (or asked from the
-  user) and do not need review.
+1. Invoke the sub-skill [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md)
+   with: `codePath`, `chartPath`, `language`, `interactive: false`, and — for
+   Java — the resolved
+   `backendRefName` / `backendRefPort` / `routeLabels` (detected by Step 1, or
+   asked from the user here if still unresolved — propose the defaults
+   `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080`).
+2. That skill will: switch route-registration libraries to mesh-aware versions
+   (Spring / Quarkus / Go), ensure `SERVICE_MESH_TYPE` in Helm values / schema
+   (may already be present from Step 1 — idempotent) and wire it into
+   Deployment `env:`, and add the `httproutes-generator-maven-plugin` for Java
+   services (building and committing its output when Maven is available).
+3. Read `.mesh-migration/reports/mesh-build-wiring.yaml`. **If
+   `status: partial`**, batch its `unresolved:` questions to the user in one
+   round (e.g. `java-registration-artifact`: webclient or resttemplate?),
+   deliver the answers via `resolutions` (continue the sub-agent or re-invoke),
+   and re-read the report. Then copy `done:` / `skipped:` / `commandsRun:` /
+   `needsReview:` items into the log and the per-step status rows for 2.1, 2.2,
+   and 2.3. `status: failed` → apply the
+   [Error policy](#error-policy--read-before-executing-any-step).
 
 ### Step 2.4 — Generate HTTPRoute CRs from route registration code
 
-**Idempotency check:** if `source-code-httproutes.yaml` already exists and its
-content matches what the sub-skill would generate (no source-code changes since
-last run), log under **Done** ("already present") and skip.
+**Idempotency:** always invoke the sub-skill, even when
+`source-code-httproutes.yaml` already exists — generation is deterministic, so
+an unchanged source tree reproduces the same file, and the run produces the
+report this step's follow-up items read.
 
 1. Invoke sub-skill [`httproute-from-code`](../httproute-from-code/SKILL.md) with
-   the source-code path **and** the resolved `backendRefName` / `backendRefPort`
+   `interactive: false`, the source-code path, **and** the resolved `backendRefName` / `backendRefPort`
    (detected by Step 1, or asked from the user if still unresolved — propose the
    defaults `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080`). The sub-skill uses
    these for every generated `backendRefs[].name` / `backendRefs[].port` so the
@@ -437,94 +397,42 @@ last run), log under **Done** ("already present") and skip.
    `routeregistration.Route` / `RouteEntry` definitions, groups by `RouteType`,
    and emits one HTTPRoute CR per type to
    `helm-templates/<service name>/templates/source-code-httproutes.yaml`.
-3. **If the sub-skill fell back to `<microservice-name>` as the service name:**
-   - Do **not** leave the file with the literal placeholder in place — it will
-     break `helm template` silently.
-   - Rename the output file to `source-code-httproutes.yaml.incomplete` and add
-     a prominent comment at the top: `# INCOMPLETE: replace <microservice-name>
-     before committing`.
-   - Add a **Needs review** entry: "Microservice name could not be resolved —
-     file renamed to `.incomplete`; set the correct name and rename before
-     merging."
+3. Read `.mesh-migration/reports/httproute-from-code.yaml`. **If
+   `status: partial` with an `unresolved:` entry `microservice-name`** (the
+   output contains the literal `<microservice-name>` placeholder):
+   - Ask the user for the service name and deliver it via `resolutions`
+     (continue the sub-agent or re-invoke), then re-read the report.
+   - If the user cannot provide one, do **not** leave the literal placeholder
+     in place — it will break `helm template` silently. Rename the output file
+     to `source-code-httproutes.yaml.incomplete`, add a prominent comment at
+     the top (`# INCOMPLETE: replace <microservice-name> before committing`),
+     and add a **Needs review** entry: "Microservice name could not be
+     resolved — file renamed to `.incomplete`; set the correct name and rename
+     before merging."
 4. Do not make any inference for `source-code-httproutes.yaml` - besides what `httproute-from-code` skill does. 
 5. **Commit all generated files** to the branch. Remind the user:
    > The generated `source-code-httproutes.yaml` must stay committed. Any time
    > route registration code changes, rerun the `httproute-from-code` skill and
    > commit the updated output before raising a PR.
-6. Copy the sub-skill's summary table into the log.
-7. For every row where `Skipped = yes` or the skill emitted an `ERROR:` section,
-   add a **Needs review** entry.
+6. Read `.mesh-migration/reports/httproute-from-code.yaml` and copy its
+   `filesGenerated`, `routesGenerated`, and `needsReview` items into the log.
+7. For every `needsReview` entry in the report (skipped rows, `ERROR:`
+   sections), add a **Needs review** log entry.
 
-### Step 2.5 — Verify all HTTPRoutes are wrapped in Istio conditionals
+### Steps 2.5–2.6 — Validate the result (delegate to `istio-migration-validate`)
 
-**Idempotency check:** if all HTTPRoute files already have the correct guard,
-log under **Done** ("already guarded") for each and skip to validation.
-
-1. List every file under `<chart>/templates/` (and any generated
-   `-istio.yaml` / `source-code-httproutes.yaml`) that contains
-   `kind: HTTPRoute`.
-2. For each file, confirm the HTTPRoute block is inside a single
-   `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` … `{{- end }}`. If a file
-   has multiple HTTPRoute documents, the guard must wrap the whole block with
-   `---` separators kept inside.
-3. If a file is missing the guard → add it (safe automatic fix). Log under
-   **Done**.
-
-**Validation:**
-
-```bash
-helm dependency update && helm template <chart> --set SERVICE_MESH_TYPE=Core \
-  | grep 'kind: HTTPRoute'
-```
-
-Expected output: empty (no HTTPRoutes leak under Core mode). Record the command
-and exit code in **Commands run**.
-- Empty output → log under **Done**.
-- Any HTTPRoute lines in output → log each offending file path under
-  **Needs review** and apply the
-  [Error policy](#error-policy--read-before-executing-any-step).
-
-### Step 2.6 — Detect duplicate HTTPRoute rules
-
-After all HTTPRoutes exist (Step 1 conversions + Step 2.3 annotations +
-Step 2.4 code generation), the same route can be emitted twice — e.g. a route
-declared in a `RouteConfiguration` CR **and** registered in code. Duplicate
-rules with the same parent and identical match are ambiguous and **must not be
-auto-removed** (deleting the wrong one can change runtime behaviour). Flag them
-for the user instead.
-
-**Idempotency check:** if a previous run already logged the duplicate-rule
-findings and no HTTPRoute files changed since, log under **Done**
-("already checked") and skip.
-
-1. Collect every HTTPRoute rule across all generated/modified files guarded by
-   `SERVICE_MESH_TYPE=Istio` (`-istio.yaml`, `annotations-httproutes.yaml`,
-   `source-code-httproutes.yaml`, and any inline HTTPRoutes).
-2. For each rule, build a comparison key from:
-   - the **parent** — every `parentRefs[]` entry it belongs to
-     (`group` + `kind` + `name`), and
-   - the **match parameters** — the normalized `matches[]`: path `type` + `value`,
-     plus any `headers[]` / `queryParams[]` / `method`.
-   Resolve `{{ .Values.* }}` expressions textually (compare the literal template
-   string); do not attempt to render Helm.
-3. A **duplicate** is two or more rules that share **at least one common parent**
-   AND have an **equal match key**. Rules that share a match but target only
-   different parents are NOT duplicates.
-4. For every duplicate group, add **one Needs review** entry containing:
-   - the shared parent(s) and the match value,
-   - every file + HTTPRoute `metadata.name` (and rule index) that contributes a
-     copy,
-   - suggested action: "Two routes resolve to the same parent and match —
-     confirm which source is authoritative and remove the redundant rule (often
-     a route present both in a `RouteConfiguration` CR and in registration
-     code)."
-5. **Do not modify any file.** This step only reports.
-6. If no duplicates are found → log under **Done** ("no duplicate HTTPRoute
-   rules detected").
-
-Log update:
-- **Done:** "duplicate-rule scan complete — N groups found" (or none).
-- **Needs review:** one entry per duplicate group (see above).
+1. Invoke the sub-skill
+   [`istio-migration-validate`](../istio-migration-validate/SKILL.md) with
+   inputs: `chartPath: <chart path>`, `interactive: false`.
+2. That skill will: verify every HTTPRoute file carries the Istio guard (adding
+   missing guards — the one safe automatic fix), run the two `helm template`
+   render checks (Istio mode produces HTTPRoutes/Gateways; Core mode leaks
+   none), and flag duplicate HTTPRoute rules (same parent + equal match)
+   without modifying anything else.
+3. Read `.mesh-migration/reports/istio-migration-validate.yaml`; copy `guardsAdded:`
+   (log under **Done**), `commandsRun:`, and `needsReview:` items into the log
+   and the per-step status rows for 2.5 and 2.6. `status: failed` → apply the
+   [Error policy](#error-policy--read-before-executing-any-step).
 
 ### Step 2.7 — Flag control-plane calls in bash scripts
 
@@ -588,6 +496,7 @@ at least one **Done** entry and zero unresolved **Needs review** entries:
 ## Final report
 
 - [x/ ] Existing mesh CRs converted to HTTPRoute CRs
+- [x/ ] StatefulSession / LoadBalance CRs converted to DestinationRule CRs
 - [x/ ] Flagged features from Step 1.1 resolved
 - [x/ ] Mesh-aware libraries replace old route-posting libraries
 - [x/ ] SERVICE_MESH_TYPE set in Helm values / Deployment
@@ -598,24 +507,19 @@ at least one **Done** entry and zero unresolved **Needs review** entries:
 - [x/ ] Bash scripts scanned for control-plane API calls (flagged for review)
 
 Open items (require user review):
-- <list all remaining "Needs review" entries from MIGRATION_LOG.md>
+- <list all remaining "Needs review" entries from .mesh-migration/MIGRATION_LOG.md>
 ```
 
 Close with a plain-language summary telling the user:
 
 1. **What was applied automatically** (reference the Done section count).
 2. **What was skipped and why** (reference the Skipped section).
-3. **What requires careful human review before merging** (enumerate the Needs
-   review section, highlighting structural blockers that could change runtime
-   behaviour — `RouteConfiguration.spec.overridden`,
-   `rateLimit`, `VirtualService.overridden`, `*` hosts on east-west routes,
-   `RouteDestination` / `httpVersion` / `circuitBreaker` /
-   `tcpKeepalive`, `Rule.deny`, `Rule.statefulSession`,
-   `Rule.idleTimeout`, `Rule.luaFilter`, `FacadeService` with no port,
-   unresolved gateways, helper-produced CRs, placeholder library versions,
-   duplicate HTTPRoute rules from Step 2.6 (same parent + equal match),
-   imperative control-plane calls in bash scripts from Step 2.7, and
-   any `.incomplete` files from Step 2.4).
+3. **What requires careful human review before merging** — enumerate every
+   remaining **Needs review** entry from `.mesh-migration/MIGRATION_LOG.md`
+   (sourced from sub-skill `needsReview:` / `# ⚠ MANUAL REVIEW` / `unresolved:`
+   items, plus orchestrator-detected items such as duplicate HTTPRoute rules
+   from Step 2.6 and imperative control-plane calls in bash scripts from
+   Step 2.7).
 4. The recommended validation commands the user should run locally before pushing:
 
    ```bash
@@ -635,15 +539,17 @@ Close with a plain-language summary telling the user:
 - **Never skip the log.** If the log file cannot be written, stop and report.
 - **Never invent values.** Versions, package names, ports, microservice names —
   if unknown, add a **Needs review** entry instead of guessing.
-- **Never bypass a sub-skill's user prompt.** If `core-mesh-crs-to-gatewayapi` asks
-  about an unresolved gateway, forward the question before proceeding.
+- **Never guess an unresolved item.** When a sub-skill report says
+  `status: partial`, batch its `unresolved:` questions to the user in one round
+  and re-invoke with the answers — do not infer gateway types or names yourself.
 - **Never run destructive commands.** Do not push, tag, or delete branches. Do
   not modify git config.
 - **Be explicit in chat.** After each step, print a one-line summary plus the
   updated per-step status row.
-- **Idempotent reruns.** Each step begins with an explicit idempotency check
-  (described inline). If the step's outputs are already in place and correct,
-  log them as **Done** ("already present") and move on without re-applying changes.
+- **Idempotent reruns.** Rerunning a step must not duplicate or corrupt its
+  output. For delegated steps the sub-skill owns that check and logs
+  already-present items under **Done** — always invoke it anyway, so its report
+  is on disk for the steps that read it.
 - **Follow the Error policy.** On any unrecoverable failure, stop the step, log
   it, and ask the user whether to continue or abort before taking further action.
 
@@ -652,8 +558,9 @@ Close with a plain-language summary telling the user:
 ## Non-goals
 
 This skill only modifies:
-Helm templates, `values.yaml`, `values.schema.json`, `pom.xml`, `go.mod`,
-and `MIGRATION_LOG.md`.
+Helm templates, `values.yaml`, `values.schema.json`, `pom.xml`, `go.mod`, the
+consumer `.gitignore` (the `.mesh-migration/` entry), and files under
+`.mesh-migration/` (reports and `MIGRATION_LOG.md`).
 
 It does not raise pull requests, push branches, rewrite application logic, or
 modify git configuration.

@@ -1,0 +1,52 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+# catalog-routes: ingress gateway → TrafficExtension (Istio ≥ 1.30)
+apiVersion: extensions.istio.io/v1alpha1
+kind: TrafficExtension
+metadata:
+  name: catalog-service-uuid-from-path
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRefs:
+  - kind: Gateway
+    group: gateway.networking.k8s.io
+    name: public-gateway
+  phase: STATS
+  lua:
+    inlineCode: |
+      function envoy_on_request(request_handle)
+        local path = request_handle:headers():get(":path")
+        if not string.find(path, "/api/v1/service/catalogManagement", 1, true) then
+          return
+        end
+        local uuid = string.match(path, ".*/([a-z0-9-]+)$")
+        if uuid then
+          request_handle:headers():add("X-Uuid", uuid)
+        end
+      end
+---
+# catalog-mesh-routes: mesh gateway → TrafficExtension (Istio ≥ 1.30)
+apiVersion: extensions.istio.io/v1alpha1
+kind: TrafficExtension
+metadata:
+  name: catalog-service-uuid-from-path-mesh
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRefs:
+  - kind: Gateway
+    group: gateway.networking.k8s.io
+    name: waypoint
+  phase: STATS
+  lua:
+    inlineCode: |
+      function envoy_on_request(request_handle)
+        local path = request_handle:headers():get(":path")
+        if not string.find(path, "/api/v1/service/catalogManagement", 1, true) then
+          return
+        end
+        local uuid = string.match(path, ".*/([a-z0-9-]+)$")
+        if uuid then
+          request_handle:headers():add("X-Uuid", uuid)
+        end
+      end
+{{- end }}

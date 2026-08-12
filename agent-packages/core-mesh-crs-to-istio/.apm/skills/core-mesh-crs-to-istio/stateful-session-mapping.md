@@ -1,0 +1,121 @@
+## StatefulSession → DestinationRule
+
+Source:
+
+    apiVersion: nc.core.mesh/v3
+    kind: StatefulSession
+
+Target:
+
+    apiVersion: networking.istio.io/v1
+    kind: DestinationRule
+
+---
+
+### StatefulSession.spec
+
+  JSON key   Go type          Transformation
+  ─────────────────────────────────────────────────────────────────────────────────────────
+  cluster    string           → spec.host  (see Host resolution)
+  namespace  string           OMIT
+  version    string           OMIT
+  hostname   string           OMIT ⚠ flag for MANUAL REVIEW if non-empty (see Endpoint-level targeting below)
+  port       int              OMIT ⚠ flag for MANUAL REVIEW if non-empty (see Endpoint-level targeting below)
+  gateways   []string         OMIT
+  enabled    *bool            if false → skip, do not generate DestinationRule
+  cookie     *Cookie          → spec.trafficPolicy.loadBalancer.consistentHash.httpCookie  (see Cookie below)
+  route      *RouteMatcher    OMIT (read-only response field)
+  overridden bool             OMIT ⚠ flag for MANUAL REVIEW if true
+
+If `cookie` is absent → delete/disable request; do **not** generate a DestinationRule.
+
+---
+
+### Cookie
+
+  JSON key  Go type  Transformation
+  ────────────────────────────────────────────────────────────────────────────────────
+  name      string   → spec.trafficPolicy.loadBalancer.consistentHash.httpCookie.name
+  ttl       *int64   → spec.trafficPolicy.loadBalancer.consistentHash.httpCookie.ttl  (format: "Ns"; null or 0 → "0s")
+  path      string   → spec.trafficPolicy.loadBalancer.consistentHash.httpCookie.path  (omit if empty)
+
+---
+
+### Host resolution
+
+Extract the service name from `spec.cluster` — strip namespace suffix and port:
+
+    "service"               → "service"
+    "service.namespace"     → "service"
+    "service:8080"          → "service"
+
+---
+
+### TTL formatting
+
+  Source ttl  Istio ttl
+  ─────────────────────
+  null        "0s"   (session cookie)
+  0           "0s"   (session cookie)
+  3600        "3600s"
+
+---
+
+### Endpoint-level targeting
+
+Control-plane allows a `StatefulSession` to pin stickiness to a **specific endpoint** (pod) via `hostname`/`port`.
+Istio `DestinationRule.spec.host` targets a Kubernetes Service (all pods behind it), so the same precision
+cannot be expressed without a separate Service per endpoint group.
+
+**Migration path when `hostname` or `port` is set:**
+
+1. Check whether a dedicated Kubernetes Service already exists for that endpoint (e.g. `trace-service-v1`).
+2. If yes — generate the DestinationRule with `spec.host` pointing to that Service instead of the base
+   cluster name, plus a `# ⚠ MANUAL REVIEW` comment stating which Service was chosen and why.
+3. If no — generate the DestinationRule with `spec.host` set to the base cluster name, plus a
+   `# ⚠ MANUAL REVIEW` comment explaining that the rule now applies stickiness to the whole Service
+   (all pods) instead of the original endpoint, and that a dedicated Service must be created (and
+   `spec.host` repointed) to preserve endpoint-level precision.
+
+Never emit the fallback DestinationRule without the `# ⚠ MANUAL REVIEW` comment — the stickiness scope
+widens silently otherwise.
+
+---
+
+### Output example
+
+Input:
+```yaml
+apiVersion: nc.core.mesh/v3
+kind: StatefulSession
+metadata:
+  name: trace-service-sticky
+  namespace: trace-namespace
+spec:
+  gateways: ["public-gateway-service"]
+  cluster: trace-service
+  version: v1
+  enabled: true
+  cookie:
+    name: trace-service-sticky
+    ttl: 0
+    path: /
+```
+
+Output:
+```yaml
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: trace-service-sticky
+  namespace: trace-namespace
+spec:
+  host: trace-service
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: trace-service-sticky
+          ttl: "0s"
+          path: /
+```
