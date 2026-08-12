@@ -484,6 +484,52 @@ duplicates and need no action.
 
 ---
 
+## Step 2.7 — Flag Imperative Control-Plane Calls
+
+Routes and other mesh config can also be pushed to the Cloud-Core Control-Plane
+**imperatively** — for example a `curl`/`wget` against the control-plane REST API
+from a shell script, a Helm hook, a Kubernetes `Job`, an init-container, or a
+lifecycle command. Those calls bypass declarative CRs, the route-registration
+libraries, and the `SERVICE_MESH_TYPE` guard, so Steps 1–2.6 never convert them.
+Under Istio the control-plane no longer routes this traffic, so each call needs a
+human decision: drop it, or replace it with an equivalent HTTPRoute.
+
+Do **not** auto-edit these scripts. Scan and flag only.
+
+Search the service repository (chart plus scripts) for shell that talks to the
+control-plane — standalone `*.sh` / `*.bash` files, and `command:` / `args:` shell
+in `Job`, `CronJob`, init-containers, container `lifecycle` hooks, and Helm hook
+resources:
+
+```bash
+grep -rniE 'control-plane|controlplane|/api/v[0-9]+/(routes|control-plane)' \
+  --include='*.sh' --include='*.bash' --include='*.yaml' --include='*.yml' .
+```
+
+Treat any `curl`/`wget`/HTTP client call whose target host or path references the
+control-plane (for example `control-plane:8080`, `/api/v3/routes/...`,
+registration or blue-green endpoints) as a hit. When in doubt, flag it — a false
+positive costs a glance; a missed call silently breaks routing after cutover.
+
+For each hit, record a manual review item with:
+
+- the file (and line) of the call,
+- the control-plane endpoint and HTTP method,
+- the action you will take: confirm an HTTPRoute already covers the route and
+  remove the call, or keep Core-mode compatibility by gating the call.
+
+Gate forms:
+
+- **Helm-templated manifest** (`Job`, `CronJob`, init-container, `lifecycle`
+  hook, hook resource) — wrap in
+  `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` … `{{- end }}`.
+- **Standalone shell script** — exit early unless the mesh type is Core, for
+  example `[ "$SERVICE_MESH_TYPE" = "Core" ] || exit 0`. The script's container
+  must receive `SERVICE_MESH_TYPE`; Deployment env wiring does not cover `Job` or
+  hook pods.
+
+---
+
 ## Final Checklist
 
 Before raising a PR, verify all of the following:
@@ -496,3 +542,4 @@ Before raising a PR, verify all of the following:
 - [ ] [`httproute-from-code`](../../../agent-packages/httproute-from-code/.apm/skills/httproute-from-code/SKILL.md) skill run: route registration code converted to HTTPRoute CRs
 - [ ] All HTTPRoute CRs wrapped in a `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` block
 - [ ] HTTPRoutes scanned for duplicate rules (same parent + equal match); duplicates resolved or flagged for review
+- [ ] Imperative control-plane API calls in scripts and manifests flagged for review (or removed / gated for Core)

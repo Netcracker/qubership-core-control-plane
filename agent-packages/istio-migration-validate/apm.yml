@@ -1,4 +1,4 @@
 name: istio-migration-validate
-version: 1.0.0
-description: Validate the output of a Core Mesh to Istio migration — Istio guards on every HTTPRoute file, no HTTPRoute leakage under Core mode, and duplicate HTTPRoute rule detection across declarative, annotation-generated, and code-generated routes.
+version: 1.1.0
+description: Validate the output of a Core Mesh to Istio migration — Istio guards on every HTTPRoute file, no HTTPRoute leakage under Core mode, duplicate HTTPRoute rule detection across declarative, annotation-generated, and code-generated routes, and detection of imperative control-plane API calls in scripts.
 author: Qubership

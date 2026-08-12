@@ -4,9 +4,9 @@ description: >
   Orchestrate the full Cloud-Core Mesh to Istio migration end-to-end — convert
   declarative mesh CRs to Gateway API, migrate route-registration libraries, wire
   SERVICE_MESH_TYPE, add the Java HTTPRoute generator, generate HTTPRoutes from
-  Go/Java code, validate Istio guards, and maintain .mesh-migration/MIGRATION_LOG.md. Use when
-  asked to migrate a service from Core Mesh to Istio (Ambient Mesh) or run the
-  migration guide end-to-end.
+  Go/Java code, validate Istio guards / duplicate rules / imperative control-plane
+  calls, and maintain .mesh-migration/MIGRATION_LOG.md. Use when asked to migrate a
+  service from Core Mesh to Istio (Ambient Mesh) or run the migration guide end-to-end.
 ---
 
 # Core Mesh → Istio — Full Migration Orchestrator
@@ -36,7 +36,7 @@ treats earlier steps' reports.
 | [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert existing Helm mesh CRs to Gateway API + Istio resources |
 | [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md)                                | Steps 2.1–2.3 | Mesh-aware libraries, SERVICE_MESH_TYPE env, Maven plugin      |
 | [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
-| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.6 | Istio guards, render checks, duplicate-rule detection          |
+| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.7 | Istio guards, render checks, duplicate rules, imperative control-plane calls |
 
 **How to invoke a sub-skill:** communicate only through the sub-skill's
 `## Contract` — resolved inputs in, report file out. Always pass
@@ -112,6 +112,15 @@ Before starting any step, confirm or ask the user for:
    steps are skipped and their reports reused (see the report lifecycle).
 
 If any is missing, ask before proceeding. Do not guess the chart path.
+
+### Service root (`repoRoot`) — do NOT ask up front
+
+Pass `repoRoot` to [`istio-migration-validate`](../istio-migration-validate/SKILL.md)
+as the **service root** that owns the chart and its scripts — the directory that
+contains (or is the parent of) both the chart path and the source-code path when
+they share a tree. Prefer the source-code path when it is already the service
+root (e.g. `.`). Never widen to a multi-service monorepo git root that includes
+sibling services; that floods Step 2.7 with unrelated hits.
 
 ### Backend reference (`backendRefName` / `backendRefPort`) — do NOT ask up front
 
@@ -231,6 +240,7 @@ Language: <Go | Java | Go+Java>
 | 2.4  | Generate HTTPRoute CRs from code            | pending     |       |
 | 2.5  | Verify HTTPRoutes are Istio-guarded         | pending     |       |
 | 2.6  | Detect duplicate HTTPRoute rules            | pending     |       |
+| 2.7  | Flag imperative control-plane calls         | pending     |       |
 
 ## Commands run
 
@@ -418,19 +428,23 @@ report this step's follow-up items read.
 7. For every `needsReview` entry in the report (skipped rows, `ERROR:`
    sections), add a **Needs review** log entry.
 
-### Steps 2.5–2.6 — Validate the result (delegate to `istio-migration-validate`)
+### Steps 2.5–2.7 — Validate the result (delegate to `istio-migration-validate`)
 
 1. Invoke the sub-skill
    [`istio-migration-validate`](../istio-migration-validate/SKILL.md) with
-   inputs: `chartPath: <chart path>`, `interactive: false`.
+   inputs: `chartPath: <chart path>`, `repoRoot: <service root>` (see
+   [Service root](#service-root-reporoot--do-not-ask-up-front)),
+   `interactive: false`.
 2. That skill will: verify every HTTPRoute file carries the Istio guard (adding
    missing guards — the one safe automatic fix), run the two `helm template`
    render checks (Istio mode produces HTTPRoutes/Gateways; Core mode leaks
-   none), and flag duplicate HTTPRoute rules (same parent + equal match)
+   none), flag duplicate HTTPRoute rules (same parent + equal match), and flag
+   imperative control-plane API calls in shell scripts and manifests — all
    without modifying anything else.
 3. Read `.mesh-migration/reports/istio-migration-validate.yaml`; copy `guardsAdded:`
-   (log under **Done**), `commandsRun:`, and `needsReview:` items into the log
-   and the per-step status rows for 2.5 and 2.6. `status: failed` → apply the
+   (log under **Done**), `commandsRun:`, `controlPlaneCalls:` (log the count
+   under **Done**), and `needsReview:` items into the log and the per-step
+   status rows for 2.5, 2.6, and 2.7. `status: failed` → apply the
    [Error policy](#error-policy--read-before-executing-any-step).
 
 ---
@@ -453,6 +467,7 @@ at least one **Done** entry and zero unresolved **Needs review** entries:
 - [x/ ] HTTPRoute CRs generated from route registration code
 - [x/ ] All HTTPRoute CRs wrapped in the Istio conditional
 - [x/ ] HTTPRoutes scanned for duplicate rules (same parent + equal match)
+- [x/ ] Imperative control-plane API calls flagged for review
 
 Open items (require user review):
 - <list all remaining "Needs review" entries from .mesh-migration/MIGRATION_LOG.md>
