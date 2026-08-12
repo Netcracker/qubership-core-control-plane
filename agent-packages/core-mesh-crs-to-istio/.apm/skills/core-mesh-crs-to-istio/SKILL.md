@@ -310,10 +310,9 @@ Capture the label set applied to generated Istio resources, using
    expressions if used), merging common helpers with local overrides.
 2. If labels cannot be resolved unambiguously (for example helper indirection),
    mark labels as **unresolved** and include why.
-3. Record the result in the Output Summary as `Detected output labels`.
-4. If `.mesh-migration/MIGRATION_LOG.md` exists: append a **Done** entry when
-   resolved, or a **Needs review** entry (with reason and suggested action) when
-   unresolved.
+3. Record the result in the Output Summary as `Detected output labels`, and in
+   the report under `labels.values` (or `labels.values: null` plus
+   `labels.unresolvedReason` when unresolved).
 
 Do not invent missing label values. If uncertain, mark unresolved.
 
