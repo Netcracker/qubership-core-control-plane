@@ -314,7 +314,7 @@ When the listed field is non-empty / non-nil on the source CR, omit it from the 
 | `RouteV3.Rule` | `idleTimeout` | non-nil |
 | `RouteV3.Rule` | `rateLimit` | non-empty |
 | `RouteV3.Rule` | `deny` | non-nil |
-| `RouteV3.Rule` | `luaFilter` | non-empty |
+| `RouteV3.Rule` | `luaFilter` | non-empty — do not migrate here; report the name under "Detected luaFilter references" so the orchestrator can hand it to the `core-mesh-crs-to-istio` skill |
 | `FacadeService` | neither `spec.port` nor `spec.gatewayPorts` | — |
 | Any template helper | `{{- include ... }}` returns mesh-specific CRs | — |
 
@@ -345,14 +345,17 @@ Detected output labels (for Maven plugin / code-generated HTTPRoutes):
   # if unresolved, state why: helper indirection not resolvable
   #                           | conflicting label definitions
 
+Detected luaFilter references (to be migrated by core-mesh-crs-to-istio):
+  - <luaFilter name> — Rule <path> of RouteConfiguration <name>, gateways: <list>
+  # "none" when no rule references a luaFilter
+
 Items needing manual review:
   <list every omitted `⚠ MANUAL REVIEW REQUIRED` — one line per hit, e.g.:
    - rateLimit / overridden on VirtualService <name>
    - '*' host on east-west RouteConfiguration <name>
    - cluster / httpVersion /
      circuitBreaker / tcpKeepalive on RouteDestination of <name>
-   - deny / idleTimeout / statefulSession / rateLimit / luaFilter
-     on Rule <path> of <name>
+   - deny / idleTimeout / statefulSession / rateLimit
    - FacadeService <name> has no port defined
    - helper {{- include "<name>" }} produces mesh CRs — guards added manually
 ```

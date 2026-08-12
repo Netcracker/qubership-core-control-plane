@@ -229,7 +229,7 @@ w
   statefulSession *StatefulSession   → DestinationRule (see [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md))
   rateLimit       string             OMIT  ⚠ flag for MANUAL REVIEW if non-empty
   deny            *bool              OMIT  ⚠ flag for MANUAL REVIEW if non-nil
-  luaFilter       string             OMIT  ⚠ flag for MANUAL REVIEW if non-empty
+  luaFilter       string             OMIT  → report the name under "Detected luaFilter references" in the output summary (migrated by the core-mesh-crs-to-istio skill)
 
 ---
 
