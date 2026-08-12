@@ -1,0 +1,4 @@
+name: mesh-build-wiring
+version: 1.0.0
+description: Wire a service's build and deployment for mesh-type awareness — switch to mesh-aware route-registration libraries, set the SERVICE_MESH_TYPE environment variable, and add the httproutes-generator Maven plugin for Java services.
+author: Qubership

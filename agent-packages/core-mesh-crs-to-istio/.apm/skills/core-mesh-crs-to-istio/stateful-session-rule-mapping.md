@@ -2,8 +2,9 @@
 
 Applies when `statefulSession` is set on a `RouteV3.Rule` inside a `RouteConfiguration`.
 
-> **Out of scope:** standalone `StatefulSession` / `LoadBalance` CR documents are handled by the
-> separate `core-mesh-crs-to-istio` skill, not by this file.
+> **Out of scope:** standalone `StatefulSession` / `LoadBalance` CR documents, covered by
+> [stateful-session-mapping.md](stateful-session-mapping.md) and
+> [load-balance-mapping.md](load-balance-mapping.md) in this same skill.
 
 Target:
 
@@ -31,18 +32,13 @@ kind: DestinationRule
 | JSON key | Go type | Transformation |
 |---|---|---|
 | `enabled` | `*bool` | if `false` → skip, do not generate a DestinationRule |
-| `cookie` | `*Cookie` | → `spec.trafficPolicy.loadBalancer.consistentHash.httpCookie` (see Cookie below) |
+| `cookie` | `*Cookie` | → `spec.trafficPolicy.loadBalancer.consistentHash.httpCookie`; absent → delete/disable request, do **not** generate a DestinationRule |
 | other fields | — | OMIT (`version`, `namespace`, `cluster`, `hostname`, `gateways`, `port`, `route`, `overridden`) |
 
-If `cookie` is absent → delete/disable request; do **not** generate a DestinationRule.
-
-### Cookie
-
-| JSON key | Go type | Transformation |
-|---|---|---|
-| `name` | `string` | → `httpCookie.name` |
-| `ttl` | `*int64` | → `httpCookie.ttl` (format `"Ns"`; `null` or `0` → `"0s"` — session cookie) |
-| `path` | `string` | → `httpCookie.path` (omit if empty) |
+Cookie fields and TTL formatting are identical to the standalone mapping — follow
+[stateful-session-mapping.md → Cookie](stateful-session-mapping.md#cookie) and its
+[TTL formatting](stateful-session-mapping.md#ttl-formatting) section. Only the host resolution,
+resource naming, and output placement differ, as described above.
 
 ---
 

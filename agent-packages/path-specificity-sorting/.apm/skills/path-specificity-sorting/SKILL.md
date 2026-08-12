@@ -4,14 +4,14 @@ description: >
   Shared procedure for sorting Gateway API HTTPRoute `rules[]` by path
   specificity (most specific first). Not triggered directly by users — invoked as
   a sub-procedure by other skills (`httproute-from-code`,
-  `core-mesh-crs-to-gatewayapi`) before they emit an HTTPRoute. Apply when ordering
+  `core-mesh-crs-to-istio`) before they emit an HTTPRoute. Apply when ordering
   HTTPRoute rules so longest/most-specific prefix matches appear first.
 ---
 
 # Shared rule — sort HTTPRoute rules by path specificity
 
 This is a shared procedure reused by multiple skills and generators
-(`httproute-from-code`, `core-mesh-crs-to-gatewayapi`, `httproutes-generator-maven-plugin`).
+(`httproute-from-code`, `core-mesh-crs-to-istio`, `httproutes-generator-maven-plugin`).
 Apply it before emitting
 an HTTPRoute so the most specific path match appears first in `rules[]`.
 

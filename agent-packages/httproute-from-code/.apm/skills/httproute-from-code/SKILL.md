@@ -26,21 +26,24 @@ optional `routeLabels` parameter. They control `backendRefs[]` and
 `metadata.labels` emitted in every generated HTTPRoute CR. When invoked by the
 `core-mesh-to-istio-migration`
 orchestrator, these are passed in already resolved — either detected from the
-existing mesh CRs by the `core-mesh-crs-to-gatewayapi` skill or provided by the user.
+existing mesh CRs by the `core-mesh-crs-to-istio` skill or provided by the user.
 
 | Parameter | Controls | Default |
 |---|---|---|
 | `backendRefName` | `backendRefs[].name` in every rule | `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` |
 | `backendRefPort` | `backendRefs[].port` in every rule | `8080` |
-| `routeLabels` | `metadata.labels` on every generated HTTPRoute CR | default label set from |
+| `routeLabels` | `metadata.labels` on every generated HTTPRoute CR | default label set below |
+| `interactive` | ability to ask the user; `true` only for direct user invocation | `false` |
+| `resolutions` | answers to a previous run's `unresolved:` entries, by id | — |
 
 Resolution rules:
 
 - If a value is provided by the caller (or the orchestrator), use it verbatim for
   **all** generated CRs — do not infer per-route values.
-- If `backendRefName` / `backendRefPort` are not provided, propose the defaults
-  to the user and ask for confirmation before generating. When running standalone
-  with no opportunity to ask, use the defaults and note the used values in the summary.
+- If `backendRefName` / `backendRefPort` are not provided: with
+  `interactive: true`, propose the defaults to the user and ask for
+  confirmation before generating; with `interactive: false`, use the defaults
+  and record the used values under `inputsUsed:` in the report.
 - `backendRefName` is used as-is, including Helm template expressions such as
   `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`.
 - `backendRefPort` must be a positive integer. If a non-integer value is given,
@@ -56,6 +59,34 @@ Resolution rules:
   - `deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`
   - `deployer.cleanup/allow: "true"`
   - `app.kubernetes.io/processed-by-operator: istiod`
+
+## Contract — report output
+
+In addition to the chat summary, write a machine-readable report to
+`.mesh-migration/reports/httproute-from-code.yaml` (create the directory, and ensure
+`.mesh-migration/` is listed in the repo's `.gitignore` — reports are working
+files, never committed; the orchestrator handles both in orchestrated runs):
+
+```yaml
+reportSchema: 1
+skill: httproute-from-code
+status: complete            # complete | partial | failed
+generatedAt: <ISO-8601>
+inputsUsed:
+  backendRefName: <value>
+  backendRefPort: <value>
+  routeLabels: <map>
+filesGenerated: [<paths>]
+routesGenerated: <N>
+unresolved: []              # blocking user decisions, each {id, question, options, default}
+                            # e.g. id microservice-name when it fell back to <microservice-name>
+needsReview:
+  - <one line per skipped row or ERROR>
+```
+
+Consumers must ignore unknown report fields. A consumer that sees a
+`reportSchema` newer than its own documentation must stop and report a contract
+mismatch instead of guessing field meanings.
 
 ---
 
@@ -327,7 +358,12 @@ module github.com/company/billing-service → billing-service
 
 6. Java — `pom.xml` artifactId
 
-7. Fallback: `<microservice-name>` — warn in summary
+7. Fallback: check the `resolutions` input for id `microservice-name`; if
+   absent, with `interactive: true` ask the user for the service name,
+   otherwise use the literal `<microservice-name>` placeholder, add an
+   `unresolved:` entry (id `microservice-name`, question "What is the
+   microservice name for the generated HTTPRoutes?"), and set
+   `status: partial` in the report
 
 ---
 
@@ -427,13 +463,7 @@ If `routeLabels` is provided:
 If `routeLabels` is not provided:
 
 - Render `metadata.labels` using the default label set from
-  `httproute-generator/README.md`:
-  - `app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}`
-  - `app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}`
-  - `app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}`
-  - `deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`
-  - `deployer.cleanup/allow: "true"`
-  - `app.kubernetes.io/processed-by-operator: istiod`
+  [Inputs / parameters](#inputs--parameters).
 
 ### HTTPRoute naming schema
 
@@ -462,7 +492,8 @@ Naming rules:
 - Use the microservice name resolved in [Step 7](#step-7--resolve-microservice-name).
 - Emit exactly one HTTPRoute name per RouteType that has routes (see Step 6).
 - If Step 7 cannot resolve the service name, use `<microservice-name>` in the
-  generated name and report it as a warning in the summary / needs-review flow.
+  generated name and record the `unresolved:` entry per Step 7 — the caller
+  supplies the real name via the `resolutions` input.
 
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
@@ -576,7 +607,7 @@ backendRefPort: 8080                                     (detected | user-provid
 Also report labels applied to generated CRs:
 
 ```
-routeLabels: <map or "default labels from README used">
+routeLabels: <map or "default label set">
 ```
 
 ---
