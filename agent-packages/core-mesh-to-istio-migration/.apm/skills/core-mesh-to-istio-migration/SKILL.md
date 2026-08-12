@@ -4,9 +4,9 @@ description: >
   Orchestrate the full Cloud-Core Mesh to Istio migration end-to-end — convert
   declarative mesh CRs to Gateway API, migrate route-registration libraries, wire
   SERVICE_MESH_TYPE, add the Java HTTPRoute generator, generate HTTPRoutes from
-  Go/Java code, validate Istio guards, and maintain .mesh-migration/MIGRATION_LOG.md. Use when
-  asked to migrate a service from Core Mesh to Istio (Ambient Mesh) or run the
-  migration guide end-to-end.
+  Go/Java code, validate Istio guards / duplicate rules / imperative control-plane
+  calls, and maintain .mesh-migration/MIGRATION_LOG.md. Use when asked to migrate a
+  service from Core Mesh to Istio (Ambient Mesh) or run the migration guide end-to-end.
 ---
 
 # Core Mesh → Istio — Full Migration Orchestrator
@@ -112,6 +112,15 @@ Before starting any step, confirm or ask the user for:
    steps are skipped and their reports reused (see the report lifecycle).
 
 If any is missing, ask before proceeding. Do not guess the chart path.
+
+### Service root (`repoRoot`) — do NOT ask up front
+
+Pass `repoRoot` to [`istio-migration-validate`](../istio-migration-validate/SKILL.md)
+as the **service root** that owns the chart and its scripts — the directory that
+contains (or is the parent of) both the chart path and the source-code path when
+they share a tree. Prefer the source-code path when it is already the service
+root (e.g. `.`). Never widen to a multi-service monorepo git root that includes
+sibling services; that floods Step 2.7 with unrelated hits.
 
 ### Backend reference (`backendRefName` / `backendRefPort`) — do NOT ask up front
 
@@ -423,7 +432,8 @@ report this step's follow-up items read.
 
 1. Invoke the sub-skill
    [`istio-migration-validate`](../istio-migration-validate/SKILL.md) with
-   inputs: `chartPath: <chart path>`, `repoRoot: <repository root>`,
+   inputs: `chartPath: <chart path>`, `repoRoot: <service root>` (see
+   [Service root](#service-root-reporoot--do-not-ask-up-front)),
    `interactive: false`.
 2. That skill will: verify every HTTPRoute file carries the Istio guard (adding
    missing guards — the one safe automatic fix), run the two `helm template`

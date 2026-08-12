@@ -18,7 +18,7 @@ description: >
 | Input | Type | Required | Notes |
 |---|---|---|---|
 | `chartPath` | path | yes | Helm chart to validate |
-| `repoRoot` | path | no | Search root for the Step 4 scan; defaults to the repository containing `chartPath` |
+| `repoRoot` | path | no | Service root for the Step 4 scan (chart + its scripts). Defaults to the service/module root that owns `chartPath` — not a multi-service monorepo git root |
 | `interactive` | bool | no | `true` only when a user invokes the skill directly; orchestrators and sub-agent wrappers pass `false` |
 
 With `interactive: false` (the default for orchestrated and sub-agent runs),
