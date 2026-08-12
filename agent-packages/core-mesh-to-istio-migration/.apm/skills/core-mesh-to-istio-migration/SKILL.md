@@ -36,7 +36,7 @@ treats earlier steps' reports.
 | [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert existing Helm mesh CRs to Gateway API + Istio resources |
 | [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md)                                | Steps 2.1–2.3 | Mesh-aware libraries, SERVICE_MESH_TYPE env, Maven plugin      |
 | [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
-| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.6 | Istio guards, render checks, duplicate-rule detection          |
+| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.7 | Istio guards, render checks, duplicate rules, imperative control-plane calls |
 
 **How to invoke a sub-skill:** communicate only through the sub-skill's
 `## Contract` — resolved inputs in, report file out. Always pass
@@ -231,7 +231,7 @@ Language: <Go | Java | Go+Java>
 | 2.4  | Generate HTTPRoute CRs from code            | pending     |       |
 | 2.5  | Verify HTTPRoutes are Istio-guarded         | pending     |       |
 | 2.6  | Detect duplicate HTTPRoute rules            | pending     |       |
-| 2.7  | Flag control-plane calls in bash scripts    | pending     |       |
+| 2.7  | Flag imperative control-plane calls         | pending     |       |
 
 ## Commands run
 
@@ -256,7 +256,7 @@ Language: <Go | Java | Go+Java>
 ### What belongs in each bucket
 
 **Structural blockers / flagged conversions** — Copy every `needsReview:` line and every `# ⚠ MANUAL REVIEW` hit from
-sub-skill reports, plus every control-plane call flagged by Step 2.7, into **Needs review**.
+sub-skill reports into **Needs review**.
 
 **Unknown values** — values the agent cannot safely infer and must not guess
 (orchestrator / wiring concerns, not CR field mapping):
@@ -419,70 +419,23 @@ report this step's follow-up items read.
 7. For every `needsReview` entry in the report (skipped rows, `ERROR:`
    sections), add a **Needs review** log entry.
 
-### Steps 2.5–2.6 — Validate the result (delegate to `istio-migration-validate`)
+### Steps 2.5–2.7 — Validate the result (delegate to `istio-migration-validate`)
 
 1. Invoke the sub-skill
    [`istio-migration-validate`](../istio-migration-validate/SKILL.md) with
-   inputs: `chartPath: <chart path>`, `interactive: false`.
+   inputs: `chartPath: <chart path>`, `repoRoot: <repository root>`,
+   `interactive: false`.
 2. That skill will: verify every HTTPRoute file carries the Istio guard (adding
    missing guards — the one safe automatic fix), run the two `helm template`
    render checks (Istio mode produces HTTPRoutes/Gateways; Core mode leaks
-   none), and flag duplicate HTTPRoute rules (same parent + equal match)
+   none), flag duplicate HTTPRoute rules (same parent + equal match), and flag
+   imperative control-plane API calls in shell scripts and manifests — all
    without modifying anything else.
 3. Read `.mesh-migration/reports/istio-migration-validate.yaml`; copy `guardsAdded:`
-   (log under **Done**), `commandsRun:`, and `needsReview:` items into the log
-   and the per-step status rows for 2.5 and 2.6. `status: failed` → apply the
+   (log under **Done**), `commandsRun:`, `controlPlaneCalls:` (log the count
+   under **Done**), and `needsReview:` items into the log and the per-step
+   status rows for 2.5, 2.6, and 2.7. `status: failed` → apply the
    [Error policy](#error-policy--read-before-executing-any-step).
-
-### Step 2.7 — Flag control-plane calls in bash scripts
-
-Routes and other mesh config can also be pushed to the Cloud-Core
-Control-Plane **imperatively** — a `curl`/`wget` against the control-plane
-REST API from a shell script, a Helm hook, a Kubernetes `Job`, an
-init-container, or a lifecycle command. These calls bypass the declarative
-CRs, the route-registration libraries, and the `SERVICE_MESH_TYPE` guard
-entirely, so the automated steps above **never migrate them**. Under Istio
-the control-plane no longer routes this traffic, so every such call needs a
-human decision (drop it, or replace it with an equivalent HTTPRoute).
-
-**This step only reports. Never edit, delete, or rewrite a script — none of
-these calls are safe to auto-migrate.**
-
-**Idempotency check:** if a previous run already logged the bash-script
-findings and no shell scripts changed since, log under **Done**
-("already checked") and skip.
-
-1. Search the chart and the repo for shell that talks to the control-plane.
-   Cover both standalone scripts and shell embedded in manifests:
-   - files matching `*.sh` / `*.bash`,
-   - `command:` / `args:` shell in Kubernetes `Job`, `CronJob`,
-     init-containers, and container `lifecycle` hooks,
-   - Helm hook resources (`helm.sh/hook` annotations) that run scripts.
-
-   ```bash
-   grep -rniE 'control-plane|controlplane|/api/v[0-9]+/(routes|control-plane)' \
-     --include='*.sh' --include='*.bash' --include='*.yaml' --include='*.yml' <repo root>
-   ```
-
-   Treat any `curl`/`wget`/HTTP client call whose target host or path
-   references the control-plane (e.g. `control-plane:8080`,
-   `/api/v3/routes/...`, registration/blue-green endpoints) as a hit. When
-   in doubt, flag it — false positives cost a human a glance, a missed call
-   silently breaks routing after cutover.
-2. For **every** hit, add **one Needs review** entry containing:
-   - the file (and line) of the call,
-   - the control-plane endpoint and HTTP method invoked,
-   - suggested action: "Imperative control-plane call not covered by the
-     migration — under Istio the control-plane does not route this traffic.
-     Confirm the route is now served by an HTTPRoute (declarative or
-     generated), then remove or gate this call. Do not leave it firing
-     unconditionally against an Istio environment."
-3. If no hits are found → log under **Done** ("no control-plane calls found
-   in bash scripts").
-
-Log update:
-- **Done:** "control-plane bash-call scan complete — N calls found" (or none).
-- **Needs review:** one entry per call (see above).
 
 ---
 
@@ -504,7 +457,7 @@ at least one **Done** entry and zero unresolved **Needs review** entries:
 - [x/ ] HTTPRoute CRs generated from route registration code
 - [x/ ] All HTTPRoute CRs wrapped in the Istio conditional
 - [x/ ] HTTPRoutes scanned for duplicate rules (same parent + equal match)
-- [x/ ] Bash scripts scanned for control-plane API calls (flagged for review)
+- [x/ ] Imperative control-plane API calls flagged for review
 
 Open items (require user review):
 - <list all remaining "Needs review" entries from .mesh-migration/MIGRATION_LOG.md>
@@ -517,9 +470,7 @@ Close with a plain-language summary telling the user:
 3. **What requires careful human review before merging** — enumerate every
    remaining **Needs review** entry from `.mesh-migration/MIGRATION_LOG.md`
    (sourced from sub-skill `needsReview:` / `# ⚠ MANUAL REVIEW` / `unresolved:`
-   items, plus orchestrator-detected items such as duplicate HTTPRoute rules
-   from Step 2.6 and imperative control-plane calls in bash scripts from
-   Step 2.7).
+   items).
 4. The recommended validation commands the user should run locally before pushing:
 
    ```bash
