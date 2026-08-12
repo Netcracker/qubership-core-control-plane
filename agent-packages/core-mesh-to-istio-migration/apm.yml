@@ -5,4 +5,5 @@ author: Qubership
 dependencies:
   apm:
     - ../core-mesh-crs-to-gatewayapi
+    - ../core-mesh-crs-to-istio
     - ../httproute-from-code

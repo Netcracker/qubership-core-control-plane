@@ -1,0 +1,4 @@
+name: core-mesh-crs-to-istio
+version: 1.0.0
+description: Convert standalone Qubership Cloud-Core Mesh traffic-policy CRs (StatefulSession, LoadBalance) to Istio DestinationRule resources, keeping the chart deployable on both mesh types.
+author: Qubership
