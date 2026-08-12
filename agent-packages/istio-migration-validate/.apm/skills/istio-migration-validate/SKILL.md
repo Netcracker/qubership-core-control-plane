@@ -166,7 +166,8 @@ these calls are safe to auto-migrate.**
    references the control-plane (e.g. `control-plane:8080`,
    `/api/v3/routes/...`, registration/blue-green endpoints) as a hit. When
    in doubt, flag it — false positives cost a human a glance, a missed call
-   silently breaks routing after cutover.
+   silently breaks routing after cutover. Record the grep command and its
+   exit code under `commandsRun:` (same audit trail as the Step 2 helm checks).
 2. For **every** hit, add **one** `needsReview:` entry containing:
    - the file (and line) of the call,
    - the control-plane endpoint and HTTP method invoked,
