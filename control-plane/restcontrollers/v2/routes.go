@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+
 	"github.com/go-errors/errors"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/utils/v2"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
@@ -18,8 +21,6 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
 	errs "github.com/pkg/errors"
-	"io"
-	"net/http"
 )
 
 //go:generate mockgen -source=routes.go -destination=../../test/mock/restcontrollers/v2/stub_routes.go -package=mock_v2
@@ -49,7 +50,7 @@ func NewRoutesController(service RouteService, validator RequestValidator) *Rout
 }
 
 func ValidateRouteDeleteRequest() fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		var reqBody []dto.RouteDeleteRequest
 		if err := json.Unmarshal(ctx.Body(), &reqBody); err != nil && err != io.EOF {
 			return restutils.RespondWithError(ctx, http.StatusBadRequest, fmt.Sprintf("Error during validation. Invalid request body: %v", err))
@@ -57,13 +58,13 @@ func ValidateRouteDeleteRequest() fiber.Handler {
 
 		for _, delRequest := range reqBody {
 			if delRequest.Version == "" && len(delRequest.Routes) == 0 && delRequest.Namespace == "" {
-				ctx.Context().Error("at least on of 'namespace', 'routes', 'versions' should be present in request body.", http.StatusBadRequest)
+				ctx.RequestCtx().Error("at least on of 'namespace', 'routes', 'versions' should be present in request body.", http.StatusBadRequest)
 				return restutils.RespondWithError(ctx, http.StatusBadRequest, "at least on of 'namespace', 'routes', 'versions' should be present in request body.")
 			}
 
 			ns := &msaddr.Namespace{Namespace: delRequest.Namespace}
 			if !ns.IsCurrentNamespace() && delRequest.Version != "" {
-				ctx.Context().Error("namespace should be current or version should be absent", http.StatusBadRequest)
+				ctx.RequestCtx().Error("namespace should be current or version should be absent", http.StatusBadRequest)
 				return restutils.RespondWithError(ctx, http.StatusBadRequest, "namespace should be current or version should be absent")
 			}
 		}
@@ -71,7 +72,7 @@ func ValidateRouteDeleteRequest() fiber.Handler {
 	}
 }
 
-func (c *RoutesController) DeleteRouteUnsecure(fiberCtx *fiber.Ctx) error {
+func (c *RoutesController) DeleteRouteUnsecure(fiberCtx fiber.Ctx) error {
 	return c.HandleDeleteRoutesWithNodeGroup(fiberCtx)
 }
 
@@ -88,8 +89,8 @@ func (c *RoutesController) DeleteRouteUnsecure(fiberCtx *fiber.Ctx) error {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v2/control-plane/routes/{nodeGroup} [post]
-func (c *RoutesController) HandlePostRoutesWithNodeGroup(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutesController) HandlePostRoutesWithNodeGroup(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	nodeGroup := utils.CopyString(fiberCtx.Params("nodeGroup"))
 	if len(nodeGroup) == 0 {
 		return restutils.RespondWithError(fiberCtx, http.StatusBadRequest, "Path variable 'nodeGroup' must not be empty.")
@@ -136,9 +137,9 @@ func (c *RoutesController) HandlePostRoutesWithNodeGroup(fiberCtx *fiber.Ctx) er
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v2/control-plane/routes/{nodeGroup} [delete]
-func (c *RoutesController) HandleDeleteRoutesWithNodeGroup(fiberCtx *fiber.Ctx) error {
+func (c *RoutesController) HandleDeleteRoutesWithNodeGroup(fiberCtx fiber.Ctx) error {
 	logger.Debugf("Starting delete routes with node group")
-	ctx := fiberCtx.UserContext()
+	ctx := fiberCtx.Context()
 	nodeGroup := utils.CopyString(fiberCtx.Params("nodeGroup"))
 
 	logger.InfoC(ctx, "Request to delete route nodeGroup=%s", nodeGroup)
@@ -186,8 +187,8 @@ func (c *RoutesController) HandleDeleteRoutesWithNodeGroup(fiberCtx *fiber.Ctx) 
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v2/control-plane/routes/uuid/{uuid} [delete]
-func (c *RoutesController) HandleDeleteRouteWithUUID(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutesController) HandleDeleteRouteWithUUID(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	routeUUID := utils.CopyString(fiberCtx.Params("uuid"))
 	logger.InfoC(ctx, "Request to delete route by uuid=%s", routeUUID)
 	if routeUUID == "" {
@@ -225,8 +226,8 @@ func (c *RoutesController) HandleDeleteRouteWithUUID(fiberCtx *fiber.Ctx) error 
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v2/control-plane/routes [delete]
-func (c *RoutesController) HandleDeleteRoutes(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutesController) HandleDeleteRoutes(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	logger.InfoC(ctx, "Request to delete routes")
 
 	var deleteRequests []dto.RouteDeleteRequest
@@ -277,8 +278,8 @@ func (c *RoutesController) HandleDeleteRoutes(fiberCtx *fiber.Ctx) error {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v2/control-plane/endpoints [delete]
-func (c *RoutesController) HandleDeleteEndpoints(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RoutesController) HandleDeleteEndpoints(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	logger.InfoC(ctx, "Request to delete endpoints")
 
 	var deleteRequests []dto.EndpointDeleteRequest
@@ -311,10 +312,10 @@ func (c *RoutesController) HandleDeleteEndpoints(fiberCtx *fiber.Ctx) error {
 }
 
 func (c *RoutesController) ValidateHeaderMatcher() fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		var routeRegistrationReq []dto.RouteRegistrationRequest
 		if err := json.Unmarshal(ctx.Body(), &routeRegistrationReq); err != nil && err != io.EOF {
-			ctx.Context().Error(fmt.Sprintf("invalid request payload: %s", err), http.StatusBadRequest)
+			ctx.RequestCtx().Error(fmt.Sprintf("invalid request payload: %s", err), http.StatusBadRequest)
 			return restutils.RespondWithError(ctx, http.StatusBadRequest, fmt.Sprintf("invalid request payload: %s", err))
 		}
 
@@ -328,13 +329,13 @@ func (c *RoutesController) ValidateHeaderMatcher() fiber.Handler {
 	}
 }
 
-func (c *RoutesController) ValidateHeaderMatcherInSingleRouteRequest(ctx *fiber.Ctx, routeRegistrationReq *dto.RouteRegistrationRequest) error {
+func (c *RoutesController) ValidateHeaderMatcherInSingleRouteRequest(ctx fiber.Ctx, routeRegistrationReq *dto.RouteRegistrationRequest) error {
 	for _, route := range routeRegistrationReq.Routes {
 		for _, headerMatcher := range route.HeaderMatchers {
 			logger.Debugf("Validating header matcher %v", headerMatcher)
 			if headerMatcher.Name == "" {
 				errMsg := "Header name have to be set"
-				ctx.Context().Error(errMsg, http.StatusBadRequest)
+				ctx.RequestCtx().Error(errMsg, http.StatusBadRequest)
 				return errors.New(errMsg)
 			}
 
@@ -344,7 +345,7 @@ func (c *RoutesController) ValidateHeaderMatcherInSingleRouteRequest(ctx *fiber.
 			logger.Debugf("Number of non empty fields: %d", numberOfAssignedVariables)
 			if numberOfAssignedVariables > 1 {
 				errMsg := "Only one header matcher fields have to be filled!"
-				ctx.Context().Error(errMsg, http.StatusBadRequest)
+				ctx.RequestCtx().Error(errMsg, http.StatusBadRequest)
 				return errors.New(errMsg)
 			}
 		}

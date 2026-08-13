@@ -21,7 +21,7 @@ import (
 	v22 "github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/route/v2"
 	srv3 "github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/route/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/routingmode"
-	security2 "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/security"
+	security2 "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"net/http"

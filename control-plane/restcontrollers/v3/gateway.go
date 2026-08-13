@@ -3,7 +3,9 @@ package v3
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
@@ -11,7 +13,6 @@ import (
 	cfgres "github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/configresources"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/gateway"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
-	"net/http"
 )
 
 type GatewaySpecController struct {
@@ -34,7 +35,7 @@ func NewGatewaySpecController(srv cfgres.ResourceService[dto.GatewayDeclaration]
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/gateways/specs [post]
-func (c *GatewaySpecController) HandlePostGatewaySpecs(fiberCtx *fiber.Ctx) error {
+func (c *GatewaySpecController) HandlePostGatewaySpecs(fiberCtx fiber.Ctx) error {
 	return c.handleGatewaySpecApply(fiberCtx)
 }
 
@@ -50,12 +51,12 @@ func (c *GatewaySpecController) HandlePostGatewaySpecs(fiberCtx *fiber.Ctx) erro
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/gateways/specs [delete]
-func (c *GatewaySpecController) HandleDeleteGatewaySpecs(fiberCtx *fiber.Ctx) error {
+func (c *GatewaySpecController) HandleDeleteGatewaySpecs(fiberCtx fiber.Ctx) error {
 	return c.handleGatewaySpecApply(fiberCtx)
 }
 
-func (c *GatewaySpecController) handleGatewaySpecApply(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *GatewaySpecController) handleGatewaySpecApply(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	method := fiberCtx.Method()
 	log.DebugC(ctx, "Received %s gateway spec request", method)
 
@@ -99,8 +100,8 @@ func (c *GatewaySpecController) handleGatewaySpecApply(fiberCtx *fiber.Ctx) erro
 // @Failure 500 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Router /api/v3/gateways/specs [get]
-func (c *GatewaySpecController) HandleGetGatewaySpecs(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *GatewaySpecController) HandleGetGatewaySpecs(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Received GET gateway specs request")
 
 	responseData, err := c.srv.GetAll(ctx)

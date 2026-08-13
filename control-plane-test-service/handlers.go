@@ -2,19 +2,20 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
-	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"net/http"
 	"os"
 	"strings"
 	"trace-service/trace-service/bus"
 	"trace-service/trace-service/domain"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
+	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 )
 
 var PodId = uuid.New().String()
 
-func healthHandler(c *fiber.Ctx) error {
+func healthHandler(c fiber.Ctx) error {
 	logger.Info("Handle /health request")
 	response := map[string]string{
 		"status": "OK",
@@ -22,24 +23,24 @@ func healthHandler(c *fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(response)
 }
 
-func certificateHandler(c *fiber.Ctx) error {
+func certificateHandler(c fiber.Ctx) error {
 	logger.Info("Handle /certificate request")
 	return c.SendFile("localhost.crt")
 }
 
-func clientCertificateHandler(c *fiber.Ctx) error {
+func clientCertificateHandler(c fiber.Ctx) error {
 	logger.Info("Handle /client_certificate request")
 	return c.SendFile("localhostclient.crt")
 }
 
-func privateKeyHandler(c *fiber.Ctx) error {
+func privateKeyHandler(c fiber.Ctx) error {
 	logger.Info("Handle /private_key request")
 	return c.SendFile("localhost.key")
 }
 
-func customResponseHeadersHandler(c *fiber.Ctx) error {
+func customResponseHeadersHandler(c fiber.Ctx) error {
 	logger.Info("Handle /custom-response-headers request")
-	fastHttpCtx := c.Context()
+	fastHttpCtx := c.RequestCtx()
 	response := domain.TraceResponse{
 		ServiceName: configloader.GetKoanf().MustString("microservice.name"),
 		FamilyName:  configloader.GetOrDefaultString("service.name", ""),
@@ -65,11 +66,11 @@ func customResponseHeadersHandler(c *fiber.Ctx) error {
 	return RespondWithJson(c, http.StatusOK, &response)
 }
 
-func busPublishHandler(c *fiber.Ctx) error {
-	ctx := c.UserContext()
+func busPublishHandler(c fiber.Ctx) error {
+	ctx := c.Context()
 	topic := c.Params("topic")
 	logger.InfoC(ctx, "Handle busPublishHandler request")
-	fastHttpCtx := c.Context()
+	fastHttpCtx := c.RequestCtx()
 	response := domain.TraceResponse{
 		ServiceName: configloader.GetKoanf().MustString("microservice.name"),
 		FamilyName:  configloader.GetOrDefaultString("service.name", ""),
@@ -99,9 +100,9 @@ func busPublishHandler(c *fiber.Ctx) error {
 	return RespondWithJson(c, http.StatusOK, map[string]interface{}{"message": "Event published successfully"})
 }
 
-func jsonTraceHandler(c *fiber.Ctx) error {
+func jsonTraceHandler(c fiber.Ctx) error {
 	logger.Info("Handle /trace request")
-	fastHttpCtx := c.Context()
+	fastHttpCtx := c.RequestCtx()
 	path := string(c.Request().URI().Path())
 	response := domain.TraceResponse{
 		ServiceName: configloader.GetKoanf().MustString("microservice.name"),
@@ -120,7 +121,7 @@ func jsonTraceHandler(c *fiber.Ctx) error {
 	return RespondWithJson(c, http.StatusOK, &response)
 }
 
-func ExtractRequestHeaders(c *fiber.Ctx) http.Header {
+func ExtractRequestHeaders(c fiber.Ctx) http.Header {
 	result := make(map[string][]string)
 	for key, value := range c.GetReqHeaders() {
 		valueString := strings.Join(value, " ")
@@ -129,7 +130,7 @@ func ExtractRequestHeaders(c *fiber.Ctx) http.Header {
 	return result
 }
 
-func RespondWithJson(c *fiber.Ctx, code int, payload interface{}) error {
+func RespondWithJson(c fiber.Ctx, code int, payload interface{}) error {
 	c.Set("server", "this header must not be returned")
 	c.Set("X-Forwarded-For", "this header must not be returned")
 	c.Set("Some-Other-Header", "Header-value")

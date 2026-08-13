@@ -1,7 +1,7 @@
 package errorcodes
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
 )
@@ -19,11 +19,11 @@ type CpErrCodeError struct {
 	printStackTrace bool
 }
 
-func (e CpErrCodeError) Handle(ctx *fiber.Ctx) error {
+func (e CpErrCodeError) Handle(ctx fiber.Ctx) error {
 	if e.printStackTrace {
-		logger.ErrorC(ctx.UserContext(), "%s", errs.ToLogFormat(e))
+		logger.ErrorC(ctx.Context(), "%s", errs.ToLogFormat(e))
 	} else {
-		logger.ErrorC(ctx.UserContext(), "%s", errs.ToLogFormatWithoutStackTrace(e))
+		logger.ErrorC(ctx.Context(), "%s", errs.ToLogFormatWithoutStackTrace(e))
 	}
 	response := tmf.ErrToResponse(e, e.GetHttpCode())
 	return ctx.Status(e.GetHttpCode()).JSON(response)

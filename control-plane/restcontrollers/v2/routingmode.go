@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"strings"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/restutils"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/routingmode"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util/msaddr"
-	"io"
-	"net/http"
-	"strings"
 )
 
 type RoutingModeController struct {
@@ -31,17 +32,17 @@ func NewRoutingModeController(service *routingmode.Service) *RoutingModeControll
 // @Security ApiKeyAuth
 // @Success 200 {array} routingmode.Summary
 // @Router /api/v2/control-plane/routing/details [get]
-func (c *RoutingModeController) HandleGetRoutingModeDetails(fiberCtx *fiber.Ctx) error {
+func (c *RoutingModeController) HandleGetRoutingModeDetails(fiberCtx fiber.Ctx) error {
 	routingModeDetails := c.service.UpdateRouteModeDetails()
 	logger.Debugf("Updated route mode to %+v", routingModeDetails.RoutingMode)
 	return fiberCtx.Status(http.StatusOK).JSON(routingModeDetails)
 }
 
 func (c *RoutingModeController) AllowedRoutesMiddlewareV1() fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		var routeEntityReq dto.RouteEntityRequest
 		if err := json.Unmarshal(ctx.Body(), &routeEntityReq); err != nil && err != io.EOF {
-			ctx.Context().Error(fmt.Sprintf("invalid request payload: %s", err), http.StatusBadRequest)
+			ctx.RequestCtx().Error(fmt.Sprintf("invalid request payload: %s", err), http.StatusBadRequest)
 			return restutils.RespondWithError(ctx, http.StatusBadRequest, fmt.Sprintf("invalid request payload: %s", err))
 		}
 
@@ -55,7 +56,7 @@ func (c *RoutingModeController) AllowedRoutesMiddlewareV1() fiber.Handler {
 
 		if hasForbiddenRoutingMode {
 			logger.Warnf("Routes for microservice with URL %s are not registered", routeEntityReq.MicroserviceUrl)
-			ctx.Context().Error(fmt.Sprintf(
+			ctx.RequestCtx().Error(fmt.Sprintf(
 				"Routes for microservice with URL %s are not registered, because routes with routing mode %v are registered on the Control-Plane",
 				routeEntityReq.MicroserviceUrl,
 				c.service.GetRoutingMode(),
@@ -72,10 +73,10 @@ func (c *RoutingModeController) AllowedRoutesMiddlewareV1() fiber.Handler {
 }
 
 func (c *RoutingModeController) ValidateRoutesApplicabilityToCurrentRoutingMode() fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		var routeRegistrationReq []dto.RouteRegistrationRequest
 		if err := json.Unmarshal(ctx.Body(), &routeRegistrationReq); err != nil && err != io.EOF {
-			ctx.Context().Error(fmt.Sprintf("invalid request payload: %s", err), http.StatusBadRequest)
+			ctx.RequestCtx().Error(fmt.Sprintf("invalid request payload: %s", err), http.StatusBadRequest)
 			return restutils.RespondWithError(ctx, http.StatusBadRequest, fmt.Sprintf("invalid request payload: %s", err))
 		}
 
@@ -89,13 +90,13 @@ func (c *RoutingModeController) ValidateRoutesApplicabilityToCurrentRoutingMode(
 	}
 }
 
-func (c *RoutingModeController) validateSingleRouteRegistrationRequest(ctx *fiber.Ctx, routeRegistrationReq *dto.RouteRegistrationRequest) error {
+func (c *RoutingModeController) validateSingleRouteRegistrationRequest(ctx fiber.Ctx, routeRegistrationReq *dto.RouteRegistrationRequest) error {
 	version := routeRegistrationReq.Version
 	ns := routeRegistrationReq.Namespace
 	namespace := msaddr.NewNamespace(ns)
 
 	if version != "" && !strings.EqualFold(version, c.service.GetDefaultDeployVersion()) && !namespace.IsCurrentNamespace() {
-		ctx.Context().Error("Request must not contain both 'version' and 'namespace' fields", http.StatusBadRequest)
+		ctx.RequestCtx().Error("Request must not contain both 'version' and 'namespace' fields", http.StatusBadRequest)
 		return errors.New("ValidateRoutesApplicabilityToCurrentRoutingMode: request contains both 'version' and 'namespace' fields")
 	}
 
@@ -107,7 +108,7 @@ func (c *RoutingModeController) validateSingleRouteRegistrationRequest(ctx *fibe
 			routeRegistrationReq.Cluster,
 			routingMode,
 		)
-		ctx.Context().Error(errMsg, http.StatusBadRequest)
+		ctx.RequestCtx().Error(errMsg, http.StatusBadRequest)
 		return errors.New(fmt.Sprintf("ValidateRoutesApplicabilityToCurrentRoutingMode: %s", errMsg))
 	}
 	return nil

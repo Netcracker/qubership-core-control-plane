@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/restutils"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/configresources"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
-	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 var (
@@ -38,8 +39,8 @@ func NewApplyConfigurationController() *ApplyConfigController {
 // @Failure 400 {object} errorcodes.CpErrCodeError
 // @Failure 500 {object} errorcodes.CpErrCodeError
 // @Router /api/v3/apply-config [post]
-func (c *ApplyConfigController) HandlePostConfig(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *ApplyConfigController) HandlePostConfig(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Received request body: \n\t%s", string(fiberCtx.Body()))
 	normalizedBody, err := util.NormalizeJsonOrYamlInput(string(fiberCtx.Body()))
 	if err != nil {
@@ -94,7 +95,7 @@ func (c *ApplyConfigController) HandlePostConfig(fiberCtx *fiber.Ctx) error {
 // @Failure 400 {object} errorcodes.CpErrCodeError
 // @Failure 500 {object} errorcodes.CpErrCodeError
 // @Router /api/v3/config [post]
-func (c *ApplyConfigController) HandleConfig(fiberCtx *fiber.Ctx) error {
+func (c *ApplyConfigController) HandleConfig(fiberCtx fiber.Ctx) error {
 	return c.HandlePostConfig(fiberCtx)
 }
 
