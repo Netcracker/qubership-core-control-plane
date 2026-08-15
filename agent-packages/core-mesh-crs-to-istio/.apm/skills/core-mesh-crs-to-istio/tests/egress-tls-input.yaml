@@ -1,0 +1,37 @@
+---
+apiVersion: nc.core.mesh/v3
+kind: TlsDef
+spec:
+  name: custom-cert
+  tls:
+    enabled: true
+    insecure: false
+    sni: github.com
+    trustedCA: |
+      {{ .Values.EGRESS_TRUSTED_CA }}
+---
+apiVersion: nc.core.mesh/v3
+kind: RouteConfiguration
+metadata:
+  name: echo-route
+  namespace: {{ .Release.Namespace }}
+spec:
+  gateways:
+    - egress-gateway
+  virtualServices:
+    - name: egress-gateway
+      hosts: ["*"]
+      removeHeaders: ["Origin", "Authorization"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: github
+              endpoint: https://github.com
+              tlsConfigName: custom-cert
+            rules:
+              - match:
+                  prefix: /github
+                  headerMatchers:
+                    - name: tenant-id
+                      exactMatch: cloud-common
+                prefixRewrite: /
