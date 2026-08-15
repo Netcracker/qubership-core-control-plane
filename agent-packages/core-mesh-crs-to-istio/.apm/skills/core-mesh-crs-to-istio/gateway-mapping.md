@@ -95,6 +95,10 @@ With one change:
 
   - Wrap source gateway in Core guard (same as all other Gateway CRs — see Step 3)
 
+Keep the Istio Gateway listener HTTP. Core Mesh `TlsDef` on egress is **outbound**
+TLS origination to the external host, not listener TLS — see
+[tls-def-mapping.md](tls-def-mapping.md).
+
 ### § Gateway-to-null
 
 Condition:

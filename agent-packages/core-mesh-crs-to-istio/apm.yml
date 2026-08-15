@@ -1,6 +1,6 @@
 name: core-mesh-crs-to-istio
-version: 2.0.0
-description: Convert Qubership Cloud-Core Mesh CRs (FacadeService, Gateway, RouteConfiguration, StatefulSession, LoadBalance, HttpFilters) in a Helm chart to Istio Ambient Mesh resources (Gateway + HTTPRoute, DestinationRule, TrafficExtension), keeping the chart deployable on both mesh types.
+version: 2.1.0
+description: Convert Qubership Cloud-Core Mesh CRs (FacadeService, Gateway, RouteConfiguration, TlsDef, StatefulSession, LoadBalance, HttpFilters) in a Helm chart to Istio Ambient Mesh resources (Gateway + HTTPRoute, DestinationRule, ServiceEntry, TrafficExtension), keeping the chart deployable on both mesh types.
 author: Qubership
 dependencies:
   apm:
