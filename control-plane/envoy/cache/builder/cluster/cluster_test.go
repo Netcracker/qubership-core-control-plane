@@ -13,9 +13,11 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	clusterV3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	tlsV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	extHttp "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/stretchr/testify/assert"
@@ -398,9 +400,9 @@ func TestBuildClusterWithMtls(t *testing.T) {
 				SNI:        "",
 			}
 			domainCluster := &domain.Cluster{
-				Name:        CLUSTER_NAME,
-				HttpVersion: &httpVersion,
-				TLS:         &tlsConfig,
+				Name:                  CLUSTER_NAME,
+				HttpVersion:           &httpVersion,
+				TLS:                   &tlsConfig,
 				ConnectionIdleTimeout: domain.NewNullInt(10),
 			}
 
@@ -425,7 +427,11 @@ func TestBuildClusterWithMtls(t *testing.T) {
 			assert.Equal(t, clusterV3.Cluster_AUTO, cluster.DnsLookupFamily)
 			assert.NotNil(t, cluster.TransportSocket.GetTypedConfig())
 			assert.Equal(t, strings.ReplaceAll(test.expectedTypedConfig, " ", ""), strings.ReplaceAll(actualTypedConfig, " ", ""))
-			assert.Equal(t, true, cluster.CommonHttpProtocolOptions.IdleTimeout.IsValid())
+			assert.Nil(t, cluster.CommonHttpProtocolOptions)
+			upstreamHttpOptions := &extHttp.HttpProtocolOptions{}
+			assert.Nil(t, cluster.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"].UnmarshalTo(upstreamHttpOptions))
+			assert.NotNil(t, upstreamHttpOptions.CommonHttpProtocolOptions)
+			assert.Equal(t, 10*time.Second, upstreamHttpOptions.CommonHttpProtocolOptions.IdleTimeout.AsDuration())
 		})
 	}
 }
