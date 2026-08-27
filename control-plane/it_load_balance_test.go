@@ -491,7 +491,6 @@ spec:
 	}
 }
 
-
 func upstreamConnectionAddr(assert *asrt.Assertions) string {
 	resp, statusCode := GetFromTraceService(assert, internalGateway.Url+"/api/v1/test-service/lb-test")
 	assert.Equal(http.StatusOK, statusCode)
