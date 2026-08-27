@@ -187,7 +187,6 @@ func (builder *BaseClusterBuilder) BuildCluster(nodeGroup string, domainCluster 
 				},
 			},
 		},
-		CommonHttpProtocolOptions:      &core.HttpProtocolOptions{},
 	}
 	if c.Name != domain.ExtAuthClusterName {
 		c.LbSubsetConfig = &cluster.Cluster_LbSubsetConfig{
@@ -202,39 +201,34 @@ func (builder *BaseClusterBuilder) BuildCluster(nodeGroup string, domainCluster 
 			Consecutive_5Xx: &wrappers.UInt32Value{Value: 1},
 		}
 	}
-	var httpProtocolOptions *any.Any
+	upstreamHttpOptions := &extHttp.HttpProtocolOptions{}
 	if *domainCluster.HttpVersion == 2 {
-		httpProtocolOptions, err = ptypes.MarshalAny(
-			&extHttp.HttpProtocolOptions{
-				UpstreamProtocolOptions: &extHttp.HttpProtocolOptions_ExplicitHttpConfig_{
-					ExplicitHttpConfig: &extHttp.HttpProtocolOptions_ExplicitHttpConfig{
-						ProtocolConfig: &extHttp.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
-							Http2ProtocolOptions: &core.Http2ProtocolOptions{},
-						},
-					},
+		upstreamHttpOptions.UpstreamProtocolOptions = &extHttp.HttpProtocolOptions_ExplicitHttpConfig_{
+			ExplicitHttpConfig: &extHttp.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &extHttp.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+					Http2ProtocolOptions: &core.Http2ProtocolOptions{},
 				},
 			},
-		)
-		if err != nil {
-			return nil, err
 		}
 	} else {
-		httpProtocolOptions, err = ptypes.MarshalAny(
-			&extHttp.HttpProtocolOptions{
-				UpstreamProtocolOptions: &extHttp.HttpProtocolOptions_ExplicitHttpConfig_{
-					ExplicitHttpConfig: &extHttp.HttpProtocolOptions_ExplicitHttpConfig{
-						ProtocolConfig: &extHttp.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
-							HttpProtocolOptions: &core.Http1ProtocolOptions{
-								AllowChunkedLength: true,
-							},
-						},
+		upstreamHttpOptions.UpstreamProtocolOptions = &extHttp.HttpProtocolOptions_ExplicitHttpConfig_{
+			ExplicitHttpConfig: &extHttp.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &extHttp.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
+					HttpProtocolOptions: &core.Http1ProtocolOptions{
+						AllowChunkedLength: true,
 					},
 				},
 			},
-		)
-		if err != nil {
-			return nil, err
 		}
+	}
+	if domainCluster.ConnectionIdleTimeout.Valid && domainCluster.ConnectionIdleTimeout.Int64 > 0 {
+		upstreamHttpOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+			IdleTimeout: durationpb.New(time.Duration(domainCluster.ConnectionIdleTimeout.Int64) * time.Second),
+		}
+	}
+	httpProtocolOptions, err := ptypes.MarshalAny(upstreamHttpOptions)
+	if err != nil {
+		return nil, err
 	}
 	c.TypedExtensionProtocolOptions = map[string]*any.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": httpProtocolOptions,
@@ -272,10 +266,6 @@ func (builder *BaseClusterBuilder) BuildCluster(nodeGroup string, domainCluster 
 	}
 	if domainCluster.MaxRequestsPerConnection != 0 {
 		c.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(domainCluster.MaxRequestsPerConnection)}
-	}
-
-	if domainCluster.ConnectionIdleTimeout.Valid && domainCluster.ConnectionIdleTimeout.Int64 > 0 {
-		c.CommonHttpProtocolOptions.IdleTimeout = durationpb.New(time.Duration(domainCluster.ConnectionIdleTimeout.Int64) * time.Millisecond)
 	}
 
 	return c, nil
