@@ -1,10 +1,7 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"net/http"
-	"net/http/httptrace"
 	"strings"
 	"testing"
 	"time"
@@ -467,6 +464,11 @@ func Test_IT_LoadBalance_TCP_Connection_Idle_Timeout(t *testing.T) {
 			Rules:       []dto.Rule{{Match: dto.RouteMatch{Prefix: "/api/v1/test-service/lb-test"}}},
 		},
 	)
+
+	const idlePeriod = 15 * time.Second
+
+	verifyUpstreamConnectionKeptAlive(assert, idlePeriod)
+
 	internalGateway.ApplyConfigAndWaitClusterUpdate(assert, 60*time.Second, `apiVersion: nc.core.mesh/v3
 kind: Cluster
 spec:
@@ -477,7 +479,7 @@ spec:
     - http://test-service:8080
   connectionIdleTimeout: 10`)
 
-	runRequestsHttpConnectionTest(assert, 15*time.Second)
+	verifyUpstreamConnectionClosedByIdleTimeout(assert, idlePeriod)
 
 	// cleanup
 	clusters, err := lib.GenericDao.FindAllClusters()
@@ -489,40 +491,32 @@ spec:
 	}
 }
 
-func runRequestsHttpConnectionTest(assert *asrt.Assertions, waitDuration time.Duration) {
-	url := internalGateway.Url + "/api/v1/test-service/lb-test"
-	doRequest := func() (connectionID string, err error) {
-		var connID string
-		req, _ := http.NewRequest("GET", url, nil)
 
-		trace := &httptrace.ClientTrace{
-			GotConn: func(info httptrace.GotConnInfo) {
-				connID = fmt.Sprintf("%p", info.Conn)
-			},
-		}
-		req = req.WithContext(httptrace.WithClientTrace(context.Background(), trace))
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return "", err
-		}
-		defer resp.Body.Close()
-
-		return connID, nil
+func upstreamConnectionAddr(assert *asrt.Assertions) string {
+	resp, statusCode := GetFromTraceService(assert, internalGateway.Url+"/api/v1/test-service/lb-test")
+	assert.Equal(http.StatusOK, statusCode)
+	if !assert.NotNil(resp) {
+		return ""
 	}
+	assert.NotEmpty(resp.RemoteAddr)
+	log.Infof("Upstream connection to %s (pod %s): %s", resp.ServiceName, resp.PodID, resp.RemoteAddr)
+	return resp.RemoteAddr
+}
 
-	connID1, err := doRequest()
-	if err != nil {
-		log.Info("First request error: %v", err)
-		return
-	}
+func verifyUpstreamConnectionKeptAlive(assert *asrt.Assertions, idlePeriod time.Duration) {
+	addrBefore := upstreamConnectionAddr(assert)
+	time.Sleep(idlePeriod)
+	addrAfter := upstreamConnectionAddr(assert)
 
-	time.Sleep(waitDuration)
+	assert.Equal(addrBefore, addrAfter,
+		"envoy must keep the upstream connection alive while no connectionIdleTimeout is configured")
+}
 
-	connID2, err := doRequest()
-	if err != nil {
-		fmt.Println("Second request error:", err)
-		return
-	}
+func verifyUpstreamConnectionClosedByIdleTimeout(assert *asrt.Assertions, idlePeriod time.Duration) {
+	addrBefore := upstreamConnectionAddr(assert)
+	time.Sleep(idlePeriod)
+	addrAfter := upstreamConnectionAddr(assert)
 
-	assert.NotEqual(connID1, connID2)
+	assert.NotEqual(addrBefore, addrAfter,
+		"envoy was expected to close the idle upstream connection by connectionIdleTimeout")
 }
