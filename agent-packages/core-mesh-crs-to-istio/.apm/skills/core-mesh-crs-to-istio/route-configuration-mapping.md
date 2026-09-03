@@ -172,13 +172,22 @@ shared procedure in
   JSON key       Go type         Transformation
   ──────────────────────────────────────────────────────────────────────────────────
   endpoint       string          → parse host + port for HTTPRoute.spec.rules[].backendRefs[].name and .port
-  cluster        string          ignore
+  cluster        string          ignore for in-cluster backends; egress external
+                                 destinations use it as ServiceEntry metadata.name
+                                 (see [tls-def-mapping.md](tls-def-mapping.md))
   tlsSupported   bool            ignore
-  tlsEndpoint    string          ignore
+  tlsEndpoint    string          ignore; ⚠ MANUAL REVIEW if non-empty on egress
   httpVersion    *int32          OMIT ⚠ flag for MANUAL REVIEW if non-empty
-  tlsConfigName  string          ignore
+  tlsConfigName  string          ignore for in-cluster backends; on an egress
+                                 gateway this selects a cluster-level TlsDef
+                                 (see [tls-def-mapping.md](tls-def-mapping.md))
   circuitBreaker CircuitBreaker  OMIT ⚠ flag for MANUAL REVIEW if non-empty
   tcpKeepalive   *TcpKeepalive   OMIT ⚠ flag for MANUAL REVIEW if non-empty
+
+When this RouteConfiguration attaches to a resolved **egress** gateway, resolve each
+destination with [tls-def-mapping.md](tls-def-mapping.md) **before** the in-cluster
+parser below. That mapping emits ServiceEntry, Secret, DestinationRule, Hostname
+`backendRef`, and Host rewrite for `https://` / `tlsConfigName` / FQDN endpoints.
 
 #### Endpoint to backendRef resolution
 
@@ -213,14 +222,17 @@ Output:
 ```
 
 ---
-w
+
 ### Rule
 
   JSON key        Go type            Transformation
   ────────────────────────────────────────────────────────────────────────────────────────
   match           RouteMatch         → matches[] (see RouteMatch below)
   prefixRewrite   string             → URLRewrite filter path.ReplacePrefixMatch (when non-empty)
-  hostRewrite     string             → URLRewrite filter hostname (when non-empty)
+  hostRewrite     string             → URLRewrite filter hostname (when non-empty).
+                                       Egress external destinations always set hostname
+                                       to the endpoint host even if this field is empty
+                                       — see [tls-def-mapping.md](tls-def-mapping.md)
   addHeaders      []HeaderDefinition → RequestHeaderModifier add[] (rule-level, merged with VS-level)
   removeHeaders   []string           → RequestHeaderModifier remove[] (rule-level, merged with VS-level)
   timeout         *int64             → timeouts.request: "<value>ms"  (value is milliseconds)
@@ -254,10 +266,16 @@ When Rule.allowed is false - omit `backendRefs` field for it. This will force is
 
 ### HeaderMatcher
 
-  JSON key  Go type  Transformation
-  ──────────────────────────────────────────────────────────
-  name      string   → matches[].headers[].name
-  value     string   → matches[].headers[].value  (type: Exact)
+  JSON key     Go type  Transformation
+  ──────────────────────────────────────────────────────────────────────────
+  name         string   → matches[].headers[].name
+  exactMatch   string   → matches[].headers[].value  (type: Exact)
+  value        string   → same as exactMatch (legacy alias)
+  prefixMatch / suffixMatch / safeRegexMatch / rangeMatch / presentMatch /
+  invertMatch           OMIT ⚠ flag for MANUAL REVIEW if any is non-empty
+
+Source YAML may use `match.headerMatchers` (docs) or `match.headers` (API json tag).
+Treat both as this list.
 
 ---
 

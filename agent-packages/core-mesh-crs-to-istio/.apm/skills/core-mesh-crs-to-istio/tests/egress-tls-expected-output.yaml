@@ -1,0 +1,77 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: echo-route
+  namespace: {{ .Release.Namespace }}
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: egress-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /github
+      headers:
+      - name: tenant-id
+        value: cloud-common
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        remove:
+        - Origin
+        - Authorization
+    - type: URLRewrite
+      urlRewrite:
+        hostname: github.com
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - group: networking.istio.io
+      kind: Hostname
+      name: github.com
+      port: 443
+      weight: 1
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: github
+  namespace: {{ .Release.Namespace }}
+spec:
+  hosts:
+  - github.com
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: custom-cert
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData:
+  ca.crt: |
+    {{ .Values.EGRESS_TRUSTED_CA }}
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: custom-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: github.com
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: custom-cert
+      sni: github.com
+{{- end }}
