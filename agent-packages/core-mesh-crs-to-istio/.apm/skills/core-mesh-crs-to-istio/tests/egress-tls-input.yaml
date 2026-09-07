@@ -14,7 +14,6 @@ apiVersion: nc.core.mesh/v3
 kind: RouteConfiguration
 metadata:
   name: echo-route
-  namespace: {{ .Release.Namespace }}
 spec:
   gateways:
     - egress-gateway

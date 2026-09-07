@@ -5,7 +5,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: trace-service-sticky
-  namespace: {{ .Release.Namespace }}
 spec:
   host: trace-service
   trafficPolicy:
@@ -21,7 +20,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: trace-service-sticky-v2
-  namespace: {{ .Release.Namespace }}
 spec:
   host: trace-service
   trafficPolicy:
@@ -40,7 +38,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: trace-service-endpoint-sticky
-  namespace: {{ .Release.Namespace }}
 spec:
   host: trace-service
   trafficPolicy:
@@ -57,7 +54,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: trace-service-lb-header
-  namespace: {{ .Release.Namespace }}
 spec:
   host: trace-service
   trafficPolicy:
@@ -70,7 +66,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: trace-service-lb-cookie
-  namespace: {{ .Release.Namespace }}
 spec:
   host: trace-service
   trafficPolicy:
@@ -86,7 +81,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: trace-service-lb-sourceip
-  namespace: {{ .Release.Namespace }}
 spec:
   host: trace-service
   trafficPolicy:
@@ -100,7 +94,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: trace-service-lb-multi
-  namespace: {{ .Release.Namespace }}
 spec:
   host: trace-service
   trafficPolicy:

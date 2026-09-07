@@ -358,7 +358,8 @@ below, skip — do not duplicate keys or nest a second copy.
 ### Step 8 — Preserve Helm templating
 
 - Keep all `{{ .Values.X }}` expressions — never hardcode parameterized values
-- Always use `{{ .Release.Namespace }}` for namespace fields
+- Do not set `metadata.namespace` on generated resources — Helm installs them
+  into the release namespace, and a source CR's namespace is not carried over
 - Preserve `{{- if }}` conditionals, `{{- range }}` loops, `{{- include }}` calls
 - If a named helper produces mesh-specific output, add `# ⚠ MANUAL REVIEW`
 - Do not add comments to generated resources

@@ -108,7 +108,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: trace-service-sticky
-  namespace: trace-namespace
 spec:
   host: trace-service
   trafficPolicy:

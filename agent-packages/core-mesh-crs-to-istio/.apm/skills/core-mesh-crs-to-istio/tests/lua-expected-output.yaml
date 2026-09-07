@@ -5,7 +5,6 @@ apiVersion: extensions.istio.io/v1alpha1
 kind: TrafficExtension
 metadata:
   name: catalog-service-uuid-from-path
-  namespace: {{ .Release.Namespace }}
 spec:
   targetRefs:
   - kind: Gateway
@@ -30,7 +29,6 @@ apiVersion: extensions.istio.io/v1alpha1
 kind: TrafficExtension
 metadata:
   name: catalog-service-uuid-from-path-mesh
-  namespace: {{ .Release.Namespace }}
 spec:
   targetRefs:
   - kind: Gateway
