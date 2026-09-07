@@ -4,7 +4,6 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: echo-route
-  namespace: {{ .Release.Namespace }}
 spec:
   parentRefs:
   - group: gateway.networking.k8s.io
@@ -41,7 +40,6 @@ apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: github
-  namespace: {{ .Release.Namespace }}
 spec:
   hosts:
   - github.com
@@ -56,7 +54,6 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: custom-cert
-  namespace: {{ .Release.Namespace }}
 type: Opaque
 stringData:
   ca.crt: |
@@ -66,7 +63,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: custom-cert
-  namespace: {{ .Release.Namespace }}
 spec:
   host: github.com
   trafficPolicy:

@@ -155,7 +155,6 @@ apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: <destination.cluster if set, else host with dots replaced by dashes>
-  namespace: {{ .Release.Namespace }}
   labels:
     <labels from the RouteConfiguration, see labels.md>
 spec:
@@ -185,7 +184,6 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: <TlsDef.spec.name>
-  namespace: {{ .Release.Namespace }}
   labels:
     <labels from the TlsDef if present, else from the consuming RouteConfiguration>
 type: Opaque
@@ -315,7 +313,6 @@ apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: github
-  namespace: {{ .Release.Namespace }}
 spec:
   hosts:
   - github.com
@@ -330,7 +327,6 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: custom-cert
-  namespace: {{ .Release.Namespace }}
 type: Opaque
 stringData:
   ca.crt: |
@@ -340,7 +336,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: custom-cert
-  namespace: {{ .Release.Namespace }}
 spec:
   host: github.com
   trafficPolicy:

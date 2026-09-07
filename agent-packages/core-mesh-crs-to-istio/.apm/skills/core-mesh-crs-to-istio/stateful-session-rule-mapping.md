@@ -66,7 +66,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: <httproute-name>-sticky
-  namespace: {{ .Release.Namespace }}
 spec:
   host: <host parsed from RouteDestination.endpoint>
   trafficPolicy:
