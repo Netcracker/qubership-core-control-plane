@@ -9,20 +9,31 @@ Then your code talks to the API using the token Kubernetes mounts into the pod.
 
 ## 1. Grant permissions
 
-Create a ServiceAccount, a Role, and a RoleBinding in the namespace where your routes live.
+Add a ServiceAccount, a Role, and a RoleBinding to your microservice's own Helm chart, in
+`helm-templates/<service-name>/templates/`.
 
 ```yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: route-writer
-  namespace: <your-namespace>
+  name: '{{ .Values.SERVICE_NAME }}'
+  namespace: '{{ .Values.NAMESPACE }}'
+  labels:
+    type: m2m
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/managed-by: '{{ .Values.MANAGED_BY }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: httproute-writer
-  namespace: <your-namespace>
+  name: '{{ .Values.SERVICE_NAME }}-httproute-writer'
+  namespace: '{{ .Values.NAMESPACE }}'
+  labels:
+    deployer.cleanup/allow: "true"
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/managed-by: '{{ .Values.MANAGED_BY }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 rules:
   - apiGroups:
       - gateway.networking.k8s.io
@@ -39,15 +50,20 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: httproute-writer
-  namespace: <your-namespace>
+  name: '{{ .Values.SERVICE_NAME }}-httproute-writer'
+  namespace: '{{ .Values.NAMESPACE }}'
+  labels:
+    deployer.cleanup/allow: "true"
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    app.kubernetes.io/managed-by: '{{ .Values.MANAGED_BY }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 subjects:
   - kind: ServiceAccount
-    name: route-writer
-    namespace: <your-namespace>
+    name: '{{ .Values.SERVICE_NAME }}'
+    namespace: '{{ .Values.NAMESPACE }}'
 roleRef:
   kind: Role
-  name: httproute-writer
+  name: '{{ .Values.SERVICE_NAME }}-httproute-writer'
   apiGroup: rbac.authorization.k8s.io
 ```
 
@@ -57,18 +73,10 @@ RoleBinding in each target namespace.
 ## 2. Set `serviceAccountName` in your Deployment
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: <your-service>
-  namespace: <your-namespace>
 spec:
   template:
     spec:
-      serviceAccountName: route-writer
-      containers:
-        - name: app
-          image: <your-image>
+      serviceAccountName: '{{ .Values.SERVICE_NAME }}'
 ```
 
 Without `serviceAccountName`, the pod runs as the `default` ServiceAccount of its namespace. The token is still
