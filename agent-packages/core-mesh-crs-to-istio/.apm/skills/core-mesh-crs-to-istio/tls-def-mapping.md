@@ -283,6 +283,10 @@ destination matches the egress-external rule:
 
 ### Canonical example (cluster-level TlsDef)
 
+`metadata.labels` is omitted throughout this example to keep the shape readable. Every generated
+resource still carries the labels [labels.md](labels.md) requires, `DestinationRule` included; the
+`ServiceEntry` and `Secret` templates above show where they go.
+
 Source:
 
 ```yaml

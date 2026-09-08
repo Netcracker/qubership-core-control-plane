@@ -286,7 +286,8 @@ When Rule.allowed is false - omit `backendRefs` field for it. This will force is
   JSON key     Go type  Transformation
   ──────────────────────────────────────────────────────────────────────────
   name         string   → matches[].headers[].name
-  exactMatch   string   → matches[].headers[].value  (type: Exact)
+  exactMatch   string   → matches[].headers[].value; omit `type`, since Exact is the
+                          Gateway API default and every example here omits it
   value        string   → same as exactMatch (legacy alias)
   prefixMatch / suffixMatch / safeRegexMatch / rangeMatch / presentMatch /
   invertMatch           OMIT ⚠ flag for MANUAL REVIEW if any is non-empty
