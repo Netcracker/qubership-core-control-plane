@@ -23,7 +23,7 @@ This skill transforms Helm chart templates from the homegrown **Cloud Core Mesh*
 | `FacadeService` | `Service` (HTTPRoute parent); also resolves mesh gateway name via `spec.gateway` |
 | `RouteConfiguration` | `HTTPRoute` per virtualService; rule-level `statefulSession` → `DestinationRule` |
 | `RouteConfiguration` on an egress gateway with `https://` / `tlsConfigName` | HTTPRoute Hostname backend + `ServiceEntry` + TLS `DestinationRule` (see [tls-def-mapping.md](tls-def-mapping.md)) |
-| `TlsDef` | `Secret` (CA / client cert) referenced by `DestinationRule.credentialName` |
+| `TlsDef` | `Secret` (CA / client cert) referenced by `DestinationRule.credentialName`; `kubernetes.io/tls` when it carries a client cert |
 | `StatefulSession` (standalone) | `DestinationRule` with `consistentHash.httpCookie` |
 | `LoadBalance` | `DestinationRule` with `consistentHash.*` |
 | `HttpFilters` + `RouteConfiguration` rules with `luaFilter` | `TrafficExtension` (requires Istio ≥ 1.30) |
@@ -413,6 +413,7 @@ resource is fully omitted).
 | `TlsDef` | `trustedForGateways` other than `egress-gateway` | — |
 | `TlsDef` | gateway-level `tls.sni` set | — |
 | cluster-level `TlsDef` | `tls.sni` absent | the DestinationRule gains an SNI the source never sent |
+| `TlsDef` | `clientCert` / `privateKey` set | MUTUAL needs the egress gateway's ServiceAccount granted namespace-wide Secret read |
 | `TlsDef` | `overridden: true`, unused profile, or name clash across levels | — |
 | `RouteConfiguration.spec.gateways` | mix of egress and ingress/mesh | — |
 | `VirtualService.name` | reused by another RouteConfiguration on the same gateway | with different `addHeaders` / `removeHeaders`; Core Mesh keeps one list, Istio gives each HTTPRoute its own |
