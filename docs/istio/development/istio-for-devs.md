@@ -104,6 +104,8 @@ For more details see [Core Mesh to Istio Migration Guide](../migration-guide/cor
 
 ## Writing Configurations
 
+* [Managing HTTPRoutes at Runtime](./managing-httproutes-at-runtime.md) - how a service creates and changes its own `HTTPRoute` resources through the Kubernetes API.
+
 TBD: routes ordering, EnvoyFilter, forbidden routes
 
 ## Troubleshooting
