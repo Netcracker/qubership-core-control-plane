@@ -200,7 +200,9 @@ metadata:
   name: <TlsDef.spec.name>
   labels:
     <labels from the TlsDef if present, else from the consuming RouteConfiguration>
-type: Opaque
+# Opaque when the profile carries only a CA; kubernetes.io/tls when it carries a
+# client certificate. See "Secret type" below — this is not cosmetic.
+type: Opaque | kubernetes.io/tls
 stringData:
   ca.crt: |
     <tls.trustedCA verbatim, including Helm expressions>
@@ -213,6 +215,43 @@ stringData:
 
 Use `stringData` so PEMs and `{{ .Values.* }}` are not base64-wrapped. Do not edit any Secret
 that this skill did not generate from a TlsDef.
+
+#### Secret type
+
+| Profile | `type` |
+|---|---|
+| `trustedCA` only (SIMPLE) | `Opaque` |
+| `trustedCA` + `clientCert` + `privateKey` (MUTUAL) | `kubernetes.io/tls` |
+
+Istio reads `tls.crt` / `tls.key` only from a `kubernetes.io/tls` Secret. From an `Opaque` one it
+still resolves `ca.crt` for the `<name>-cacert` role and silently skips the client certificate, so
+the DestinationRule renders exactly as intended and the handshake fails with
+`remote connection failure` and nothing logged on either side. A SIMPLE profile is unaffected, which
+makes the failure look specific to mTLS rather than to the Secret.
+
+`kubernetes.io/tls` requires both `tls.crt` and `tls.key`, so a CA-only profile cannot use it.
+
+`type` is immutable. Changing an already-deployed Secret fails the upgrade with
+`field is immutable`; the Secret has to be deleted first.
+
+#### The gateway needs to be allowed to read Secrets
+
+`credentialName` makes istiod push the Secret to the egress gateway over SDS, and istiod first checks
+that the gateway's ServiceAccount may read Secrets in the namespace. The check is a
+SubjectAccessReview carrying **no resource name**, so a Role narrowed with `resourceNames` never
+satisfies it:
+
+```yaml
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "watch", "list"]      # no resourceNames — the check would fail
+```
+
+Only client certificates need this; istiod resolves a CA from `<name>-cacert` by a path that skips
+the check. Granting it belongs to whoever owns the gateway — on Qubership that is
+`qubership-core-mesh-config`, not the migrated chart — so emit the Secret and the DestinationRule as
+described and add `# ⚠ MANUAL REVIEW` on a MUTUAL profile recording that the grant has to exist.
 
 ---
 
@@ -388,6 +427,7 @@ the Secret also has `tls.crt` / `tls.key`. Everything else is unchanged.
 | `TlsDef.spec.trustedForGateways` | any value other than `egress-gateway` |
 | Gateway-level `TlsDef.spec.tls.sni` | set (illegal in Core Mesh; ignored) |
 | Cluster-level `TlsDef.spec.tls.sni` | absent — the DestinationRule gains an SNI the source never sent |
+| `TlsDef` with `clientCert` / `privateKey` | MUTUAL origination needs the egress gateway's ServiceAccount granted namespace-wide Secret read |
 | Two TlsDefs | same `spec.name`, different level (cluster vs gateway) |
 | `TlsDef.spec.overridden` | `true` |
 | `TlsDef` | no consuming egress destination |
