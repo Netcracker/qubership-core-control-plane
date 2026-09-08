@@ -130,6 +130,20 @@ A TlsDef in the chart that no destination consumes → emit the Secret only,
 - Cluster-level: copy `tls.sni` when set; otherwise the destination hostname.
 - Gateway-level: always the destination hostname (Core Mesh forbids SNI on this profile).
 
+Both defaults send an SNI that Core Mesh does not. Core Mesh puts `tls.sni` straight into the
+cluster's `UpstreamTlsContext` and leaves it empty when the field is absent, deriving the endpoint
+address only when the control plane runs with `SNI_PROPAGATION_ENABLED=true`, which defaults to
+false. A gateway-level profile therefore always originates without SNI, and so does a cluster-level
+profile that omits `tls.sni`.
+
+Istio needs a value — this is the stand-in for Core Mesh's "no SNI on the gateway profile" rule —
+but the migrated route will offer a server name where the original offered none. That changes which
+certificate a virtual-hosted endpoint serves, and which backend an SNI-routed one selects.
+
+Flag a **cluster-level** profile that omits `tls.sni`, where setting the field is the author's
+choice and the omission is easy to miss. A gateway-level profile is structural — Core Mesh forbids
+the field — so it is described here rather than flagged on every occurrence.
+
 One DestinationRule per **external host** (Istio `spec.host` is the ServiceEntry host, not
 the Core Mesh `cluster` token). Gateway-level TlsDef expands to one DestinationRule per
 egress host that did not take a cluster-level profile. Name:
@@ -373,6 +387,7 @@ the Secret also has `tls.crt` / `tls.key`. Everything else is unchanged.
 | `TlsDef.spec.tls` | only one of `clientCert` / `privateKey` |
 | `TlsDef.spec.trustedForGateways` | any value other than `egress-gateway` |
 | Gateway-level `TlsDef.spec.tls.sni` | set (illegal in Core Mesh; ignored) |
+| Cluster-level `TlsDef.spec.tls.sni` | absent — the DestinationRule gains an SNI the source never sent |
 | Two TlsDefs | same `spec.name`, different level (cluster vs gateway) |
 | `TlsDef.spec.overridden` | `true` |
 | `TlsDef` | no consuming egress destination |
