@@ -412,8 +412,10 @@ resource is fully omitted).
 | `TlsDef` | only one of `clientCert` / `privateKey` | — |
 | `TlsDef` | `trustedForGateways` other than `egress-gateway` | — |
 | `TlsDef` | gateway-level `tls.sni` set | — |
+| cluster-level `TlsDef` | `tls.sni` absent | the DestinationRule gains an SNI the source never sent |
 | `TlsDef` | `overridden: true`, unused profile, or name clash across levels | — |
 | `RouteConfiguration.spec.gateways` | mix of egress and ingress/mesh | — |
+| `VirtualService.name` | reused by another RouteConfiguration on the same gateway | with different `addHeaders` / `removeHeaders`; Core Mesh keeps one list, Istio gives each HTTPRoute its own |
 | `RouteV3.Rule` | `idleTimeout` / `rateLimit` / `deny` | non-empty / non-nil |
 | `Rule` | `luaFilter` | name not found in `HttpFilters.spec.luaFilters` |
 | `StatefulSession.spec` | `hostname` / `port` | non-empty |

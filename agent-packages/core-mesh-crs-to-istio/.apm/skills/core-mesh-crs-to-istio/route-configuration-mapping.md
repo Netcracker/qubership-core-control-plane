@@ -126,6 +126,23 @@ spec:
   routeConfiguration  RouteConfig          → HTTPRoute rules[]
   overridden          bool                 OMIT  ⚠ flag for MANUAL REVIEW if non-empty
 
+#### One virtualService name, several RouteConfigurations
+
+Core Mesh keys a virtual host on `(gateway, virtualServices[].name)`, so every RouteConfiguration
+that reuses a name on the same gateway contributes routes to one Envoy virtual host, and the
+virtual-host-level `addHeaders` / `removeHeaders` of those CRs collapse into a single list —
+one wins and the others are silently dropped. Charts hit this on `egress-gateway`, where several
+RouteConfigurations conventionally use the same `egress-gw` virtual service.
+
+Istio has no shared object: each RouteConfiguration becomes its own HTTPRoute and carries its own
+copy of that CR's virtual-service-level headers, so after migration every CR's headers apply to its
+own routes. A header the collapse used to discard starts being applied.
+
+Scan the whole chart for the name before emitting virtual-service-level headers. When more than one
+RouteConfiguration on the same gateway declares it with a different `addHeaders` / `removeHeaders`,
+emit each HTTPRoute's own list and add `# ⚠ MANUAL REVIEW` recording that Core Mesh applied only one
+of them. Rule-level headers are unaffected — they belong to a single route in both meshes.
+
 
 ### HTTPRoute.spec.hostnames resolution
 
