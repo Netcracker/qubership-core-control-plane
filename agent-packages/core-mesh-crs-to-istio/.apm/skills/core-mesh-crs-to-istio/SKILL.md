@@ -407,7 +407,7 @@ resource is fully omitted).
 | `RouteDestination` | `cluster` / `httpVersion` / `circuitBreaker` / `tcpKeepalive` | non-empty; `cluster` is **not** flagged on egress external destinations (used as ServiceEntry name) |
 | `RouteDestination` | `tlsConfigName` | set on an egress route but no matching `TlsDef` in the chart |
 | `RouteDestination` | `tlsEndpoint` | non-empty on an egress route — its address is used and the source was mode-dependent |
-| `RouteDestination` | `https` endpoint, no TlsDef | system-CA SIMPLE fallback |
+| `RouteDestination` | `https` endpoint, no TlsDef | SIMPLE against system CAs; Core Mesh falls back to the gateway's internal CA when core TLS is enabled |
 | `TlsDef` | `tls.trustedCA` empty while `insecure: false` | — |
 | `TlsDef` | only one of `clientCert` / `privateKey` | — |
 | `TlsDef` | `trustedForGateways` other than `egress-gateway` | — |

@@ -112,8 +112,24 @@ Resolve the profile for each egress destination in this order:
 2. Else a gateway-level TlsDef whose `trustedForGateways` includes this gateway.
 3. Else a TlsDef named `<destination.cluster>-tls`.
 4. Else if scheme is `https` and no TlsDef: DestinationRule `tls.mode: SIMPLE` with no
-   `credentialName` (Istio system CAs) and `# ⚠ MANUAL REVIEW` (Core Mesh required an
-   explicit CA or `insecure: true`).
+   `credentialName`, so Istio validates against its system CA bundle. Core Mesh does not
+   require a TlsDef here either — it falls back on its own:
+
+   ```go
+   // envoy/cache/builder/cluster/cluster.go, buildTrustedCA
+   if len(customCA) == 0 {
+       if tlsmode.GetMode() == tlsmode.Disabled {
+           // /etc/ssl/certs/ca-certificates.crt
+       } else {
+           // <gateway certificates>/ca.crt
+       }
+   }
+   ```
+
+   With core TLS disabled both meshes use the system bundle and the migration changes
+   nothing. With core TLS enabled Core Mesh validates against the gateway's internal CA
+   while Istio uses the system bundle, so a host whose certificate chains to one and not
+   the other changes behavior. `# ⚠ MANUAL REVIEW` on that account.
 5. `tlsConfigName` set but no TlsDef in the chart → HTTPRoute + ServiceEntry only,
    `# ⚠ MANUAL REVIEW`.
 
@@ -430,7 +446,7 @@ the Secret also has `tls.crt` / `tls.key`. Everything else is unchanged.
 | Source | Trigger |
 |---|---|
 | `RouteDestination.tlsConfigName` | no matching TlsDef in the chart |
-| `https` egress destination | no TlsDef at any priority (system-CA fallback) |
+| `https` egress destination | no TlsDef at any priority — equivalent with core TLS disabled, but Core Mesh falls back to the gateway's internal CA when it is enabled |
 | `TlsDef.spec.tls` | empty `trustedCA` while `insecure: false` |
 | `TlsDef.spec.tls` | only one of `clientCert` / `privateKey` |
 | `TlsDef.spec.trustedForGateways` | any value other than `egress-gateway` |
