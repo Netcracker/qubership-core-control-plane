@@ -24,10 +24,17 @@ Or `core.netcracker.com/v1` `Mesh` with `subKind: TlsDef` / `subKind: RouteConfi
 (identical `spec` shape). `TlsDef` is usually `nc.core.mesh/v3` with identity in `spec.name`
 (metadata.name may be absent).
 
-Targets, all in the Istio-guarded sibling of the file the source came from — the Secret follows its
-`TlsDef`, everything else follows the `RouteConfiguration`. When both live in one file they land
-together; when they are split, each sibling holds what its own source declared. Re-running the
-migration then finds each resource where it was written, instead of moving it:
+Targets, all in the Istio-guarded sibling of the file their source came from. This decides **which
+file** each resource is written to, not the order within it — for ordering see SKILL.md Step 4,
+which puts the egress outputs after the HTTPRoute.
+
+- the `Secret` is written to the sibling of the file its `TlsDef` came from
+- the `ServiceEntry`, `DestinationRule` and HTTPRoute changes are written to the sibling of the file
+  the `RouteConfiguration` came from
+
+When both sources share one file they land together. When they are split, each sibling holds what
+its own source declared, so re-running the migration finds every resource where it was written
+instead of moving it.
 
 | Source | Output |
 |---|---|

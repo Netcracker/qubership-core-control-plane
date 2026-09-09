@@ -60,7 +60,10 @@ delegated run must always be `interactive: false`.
 In addition to the chat Output Summary, write a machine-readable report to
 `.mesh-migration/reports/core-mesh-crs-to-istio.yaml` (create the directory, and ensure
 `.mesh-migration/` is listed in the repo's `.gitignore` — reports are working
-files, never committed; the orchestrator handles both in orchestrated runs):
+files, never committed). In an orchestrated run the orchestrator creates the
+directory and the `.gitignore` entry, and this skill writes only the report. In a
+direct run it does both itself, which is the one edit it makes outside
+`chartPath`:
 
 ```yaml
 reportSchema: 1
@@ -104,7 +107,10 @@ mismatch instead of guessing field meanings.
 ### Side effects
 
 Modifies only mesh-CR files and their `-istio` siblings, `values.yaml`, and
-`values.schema.json` under `chartPath`, plus the report file.
+`values.schema.json` under `chartPath`, plus the report file. A direct run also
+adds `.mesh-migration/` to the repo's `.gitignore` if it is not already there —
+the single permitted edit outside `chartPath`, and only to add that one line. An
+orchestrated run leaves `.gitignore` to the orchestrator.
 
 ---
 
