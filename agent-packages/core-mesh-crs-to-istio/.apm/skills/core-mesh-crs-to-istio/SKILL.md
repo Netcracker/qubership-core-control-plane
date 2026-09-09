@@ -225,6 +225,11 @@ review instead.
 untouched — never nest a second guard. This matters on a follow-up run with
 `resolutions`, where previously processed documents are already wrapped.
 
+A guard the document shares with others counts: one guard around a whole file
+leaves every document in it already guarded, and the file is left alone. Do not
+split a shared guard into per-document ones — the rendered output is the same and
+the rewrite is pure churn.
+
 In the **original files**, wrap each not-yet-guarded mesh CR document with the
 Core guard:
 
@@ -237,7 +242,9 @@ kind: Mesh
 ```
 
 Legacy declarative files keep their `nc.core.mesh/*` apiVersion inside the guard.
-For multi-document YAML files (separated by `---`): wrap each document individually.
+For multi-document YAML files (separated by `---`): wrap each **not-yet-guarded**
+document individually. A file whose documents are all covered by one shared guard is
+already guarded — see the idempotency check above — and is not rewritten.
 
 ### Step 4 — Generate Istio files (single pass)
 
