@@ -60,7 +60,10 @@ delegated run must always be `interactive: false`.
 In addition to the chat Output Summary, write a machine-readable report to
 `.mesh-migration/reports/core-mesh-crs-to-istio.yaml` (create the directory, and ensure
 `.mesh-migration/` is listed in the repo's `.gitignore` — reports are working
-files, never committed; the orchestrator handles both in orchestrated runs):
+files, never committed). In an orchestrated run the orchestrator creates the
+directory and the `.gitignore` entry, and this skill writes only the report. In a
+direct run it does both itself, which is the one edit it makes outside
+`chartPath`:
 
 ```yaml
 reportSchema: 1
@@ -103,8 +106,17 @@ mismatch instead of guessing field meanings.
 
 ### Side effects
 
-Modifies only mesh-CR files and their `-istio` siblings, `values.yaml`, and
-`values.schema.json` under `chartPath`, plus the report file.
+Modifies only:
+
+- mesh-CR files and their `-istio` siblings, under `chartPath`
+- `values.yaml` and `values.schema.json`, under `chartPath`
+- the report file at `.mesh-migration/reports/core-mesh-crs-to-istio.yaml`
+- `.gitignore`, to add `.mesh-migration/` if it is not already listed — the only
+  permitted edit outside `chartPath`, and only that one line. A direct run makes
+  it; an orchestrated run leaves `.gitignore` to the orchestrator
+
+Nothing else. This list is the boundary — if a rule elsewhere appears to ask for
+a write not on it, the list wins and the rule is wrong.
 
 ---
 
@@ -225,6 +237,11 @@ review instead.
 untouched — never nest a second guard. This matters on a follow-up run with
 `resolutions`, where previously processed documents are already wrapped.
 
+A guard the document shares with others counts: one guard around a whole file
+leaves every document in it already guarded, and the file is left alone. Do not
+split a shared guard into per-document ones — the rendered output is the same and
+the rewrite is pure churn.
+
 In the **original files**, wrap each not-yet-guarded mesh CR document with the
 Core guard:
 
@@ -237,7 +254,10 @@ kind: Mesh
 ```
 
 Legacy declarative files keep their `nc.core.mesh/*` apiVersion inside the guard.
-For multi-document YAML files (separated by `---`): wrap each document individually.
+For multi-document YAML files (separated by `---`), this governs how a guard is **added**
+to documents that lack one: wrap each not-yet-guarded document individually. It does not
+ask you to normalize a file that is already guarded — one shared guard around several
+documents leaves each of them enclosed, so the file is left alone.
 
 ### Step 4 — Generate Istio files (single pass)
 
@@ -452,6 +472,8 @@ Detected backend reference (for code-generated HTTPRoutes / Maven plugin):
   backendRefPort: <port or "unresolved">
   # if unresolved, state why: no RouteConfiguration destinations found
   #                           | conflicting backends: <list of name:port>
+  #                           | all destinations excluded (egress-external or
+  #                             platform gateway) — nothing to detect, not a failure
 
 Detected output labels (for Maven plugin / code-generated HTTPRoutes):
   labels: <k1=v1, k2=v2, ... or "unresolved">

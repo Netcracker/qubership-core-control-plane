@@ -24,7 +24,17 @@ Or `core.netcracker.com/v1` `Mesh` with `subKind: TlsDef` / `subKind: RouteConfi
 (identical `spec` shape). `TlsDef` is usually `nc.core.mesh/v3` with identity in `spec.name`
 (metadata.name may be absent).
 
-Targets (all in the Istio-guarded sibling; Secret may live in the TlsDef sibling):
+Targets, all in the Istio-guarded sibling of the file their source came from. This decides **which
+file** each resource is written to, not the order within it — for ordering see SKILL.md Step 4,
+which puts the egress outputs after the HTTPRoute.
+
+- the `Secret` is written to the sibling of the file its `TlsDef` came from
+- the `ServiceEntry`, `DestinationRule` and HTTPRoute changes are written to the sibling of the file
+  the `RouteConfiguration` came from
+
+When both sources share one file they land together. When they are split, each sibling holds what
+its own source declared, so re-running the migration finds every resource where it was written
+instead of moving it.
 
 | Source | Output |
 |---|---|
@@ -276,7 +286,10 @@ metadata:
 type: Opaque | kubernetes.io/tls
 stringData:
   ca.crt: |
-    <tls.trustedCA verbatim, including Helm expressions>
+    <tls.trustedCA verbatim, including Helm expressions — except an `indent N`,
+     which encodes the source nesting depth and must be recomputed for this one:
+     `spec.tls.trustedCA` sits at depth 6, `stringData.ca.crt` at depth 4, so
+     `| indent 6` becomes `| indent 4`. See SKILL.md Step 8>
   # MUTUAL only:
   tls.crt: |
     <tls.clientCert>
@@ -398,7 +411,8 @@ spec:
                 prefixRewrite: /
 ```
 
-Istio output (same `-istio` sibling as the route, Secret may sit in the TlsDef sibling):
+Istio output (the route's `-istio` sibling; here the `TlsDef` shares the source file, so the Secret
+lands beside it):
 
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1

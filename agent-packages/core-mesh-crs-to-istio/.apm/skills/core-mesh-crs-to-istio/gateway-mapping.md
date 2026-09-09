@@ -1,9 +1,16 @@
 ## Gateway
 
+Every condition below is evaluated against a `Gateway` **CR present in the chart**. A gateway that
+Step 2 resolves by well-known name alone — `egress-gateway`, `public-gateway-service`,
+`private-gateway-service`, `internal-gateway-service` — has no CR here and produces **no** Istio
+Gateway: the platform owns that object, and emitting a second one collides with it. Routes still
+reference it through `parentRefs`, per
+[parent-refs-resolution.md](parent-refs-resolution.md).
+
 ### § Gateway-to-Istio-Gateway
 
 Condition:
-  spec.gatewayType in [`ingress`, `egress`] OR 
+  spec.gatewayType in [`ingress`, `egress`]
 
 Input fields → Output fields:
 
