@@ -156,6 +156,6 @@ spec:
 
 ### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
 
-| Source | Trigger |
-|---|---|
+| Source | Field | Trigger |
+|---|---|---|
 | `LoadBalance.spec.policies` | more than one entry | — |

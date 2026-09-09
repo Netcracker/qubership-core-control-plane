@@ -299,8 +299,8 @@ so the flag has to be acted on rather than noted.
 
 ### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
 
-| Source | Trigger |
-|---|---|
+| Source | Field | Trigger |
+|---|---|---|
 | `RouteConfiguration.spec` | `overridden` | non-empty |
 | `VirtualService` | `rateLimit` / `overridden` | non-empty |
 | `VirtualService.hosts[]` | `*` host | appears on an east-west (mesh) route |

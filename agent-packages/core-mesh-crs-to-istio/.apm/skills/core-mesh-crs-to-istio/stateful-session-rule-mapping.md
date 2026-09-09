@@ -81,6 +81,6 @@ spec:
 
 ### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
 
-| Source | Trigger |
-|---|---|
+| Source | Field | Trigger |
+|---|---|---|
 | `StatefulSession.spec` / `LoadBalance.spec` | `overridden` | `true` |
