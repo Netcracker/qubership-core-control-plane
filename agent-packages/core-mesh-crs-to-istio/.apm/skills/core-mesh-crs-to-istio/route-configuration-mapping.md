@@ -36,82 +36,11 @@ Input fields → Output fields:
     
     HTTPRoute.metadata.name = Mesh CR metadata.name + "-" + virtualService.name
 
-###  RouteConfiguration.spec.gateways to HTTPRoute.spec.parentRefs resolution (priority order)
+### RouteConfiguration.spec.gateways to HTTPRoute.spec.parentRefs
 
-Source field: 
-    
-    RouteConfiguration.spec.gateways
+A priority-ordered procedure of its own — see
+[parent-refs-resolution.md](parent-refs-resolution.md).
 
-Target field: 
-
-    HTTProute.spec.parentRefs
-
-Mapping:
-
-  PRIORITY 1 — Platform gateway table:
-
-    parentRef type: Gateway
-    mapping: one-to-one 
-    condition: gateway is in list of platform Gateways
-    parentRef name resolution:
-        source name              parentRef name
-        public-gateway-service  → public-gateway
-        private-gateway-service → private-gateway
-        egress-gateway          → egress-gateway
-
-        kind: Gateway
-        group: gateway.networking.k8s.io
-
-Example:
-```yaml
-spec: 
-    parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: <platform Gateway name, e.g. public-gateway>
-```
-
-  PRIORITY 2 — ingress/egress gateway:
-
-    parentRef type: Gateway
-    mapping: one-to-one 
-    condition: gateway is in list of discovered ingress/egress Gateways
-    parentRef name resolution:
-        name = ingress/egress Gateway name
-
-        kind: Gateway
-        group: gateway.networking.k8s.io
-        name: <gateway metadata.name value>
-
-Example:
-```yaml
-spec: 
-    parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway    
-      name: <ingress/egress Gateway name>
-```
-
-  PRIORITY 3 — Internal gateway or mesh Gateway:
-
-    parentRef type: Service
-    mapping: one-to-many (one parentRef per host entry)
-    condition: gateway = `internal-gateway-service` OR gateway is in list of discovered mesh Gateways
-    parentRef name resolution:
-        normalized host from virtualService.hosts[]
-
-Example:
-```yaml
-spec:
-    parentRefs:
-    - kind: Service
-      group: ''
-      name: <normalized host from virtualService.hosts[0]>
-    - kind: Service
-      group: ''
-      name: <normalized host from virtualService.hosts[1]>
-    ...        
-```
 ---
 
 ### VirtualService
@@ -196,7 +125,8 @@ shared procedure in
   tlsEndpoint    string          egress external destination: parse host and port from it
                                  instead of `endpoint` when non-empty, and ⚠ MANUAL REVIEW.
                                  In-cluster destination: ignore, no flag.
-                                 See "tlsEndpoint on an egress destination" below
+                                 See "tlsEndpoint on an egress destination" in
+                                 [tls-def-mapping.md](tls-def-mapping.md)
   httpVersion    *int32          OMIT ⚠ flag for MANUAL REVIEW if non-empty
   tlsConfigName  string          ignore for in-cluster backends; on an egress
                                  gateway this selects a cluster-level TlsDef
@@ -209,42 +139,12 @@ destination with [tls-def-mapping.md](tls-def-mapping.md) **before** the in-clus
 parser below. That mapping emits ServiceEntry, Secret, DestinationRule, Hostname
 `backendRef`, and Host rewrite for `https://` / `tlsConfigName` / FQDN endpoints.
 
-#### tlsEndpoint on an egress destination
-
-`tlsEndpoint` is a supported way to give an egress route its HTTPS address — the RoutingV3 validator
-accepts it and validates it against the egress gateway's own address rules. Core Mesh picks between
-the two addresses at request-registration time, not in the CR:
-
-```go
-// services/route/registration/v3.go
-if tlsSupported && tlsmode.GetMode() == tlsmode.Preferred && destination.TlsEndpoint != "" {
-    return destination.TlsEndpoint
-}
-return destination.Endpoint
-```
-
-So the same CR resolves to `endpoint` or `tlsEndpoint` depending on whether the control plane runs
-with internal TLS enabled. A chart cannot reproduce that, so the migration has to commit to one.
-
-**On an egress external destination, take `tlsEndpoint` when it is non-empty.** It is the address
-Core Mesh uses whenever internal TLS is on, and the migrated route originates TLS through the
-DestinationRule either way, so the TLS address is the one that stays correct. Parse its host and
-port for the ServiceEntry, the `Hostname` backendRef and the `URLRewrite` hostname, exactly as the
-parser below does for `endpoint`.
-
-Ignoring it instead produces a route that looks converted and is not: with
-`endpoint: http://ext.example.com` and `tlsEndpoint: https://ext.example.com:8443`, reading only
-`endpoint` yields a ServiceEntry on port 80 with `protocol: HTTP` and no origination, while Core Mesh
-was reaching `:8443` over TLS.
-
-Flag it regardless, because the choice is not free: a deployment running with core TLS **disabled**
-uses the plain `endpoint`, and always taking the TLS address changes that. The reviewer confirms
-which the target environment runs.
-
-For an in-cluster destination, keep ignoring `tlsEndpoint` and raise no flag. It exists for
-Core Mesh's internal TLS, which Istio replaces with mesh mTLS, so the plain endpoint is equivalent.
-
 #### Endpoint to backendRef resolution
+
+On an egress external destination, resolve the address from `tlsEndpoint` first when it is set —
+see [tls-def-mapping.md](tls-def-mapping.md), "tlsEndpoint on an egress destination". The parser
+below is otherwise unchanged.
+
 
 Endpoint parsing — pattern: http://<name>:<port>
     
@@ -394,3 +294,18 @@ so the flag has to be acted on rather than noted.
   → See [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md).
   → A DestinationRule is generated for the route's destination host.
   → The DestinationRule is written after the HTTPRoute in the same output file (`---` separator).
+
+---
+
+### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
+
+| Source | Trigger |
+|---|---|
+| `RouteConfiguration.spec` | `overridden` | non-empty |
+| `VirtualService` | `rateLimit` / `overridden` | non-empty |
+| `VirtualService.hosts[]` | `*` host | appears on an east-west (mesh) route |
+| `RouteDestination` | `cluster` / `httpVersion` / `circuitBreaker` / `tcpKeepalive` | non-empty; `cluster` is **not** flagged on egress external destinations (used as ServiceEntry name) |
+| `VirtualService.name` | reused by another RouteConfiguration on the same gateway | with different `addHeaders` / `removeHeaders`; Core Mesh keeps one list, Istio gives each HTTPRoute its own |
+| `RouteV3.Rule` | `idleTimeout` / `rateLimit` / `deny` | non-empty / non-nil |
+| `HeaderMatcher` | `invertMatch: true` or `presentMatch: false` | Gateway API has no negated header match; dropping it widens the route |
+| `HeaderMatcher` | `rangeMatch` | numeric range has no Gateway API equivalent |

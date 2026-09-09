@@ -394,43 +394,24 @@ After generating all files, verify:
 
 ## Fields that MUST be flagged with `⚠ MANUAL REVIEW`
 
-When the listed field is non-empty / non-nil on the source CR, omit it from the
-Istio output (unless a mapping says otherwise) **and** leave a `# ⚠ MANUAL REVIEW`
-comment on the generated resource (or on the Core-guarded original if the
-resource is fully omitted).
+Each mapping file owns the triggers for the CR it converts, next to the rules they qualify, so a
+trigger and its mapping cannot drift apart:
 
-| Source | Field | Trigger |
-|---|---|---|
-| `RouteConfiguration.spec` | `overridden` | non-empty |
-| `VirtualService` | `rateLimit` / `overridden` | non-empty |
-| `VirtualService.hosts[]` | `*` host | appears on an east-west (mesh) route |
-| `RouteDestination` | `cluster` / `httpVersion` / `circuitBreaker` / `tcpKeepalive` | non-empty; `cluster` is **not** flagged on egress external destinations (used as ServiceEntry name) |
-| `RouteDestination` | `tlsConfigName` | set on an egress route but no matching `TlsDef` in the chart |
-| `RouteDestination` | `tlsEndpoint` | non-empty on an egress route — its address is used and the source was mode-dependent |
-| `RouteDestination` | `https` endpoint, no TlsDef | SIMPLE against system CAs; Core Mesh falls back to the gateway's internal CA when core TLS is enabled |
-| `TlsDef` | `tls.trustedCA` empty while `insecure: false` | — |
-| `TlsDef` | only one of `clientCert` / `privateKey` | — |
-| `TlsDef` | `trustedForGateways` other than `egress-gateway` | — |
-| `TlsDef` | gateway-level `tls.sni` set | — |
-| cluster-level `TlsDef` | `tls.sni` absent | the DestinationRule gains an SNI the source never sent |
-| `TlsDef` | `clientCert` / `privateKey` set | MUTUAL needs the egress gateway's ServiceAccount granted namespace-wide Secret read |
-| `TlsDef` | `overridden: true`, unused profile, or name clash across levels | — |
-| `RouteConfiguration.spec.gateways` | mix of egress and ingress/mesh | — |
-| `VirtualService.name` | reused by another RouteConfiguration on the same gateway | with different `addHeaders` / `removeHeaders`; Core Mesh keeps one list, Istio gives each HTTPRoute its own |
-| `RouteV3.Rule` | `idleTimeout` / `rateLimit` / `deny` | non-empty / non-nil |
-| `Rule` | `luaFilter` | name not found in `HttpFilters.spec.luaFilters` |
-| `HeaderMatcher` | `invertMatch: true` or `presentMatch: false` | Gateway API has no negated header match; dropping it widens the route |
-| `HeaderMatcher` | `rangeMatch` | numeric range has no Gateway API equivalent |
-| `StatefulSession.spec` | `hostname` / `port` | non-empty |
-| `StatefulSession.spec` / `LoadBalance.spec` | `overridden` | `true` |
-| `LoadBalance.spec.policies` | more than one entry | — |
-| `DestinationRule` | conflicting policies for one `spec.host` | rule-level vs standalone source |
-| `TrafficExtension` | path-scoped script | same `luaFilter` name used on rules with different prefixes |
-| `HttpFilters` / `RouteConfiguration` | `gateways` | gateway context cannot be classified |
-| `FacadeService` | neither `spec.port` nor `spec.gatewayPorts` | — |
-| Any template helper | `{{- include ... }}` renders mesh CRs | — |
+| CR | Triggers |
+|---|---|
+| `FacadeService` | [facade-service-mapping.md](facade-service-mapping.md) |
+| `RouteConfiguration` | [route-configuration-mapping.md](route-configuration-mapping.md) |
+| `TlsDef` and egress destinations | [tls-def-mapping.md](tls-def-mapping.md) |
+| `StatefulSession` (standalone) | [stateful-session-mapping.md](stateful-session-mapping.md) |
+| `StatefulSession` (rule-level) | [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md) |
+| `LoadBalance` | [load-balance-mapping.md](load-balance-mapping.md) |
+| `HttpFilters` / Lua | [lua-filter-mapping.md](lua-filter-mapping.md) |
 
----
+One trigger belongs to no single CR:
+
+| Source | Trigger |
+|---|---|
+| Any template helper | `{{- include ... }}` renders mesh CRs — the helper is out of scope, so its output is unconverted |
 
 ## Output Summary (report after completion)
 

@@ -118,3 +118,11 @@ spec:
           ttl: "0s"
           path: /
 ```
+
+---
+
+### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
+
+| Source | Trigger |
+|---|---|
+| `StatefulSession.spec` | `hostname` / `port` | non-empty |
