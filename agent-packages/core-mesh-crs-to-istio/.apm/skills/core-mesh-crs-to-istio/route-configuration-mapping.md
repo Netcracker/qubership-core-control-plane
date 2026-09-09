@@ -67,7 +67,9 @@ Istio has no shared object: each RouteConfiguration becomes its own HTTPRoute an
 copy of that CR's virtual-service-level headers, so after migration every CR's headers apply to its
 own routes. A header the collapse used to discard starts being applied.
 
-Scan the whole chart for the name before emitting virtual-service-level headers. When more than one
+Scan the whole chart for the name before emitting virtual-service-level headers. A CR that declares
+none — every header list rule-level — cannot collide and needs no scan. When the scan is not
+possible, say so in the report rather than assuming either answer. When more than one
 RouteConfiguration on the same gateway declares it with a different `addHeaders` / `removeHeaders`,
 emit each HTTPRoute's own list and add `# ⚠ MANUAL REVIEW` recording that Core Mesh applied only one
 of them. Rule-level headers are unaffected — they belong to a single route in both meshes.
@@ -189,6 +191,8 @@ Output:
                                        to the endpoint host even if this field is empty
                                        — see [tls-def-mapping.md](tls-def-mapping.md)
   addHeaders      []HeaderDefinition → RequestHeaderModifier add[] (rule-level, merged with VS-level)
+                  (filters[] order: RequestHeaderModifier first, then URLRewrite. Gateway API does
+                   not order these two, so this is for diffability against a regenerated file)
   removeHeaders   []string           → RequestHeaderModifier remove[] (rule-level, merged with VS-level)
   timeout         *int64             → timeouts.request: "<value>ms"  (value is milliseconds)
   allowed         *bool              → when false then refer to `Not allowed rule processing`
@@ -305,7 +309,7 @@ so the flag has to be acted on rather than noted.
 | `VirtualService` | `rateLimit` / `overridden` | non-empty |
 | `VirtualService.hosts[]` | `*` host | appears on an east-west (mesh) route |
 | `RouteDestination` | `cluster` / `httpVersion` / `circuitBreaker` / `tcpKeepalive` | non-empty; `cluster` is **not** flagged on egress external destinations (used as ServiceEntry name) |
-| `VirtualService.name` | reused by another RouteConfiguration on the same gateway | with different `addHeaders` / `removeHeaders`; Core Mesh keeps one list, Istio gives each HTTPRoute its own |
+| `VirtualService.name` | reused on the same gateway **and this CR emits virtual-service-level headers** | the reused names carry different `addHeaders` / `removeHeaders`; Core Mesh keeps one list, Istio gives each HTTPRoute its own. A CR whose headers are all rule-level does not fire this |
 | `RouteV3.Rule` | `idleTimeout` / `rateLimit` / `deny` | non-empty / non-nil |
 | `HeaderMatcher` | `invertMatch: true` or `presentMatch: false` | Gateway API has no negated header match; dropping it widens the route |
 | `HeaderMatcher` | `rangeMatch` | numeric range has no Gateway API equivalent |
