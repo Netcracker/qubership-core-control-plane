@@ -193,7 +193,10 @@ shared procedure in
                                  destinations use it as ServiceEntry metadata.name
                                  (see [tls-def-mapping.md](tls-def-mapping.md))
   tlsSupported   bool            ignore
-  tlsEndpoint    string          ignore; ⚠ MANUAL REVIEW if non-empty on egress
+  tlsEndpoint    string          egress external destination: parse host and port from it
+                                 instead of `endpoint` when non-empty, and ⚠ MANUAL REVIEW.
+                                 In-cluster destination: ignore, no flag.
+                                 See "tlsEndpoint on an egress destination" below
   httpVersion    *int32          OMIT ⚠ flag for MANUAL REVIEW if non-empty
   tlsConfigName  string          ignore for in-cluster backends; on an egress
                                  gateway this selects a cluster-level TlsDef
@@ -205,6 +208,41 @@ When this RouteConfiguration attaches to a resolved **egress** gateway, resolve 
 destination with [tls-def-mapping.md](tls-def-mapping.md) **before** the in-cluster
 parser below. That mapping emits ServiceEntry, Secret, DestinationRule, Hostname
 `backendRef`, and Host rewrite for `https://` / `tlsConfigName` / FQDN endpoints.
+
+#### tlsEndpoint on an egress destination
+
+`tlsEndpoint` is a supported way to give an egress route its HTTPS address — the RoutingV3 validator
+accepts it and validates it against the egress gateway's own address rules. Core Mesh picks between
+the two addresses at request-registration time, not in the CR:
+
+```go
+// services/route/registration/v3.go
+if tlsSupported && tlsmode.GetMode() == tlsmode.Preferred && destination.TlsEndpoint != "" {
+    return destination.TlsEndpoint
+}
+return destination.Endpoint
+```
+
+So the same CR resolves to `endpoint` or `tlsEndpoint` depending on whether the control plane runs
+with internal TLS enabled. A chart cannot reproduce that, so the migration has to commit to one.
+
+**On an egress external destination, take `tlsEndpoint` when it is non-empty.** It is the address
+Core Mesh uses whenever internal TLS is on, and the migrated route originates TLS through the
+DestinationRule either way, so the TLS address is the one that stays correct. Parse its host and
+port for the ServiceEntry, the `Hostname` backendRef and the `URLRewrite` hostname, exactly as the
+parser below does for `endpoint`.
+
+Ignoring it instead produces a route that looks converted and is not: with
+`endpoint: http://ext.example.com` and `tlsEndpoint: https://ext.example.com:8443`, reading only
+`endpoint` yields a ServiceEntry on port 80 with `protocol: HTTP` and no origination, while Core Mesh
+was reaching `:8443` over TLS.
+
+Flag it regardless, because the choice is not free: a deployment running with core TLS **disabled**
+uses the plain `endpoint`, and always taking the TLS address changes that. The reviewer confirms
+which the target environment runs.
+
+For an in-cluster destination, keep ignoring `tlsEndpoint` and raise no flag. It exists for
+Core Mesh's internal TLS, which Istio replaces with mesh mTLS, so the plain endpoint is equivalent.
 
 #### Endpoint to backendRef resolution
 

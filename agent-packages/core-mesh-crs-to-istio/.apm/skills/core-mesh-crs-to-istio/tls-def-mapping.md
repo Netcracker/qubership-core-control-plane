@@ -66,8 +66,13 @@ The RouteConfiguration attaches to a resolved **egress** gateway (`egress-gatewa
 `spec.gatewayType: egress`), **and** any of:
 
 - `endpoint` scheme is `https://`
+- `tlsEndpoint` scheme is `https://`
 - `tlsConfigName` is non-empty
 - parsed host contains `.` (FQDN) or is a Helm expression that is not a bare service name
+
+When `tlsEndpoint` is non-empty the destination is resolved from it rather than from `endpoint` —
+see "tlsEndpoint on an egress destination" in
+[route-configuration-mapping.md](route-configuration-mapping.md).
 
 Otherwise keep the in-cluster Service `backendRef` in
 [route-configuration-mapping.md](route-configuration-mapping.md).
@@ -436,5 +441,5 @@ the Secret also has `tls.crt` / `tls.key`. Everything else is unchanged.
 | `TlsDef.spec.overridden` | `true` |
 | `TlsDef` | no consuming egress destination |
 | `RouteConfiguration.spec.gateways` | mix of egress and ingress/mesh |
-| `RouteDestination.tlsEndpoint` | non-empty on an egress route |
+| `RouteDestination.tlsEndpoint` | non-empty on an egress route — its address is used and the source was mode-dependent |
 | DestinationRule | TLS origination vs another policy on the same `spec.host` |
