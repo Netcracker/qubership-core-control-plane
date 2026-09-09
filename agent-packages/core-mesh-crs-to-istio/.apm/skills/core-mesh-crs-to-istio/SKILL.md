@@ -106,11 +106,17 @@ mismatch instead of guessing field meanings.
 
 ### Side effects
 
-Modifies only mesh-CR files and their `-istio` siblings, `values.yaml`, and
-`values.schema.json` under `chartPath`, plus the report file. A direct run also
-adds `.mesh-migration/` to the repo's `.gitignore` if it is not already there —
-the single permitted edit outside `chartPath`, and only to add that one line. An
-orchestrated run leaves `.gitignore` to the orchestrator.
+Modifies only:
+
+- mesh-CR files and their `-istio` siblings, under `chartPath`
+- `values.yaml` and `values.schema.json`, under `chartPath`
+- the report file at `.mesh-migration/reports/core-mesh-crs-to-istio.yaml`
+- `.gitignore`, to add `.mesh-migration/` if it is not already listed — the only
+  permitted edit outside `chartPath`, and only that one line. A direct run makes
+  it; an orchestrated run leaves `.gitignore` to the orchestrator
+
+Nothing else. This list is the boundary — if a rule elsewhere appears to ask for
+a write not on it, the list wins and the rule is wrong.
 
 ---
 
@@ -248,9 +254,10 @@ kind: Mesh
 ```
 
 Legacy declarative files keep their `nc.core.mesh/*` apiVersion inside the guard.
-For multi-document YAML files (separated by `---`): wrap each **not-yet-guarded**
-document individually. A file whose documents are all covered by one shared guard is
-already guarded — see the idempotency check above — and is not rewritten.
+For multi-document YAML files (separated by `---`), this governs how a guard is **added**
+to documents that lack one: wrap each not-yet-guarded document individually. It does not
+ask you to normalize a file that is already guarded — one shared guard around several
+documents leaves each of them enclosed, so the file is left alone.
 
 ### Step 4 — Generate Istio files (single pass)
 
@@ -465,6 +472,8 @@ Detected backend reference (for code-generated HTTPRoutes / Maven plugin):
   backendRefPort: <port or "unresolved">
   # if unresolved, state why: no RouteConfiguration destinations found
   #                           | conflicting backends: <list of name:port>
+  #                           | all destinations excluded (egress-external or
+  #                             platform gateway) — nothing to detect, not a failure
 
 Detected output labels (for Maven plugin / code-generated HTTPRoutes):
   labels: <k1=v1, k2=v2, ... or "unresolved">
