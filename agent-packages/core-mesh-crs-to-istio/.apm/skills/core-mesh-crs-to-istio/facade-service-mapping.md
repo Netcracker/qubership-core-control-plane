@@ -81,6 +81,6 @@ ELSE
 
 ### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
 
-| Source | Trigger |
-|---|---|
+| Source | Field | Trigger |
+|---|---|---|
 | `FacadeService` | neither `spec.port` nor `spec.gatewayPorts` | — |

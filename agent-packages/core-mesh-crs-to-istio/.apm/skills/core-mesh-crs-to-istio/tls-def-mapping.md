@@ -141,11 +141,12 @@ A TlsDef in the chart that no destination consumes → emit the Secret only,
 
 | TlsDef | `tls.mode` | Secret keys | Other fields |
 |---|---|---|---|
-| `insecure: true` | `SIMPLE` | none | `insecureSkipVerify: true`; omit `credentialName` |
+| `insecure: true` | `SIMPLE` | none | `insecureSkipVerify: true`; omit `credentialName`; `sni` per the rule below |
 | `trustedCA` only | `SIMPLE` | `ca.crt` | `credentialName: <spec.name>` |
 | `trustedCA` + `clientCert` + `privateKey` | `MUTUAL` | `ca.crt`, `tls.crt`, `tls.key` | `credentialName: <spec.name>` |
 
-`sni`:
+`sni` is set on every profile, including `insecure: true` — skipping verification does not stop
+Envoy offering a server name, and the peer may select its certificate by it:
 
 - Cluster-level: copy `tls.sni` when set; otherwise the destination hostname.
 - Gateway-level: always the destination hostname (Core Mesh forbids SNI on this profile).
@@ -170,6 +171,10 @@ egress host that did not take a cluster-level profile. Name:
 
 - cluster-level: `<tls.spec.name>` (example: `custom-cert`)
 - gateway-level expansion: `<tls.spec.name>-<host-with-dots-as-dashes>`
+
+A metadata name is limited to 253 characters. If the combination exceeds it, truncate the
+`<tls.spec.name>` half and keep the host intact — the host is what makes the name unique, and two
+profiles on one host cannot both apply. Add `# ⚠ MANUAL REVIEW` when truncation happens.
 
 If a load-balancing or sticky-session DestinationRule already targets the same `spec.host`,
 merge `trafficPolicy.tls` into that document (one DestinationRule per host). Conflict on
@@ -238,6 +243,15 @@ spec:
     name: https
     protocol: HTTPS
 ```
+
+`destination.cluster` is not guaranteed to be one-to-one with the hostname. Emit one ServiceEntry
+per distinct external hostname and derive the name as follows:
+
+- one `cluster` token, one host — use the token.
+- the same `cluster` on several hosts — the token would collide, so name each after its host with
+  dots replaced by dashes.
+- several `cluster` tokens on one host — still one ServiceEntry; take the first token in source
+  order and add `# ⚠ MANUAL REVIEW`, since Core Mesh had a cluster per token and Istio will not.
 
 Port defaults: `https://` → 443 with `name: https` / `protocol: HTTPS`; `http://` with no port →
 80 with `name: http` / `protocol: HTTP`; explicit `:port` wins. `destination.cluster` is used

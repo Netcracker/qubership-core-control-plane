@@ -123,6 +123,6 @@ spec:
 
 ### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
 
-| Source | Trigger |
-|---|---|
+| Source | Field | Trigger |
+|---|---|---|
 | `StatefulSession.spec` | `hostname` / `port` | non-empty |
