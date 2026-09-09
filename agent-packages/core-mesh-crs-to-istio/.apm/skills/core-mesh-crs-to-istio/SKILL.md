@@ -419,6 +419,8 @@ resource is fully omitted).
 | `VirtualService.name` | reused by another RouteConfiguration on the same gateway | with different `addHeaders` / `removeHeaders`; Core Mesh keeps one list, Istio gives each HTTPRoute its own |
 | `RouteV3.Rule` | `idleTimeout` / `rateLimit` / `deny` | non-empty / non-nil |
 | `Rule` | `luaFilter` | name not found in `HttpFilters.spec.luaFilters` |
+| `HeaderMatcher` | `invertMatch: true` or `presentMatch: false` | Gateway API has no negated header match; dropping it widens the route |
+| `HeaderMatcher` | `rangeMatch` | numeric range has no Gateway API equivalent |
 | `StatefulSession.spec` | `hostname` / `port` | non-empty |
 | `StatefulSession.spec` / `LoadBalance.spec` | `overridden` | `true` |
 | `LoadBalance.spec.policies` | more than one entry | — |
