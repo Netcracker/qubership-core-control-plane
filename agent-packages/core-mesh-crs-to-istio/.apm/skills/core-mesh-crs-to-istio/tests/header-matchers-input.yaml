@@ -1,0 +1,59 @@
+---
+apiVersion: nc.core.mesh/v3
+kind: RouteConfiguration
+metadata:
+  name: header-matchers
+spec:
+  gateways:
+    - public-gateway-service
+  virtualServices:
+    - name: public-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: echo
+              endpoint: http://echo:8080
+            rules:
+              # Each rule isolates one matcher so the mapping is readable.
+              - match:
+                  prefix: /api/v1/regex
+                  headerMatchers:
+                    - name: x-trace
+                      safeRegexMatch: "[0-9a-f]{8}"
+                allowed: true
+              - match:
+                  prefix: /api/v1/prefix
+                  headerMatchers:
+                    - name: x-version
+                      prefixMatch: v1.2
+                allowed: true
+              - match:
+                  prefix: /api/v1/suffix
+                  headerMatchers:
+                    - name: x-origin
+                      suffixMatch: .internal
+                allowed: true
+              - match:
+                  prefix: /api/v1/present
+                  headerMatchers:
+                    - name: x-tenant
+                      presentMatch: true
+                allowed: true
+              # Not convertible: Gateway API has no negated header match.
+              - match:
+                  prefix: /api/v1/inverted
+                  headerMatchers:
+                    - name: x-debug
+                      exactMatch: "true"
+                      invertMatch: true
+                allowed: true
+              # Not convertible: no numeric range match.
+              - match:
+                  prefix: /api/v1/range
+                  headerMatchers:
+                    - name: x-weight
+                      rangeMatch:
+                        start: 1
+                        end: 10
+                allowed: true

@@ -52,3 +52,24 @@ Compare with `tests/egress-tls-expected-output.yaml`.
 | # | Input | Expected output |
 |---|-------|-----------------|
 | 1 | `TlsDef` `custom-cert` + route prefix `/github` → `https://github.com` | HTTPRoute on Gateway `egress-gateway` (Hostname backend, host rewrite), ServiceEntry, Secret, DestinationRule `tls.mode: SIMPLE` |
+
+---
+
+## Header matchers
+
+One rule per matcher, so the mapping is readable, plus the two Gateway API cannot express.
+
+```text
+Run skill `core-mesh-crs-to-istio` on `tests/header-matchers-input.yaml`.
+
+Compare with `tests/header-matchers-expected-output.yaml`.
+```
+
+| # | Input | Expected output |
+|---|-------|-----------------|
+| 1 | `safeRegexMatch` | `type: RegularExpression`, value verbatim — both sides are RE2 full matches |
+| 2 | `prefixMatch: v1.2` | `value: v1\.2.*` — metacharacter escaped, `.*` required by full-match semantics |
+| 3 | `suffixMatch: .internal` | `value: .*\.internal` |
+| 4 | `presentMatch: true` | `value: .*` |
+| 5 | `invertMatch: true` | header match dropped, `# ⚠ MANUAL REVIEW` — the rule now matches more than the original |
+| 6 | `rangeMatch` | header match dropped, `# ⚠ MANUAL REVIEW` |

@@ -321,17 +321,59 @@ When Rule.allowed is false - omit `backendRefs` field for it. This will force is
 
 ### HeaderMatcher
 
-  JSON key     Go type  Transformation
-  ──────────────────────────────────────────────────────────────────────────
-  name         string   → matches[].headers[].name
-  exactMatch   string   → matches[].headers[].value; omit `type`, since Exact is the
-                          Gateway API default and every example here omits it
-  value        string   → same as exactMatch (legacy alias)
-  prefixMatch / suffixMatch / safeRegexMatch / rangeMatch / presentMatch /
-  invertMatch           OMIT ⚠ flag for MANUAL REVIEW if any is non-empty
+  JSON key        Go type    Transformation
+  ────────────────────────────────────────────────────────────────────────────────
+  name            string     → matches[].headers[].name
+  exactMatch      string     → matches[].headers[].value; omit `type`, since Exact is the
+                               Gateway API default and every example here omits it
+  value           string     → same as exactMatch (legacy alias)
+  safeRegexMatch  string     → type: RegularExpression, value verbatim
+  prefixMatch     string     → type: RegularExpression, value `<escaped>.*`
+  suffixMatch     string     → type: RegularExpression, value `.*<escaped>`
+  presentMatch    bool       true  → type: RegularExpression, value `.*`
+                              false → OMIT ⚠ flag (means "header absent", see Inversion)
+  rangeMatch      RangeMatch OMIT ⚠ flag for MANUAL REVIEW if start or end is set
+  invertMatch     bool       not a matcher — see Inversion below
 
 Source YAML may use `match.headerMatchers` (docs) or `match.headers` (API json tag).
 Treat both as this list.
+
+#### Which specifier wins
+
+Core Mesh sets exactly one specifier, in this order, and ignores the rest:
+
+```text
+suffixMatch → safeRegexMatch → rangeMatch → presentMatch → prefixMatch → exactMatch
+```
+
+Follow the same order when a CR sets more than one, so the converted route matches what the
+original did rather than what the YAML appears to say.
+
+#### Regular expressions are full matches
+
+Core Mesh emits Envoy `safe_regex`, which evaluates as an RE2 **full** match, and Istio compiles
+Gateway API `RegularExpression` to the same. Two consequences:
+
+- `safeRegexMatch` carries over verbatim — the semantics are identical, no anchoring needed.
+- A synthesized prefix must be `<value>.*` and a suffix `.*<value>`. A bare `^<value>` matches
+  nothing under full-match semantics, and the route would silently stop matching.
+
+Escape RE2 metacharacters in the literal before synthesizing: `prefixMatch: v1.2` becomes
+`v1\.2.*`, not `v1.2.*`, which would also match `v1x2`.
+
+#### Inversion
+
+`invertMatch` is a modifier on whichever specifier is set, not a specifier of its own — Core Mesh
+builds the matcher and then negates it. Gateway API has no negated header match: `HTTPHeaderMatch`
+offers only `Exact` and `RegularExpression`, with no inversion field. Istio's own `VirtualService`
+has `withoutHeaders`, but that is not Gateway API and not what this mapping emits.
+
+So `invertMatch: true` makes the whole matcher unconvertible whatever else it sets: OMIT the header
+match and `# ⚠ MANUAL REVIEW`. The same applies to `presentMatch: false`, which is inversion by
+another name.
+
+Dropping an inverted matcher **widens** the route — it will match requests the original excluded —
+so the flag has to be acted on rather than noted.
 
 ---
 
