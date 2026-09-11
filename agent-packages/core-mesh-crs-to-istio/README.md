@@ -1,10 +1,11 @@
 # core-mesh-crs-to-istio
 
 An APM package that converts Qubership Cloud-Core Mesh custom resources in a
-Helm chart (`FacadeService`, `Gateway`, `RouteConfiguration`, `StatefulSession`,
-`LoadBalance`, `HttpFilters`) to Istio Ambient Mesh resources — Gateway API
-`Gateway` + `HTTPRoute`, `DestinationRule`, and `TrafficExtension` — in a single
-pass, while keeping the chart deployable on **both** mesh types.
+Helm chart (`FacadeService`, `Gateway`, `RouteConfiguration`, `TlsDef`,
+`StatefulSession`, `LoadBalance`, `HttpFilters`) to Istio Ambient Mesh resources
+— Gateway API `Gateway` + `HTTPRoute`, `DestinationRule`, `ServiceEntry`, and
+`TrafficExtension` — in a single pass, while keeping the chart deployable on
+**both** mesh types.
 
 ## Install
 
@@ -24,6 +25,7 @@ pick up a new version.
   - [`facade-service-mapping.md`](.apm/skills/core-mesh-crs-to-istio/facade-service-mapping.md)
   - [`gateway-mapping.md`](.apm/skills/core-mesh-crs-to-istio/gateway-mapping.md)
   - [`route-configuration-mapping.md`](.apm/skills/core-mesh-crs-to-istio/route-configuration-mapping.md)
+  - [`tls-def-mapping.md`](.apm/skills/core-mesh-crs-to-istio/tls-def-mapping.md)
   - [`stateful-session-rule-mapping.md`](.apm/skills/core-mesh-crs-to-istio/stateful-session-rule-mapping.md)
   - [`stateful-session-mapping.md`](.apm/skills/core-mesh-crs-to-istio/stateful-session-mapping.md)
   - [`load-balance-mapping.md`](.apm/skills/core-mesh-crs-to-istio/load-balance-mapping.md)

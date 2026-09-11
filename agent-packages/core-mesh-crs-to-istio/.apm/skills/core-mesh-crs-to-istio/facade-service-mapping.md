@@ -76,3 +76,11 @@ IF FacadeService contains `spec.gateway` field
   memorize `spec.gateway` value as corresponding mesh Gateway name
 ELSE 
   memorize `metadata.name` + "-gateway" as corresponding mesh Gateway name
+
+---
+
+### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
+
+| Source | Field | Trigger |
+|---|---|---|
+| `FacadeService` | neither `spec.port` nor `spec.gatewayPorts` | — |

@@ -3,7 +3,6 @@ apiVersion: nc.core.mesh/v3
 kind: StatefulSession
 metadata:
   name: trace-service-sticky
-  namespace: {{ .Release.Namespace }}
 spec:
   gateways: ["public-gateway-service"]
   cluster: trace-service
@@ -18,7 +17,6 @@ apiVersion: nc.core.mesh/v3
 kind: StatefulSession
 metadata:
   name: trace-service-sticky-v2
-  namespace: {{ .Release.Namespace }}
 spec:
   gateways: ["public-gateway-service"]
   cluster: trace-service.{{ .Release.Namespace }}:8080
@@ -32,7 +30,6 @@ apiVersion: nc.core.mesh/v3
 kind: StatefulSession
 metadata:
   name: trace-service-endpoint-sticky
-  namespace: {{ .Release.Namespace }}
 spec:
   cluster: trace-service
   hostname: trace-service-v1
@@ -47,7 +44,6 @@ apiVersion: nc.core.mesh/v3
 kind: StatefulSession
 metadata:
   name: trace-service-disabled
-  namespace: {{ .Release.Namespace }}
 spec:
   cluster: trace-service
   enabled: false
@@ -60,7 +56,6 @@ apiVersion: nc.core.mesh/v3
 kind: LoadBalance
 metadata:
   name: trace-service-lb-header
-  namespace: {{ .Release.Namespace }}
 spec:
   cluster: trace-service
   version: v1
@@ -72,7 +67,6 @@ apiVersion: nc.core.mesh/v3
 kind: LoadBalance
 metadata:
   name: trace-service-lb-cookie
-  namespace: {{ .Release.Namespace }}
 spec:
   cluster: trace-service.{{ .Release.Namespace }}
   policies:
@@ -85,7 +79,6 @@ apiVersion: nc.core.mesh/v3
 kind: LoadBalance
 metadata:
   name: trace-service-lb-sourceip
-  namespace: {{ .Release.Namespace }}
 spec:
   cluster: trace-service
   policies:
@@ -96,7 +89,6 @@ apiVersion: nc.core.mesh/v3
 kind: LoadBalance
 metadata:
   name: trace-service-lb-multi
-  namespace: {{ .Release.Namespace }}
 spec:
   cluster: trace-service
   policies:

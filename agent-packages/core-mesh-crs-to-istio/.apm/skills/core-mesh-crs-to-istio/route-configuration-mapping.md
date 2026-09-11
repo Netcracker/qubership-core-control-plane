@@ -36,82 +36,11 @@ Input fields → Output fields:
     
     HTTPRoute.metadata.name = Mesh CR metadata.name + "-" + virtualService.name
 
-###  RouteConfiguration.spec.gateways to HTTPRoute.spec.parentRefs resolution (priority order)
+### RouteConfiguration.spec.gateways to HTTPRoute.spec.parentRefs
 
-Source field: 
-    
-    RouteConfiguration.spec.gateways
+A priority-ordered procedure of its own — see
+[parent-refs-resolution.md](parent-refs-resolution.md).
 
-Target field: 
-
-    HTTProute.spec.parentRefs
-
-Mapping:
-
-  PRIORITY 1 — Platform gateway table:
-
-    parentRef type: Gateway
-    mapping: one-to-one 
-    condition: gateway is in list of platform Gateways
-    parentRef name resolution:
-        source name              parentRef name
-        public-gateway-service  → public-gateway
-        private-gateway-service → private-gateway
-        egress-gateway          → egress-gateway
-
-        kind: Gateway
-        group: gateway.networking.k8s.io
-
-Example:
-```yaml
-spec: 
-    parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: <platform Gateway name, e.g. public-gateway>
-```
-
-  PRIORITY 2 — ingress/egress gateway:
-
-    parentRef type: Gateway
-    mapping: one-to-one 
-    condition: gateway is in list of discovered ingress/egress Gateways
-    parentRef name resolution:
-        name = ingress/egress Gateway name
-
-        kind: Gateway
-        group: gateway.networking.k8s.io
-        name: <gateway metadata.name value>
-
-Example:
-```yaml
-spec: 
-    parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway    
-      name: <ingress/egress Gateway name>
-```
-
-  PRIORITY 3 — Internal gateway or mesh Gateway:
-
-    parentRef type: Service
-    mapping: one-to-many (one parentRef per host entry)
-    condition: gateway = `internal-gateway-service` OR gateway is in list of discovered mesh Gateways
-    parentRef name resolution:
-        normalized host from virtualService.hosts[]
-
-Example:
-```yaml
-spec:
-    parentRefs:
-    - kind: Service
-      group: ''
-      name: <normalized host from virtualService.hosts[0]>
-    - kind: Service
-      group: ''
-      name: <normalized host from virtualService.hosts[1]>
-    ...        
-```
 ---
 
 ### VirtualService
@@ -125,6 +54,25 @@ spec:
   removeHeaders       []string             → RequestHeaderModifier filter remove[] (virtualService-level)
   routeConfiguration  RouteConfig          → HTTPRoute rules[]
   overridden          bool                 OMIT  ⚠ flag for MANUAL REVIEW if non-empty
+
+#### One virtualService name, several RouteConfigurations
+
+Core Mesh keys a virtual host on `(gateway, virtualServices[].name)`, so every RouteConfiguration
+that reuses a name on the same gateway contributes routes to one Envoy virtual host, and the
+virtual-host-level `addHeaders` / `removeHeaders` of those CRs collapse into a single list —
+one wins and the others are silently dropped. Charts hit this on `egress-gateway`, where several
+RouteConfigurations conventionally use the same `egress-gw` virtual service.
+
+Istio has no shared object: each RouteConfiguration becomes its own HTTPRoute and carries its own
+copy of that CR's virtual-service-level headers, so after migration every CR's headers apply to its
+own routes. A header the collapse used to discard starts being applied.
+
+Scan the whole chart for the name before emitting virtual-service-level headers. A CR that declares
+none — every header list rule-level — cannot collide and needs no scan. When the scan is not
+possible, say so in the report rather than assuming either answer. When more than one
+RouteConfiguration on the same gateway declares it with a different `addHeaders` / `removeHeaders`,
+emit each HTTPRoute's own list and add `# ⚠ MANUAL REVIEW` recording that Core Mesh applied only one
+of them. Rule-level headers are unaffected — they belong to a single route in both meshes.
 
 
 ### HTTPRoute.spec.hostnames resolution
@@ -172,15 +120,33 @@ shared procedure in
   JSON key       Go type         Transformation
   ──────────────────────────────────────────────────────────────────────────────────
   endpoint       string          → parse host + port for HTTPRoute.spec.rules[].backendRefs[].name and .port
-  cluster        string          ignore
+  cluster        string          ignore for in-cluster backends; egress external
+                                 destinations use it as ServiceEntry metadata.name
+                                 (see [tls-def-mapping.md](tls-def-mapping.md))
   tlsSupported   bool            ignore
-  tlsEndpoint    string          ignore
+  tlsEndpoint    string          egress external destination: parse host and port from it
+                                 instead of `endpoint` when non-empty, and ⚠ MANUAL REVIEW.
+                                 In-cluster destination: ignore, no flag.
+                                 See "tlsEndpoint on an egress destination" in
+                                 [tls-def-mapping.md](tls-def-mapping.md)
   httpVersion    *int32          OMIT ⚠ flag for MANUAL REVIEW if non-empty
-  tlsConfigName  string          ignore
+  tlsConfigName  string          ignore for in-cluster backends; on an egress
+                                 gateway this selects a cluster-level TlsDef
+                                 (see [tls-def-mapping.md](tls-def-mapping.md))
   circuitBreaker CircuitBreaker  OMIT ⚠ flag for MANUAL REVIEW if non-empty
   tcpKeepalive   *TcpKeepalive   OMIT ⚠ flag for MANUAL REVIEW if non-empty
 
+When this RouteConfiguration attaches to a resolved **egress** gateway, resolve each
+destination with [tls-def-mapping.md](tls-def-mapping.md) **before** the in-cluster
+parser below. That mapping emits ServiceEntry, Secret, DestinationRule, Hostname
+`backendRef`, and Host rewrite for `https://` / `tlsConfigName` / FQDN endpoints.
+
 #### Endpoint to backendRef resolution
+
+On an egress external destination, resolve the address from `tlsEndpoint` first when it is set —
+see [tls-def-mapping.md](tls-def-mapping.md), "tlsEndpoint on an egress destination". The parser
+below is otherwise unchanged.
+
 
 Endpoint parsing — pattern: http://<name>:<port>
     
@@ -213,15 +179,20 @@ Output:
 ```
 
 ---
-w
+
 ### Rule
 
   JSON key        Go type            Transformation
   ────────────────────────────────────────────────────────────────────────────────────────
   match           RouteMatch         → matches[] (see RouteMatch below)
   prefixRewrite   string             → URLRewrite filter path.ReplacePrefixMatch (when non-empty)
-  hostRewrite     string             → URLRewrite filter hostname (when non-empty)
+  hostRewrite     string             → URLRewrite filter hostname (when non-empty).
+                                       Egress external destinations always set hostname
+                                       to the endpoint host even if this field is empty
+                                       — see [tls-def-mapping.md](tls-def-mapping.md)
   addHeaders      []HeaderDefinition → RequestHeaderModifier add[] (rule-level, merged with VS-level)
+                  (filters[] order: RequestHeaderModifier first, then URLRewrite. Gateway API does
+                   not order these two, so this is for diffability against a regenerated file)
   removeHeaders   []string           → RequestHeaderModifier remove[] (rule-level, merged with VS-level)
   timeout         *int64             → timeouts.request: "<value>ms"  (value is milliseconds)
   allowed         *bool              → when false then refer to `Not allowed rule processing`
@@ -254,10 +225,59 @@ When Rule.allowed is false - omit `backendRefs` field for it. This will force is
 
 ### HeaderMatcher
 
-  JSON key  Go type  Transformation
-  ──────────────────────────────────────────────────────────
-  name      string   → matches[].headers[].name
-  value     string   → matches[].headers[].value  (type: Exact)
+  JSON key        Go type    Transformation
+  ────────────────────────────────────────────────────────────────────────────────
+  name            string     → matches[].headers[].name
+  exactMatch      string     → matches[].headers[].value; omit `type`, since Exact is the
+                               Gateway API default and every example here omits it
+  value           string     → same as exactMatch (legacy alias)
+  safeRegexMatch  string     → type: RegularExpression, value verbatim
+  prefixMatch     string     → type: RegularExpression, value `<escaped>.*`
+  suffixMatch     string     → type: RegularExpression, value `.*<escaped>`
+  presentMatch    bool       true  → type: RegularExpression, value `.*`
+                              false → OMIT ⚠ flag (means "header absent", see Inversion)
+  rangeMatch      RangeMatch OMIT ⚠ flag for MANUAL REVIEW if start or end is set
+  invertMatch     bool       not a matcher — see Inversion below
+
+Source YAML may use `match.headerMatchers` (docs) or `match.headers` (API json tag).
+Treat both as this list.
+
+#### Which specifier wins
+
+Core Mesh sets exactly one specifier, in this order, and ignores the rest:
+
+```text
+suffixMatch → safeRegexMatch → rangeMatch → presentMatch → prefixMatch → exactMatch
+```
+
+Follow the same order when a CR sets more than one, so the converted route matches what the
+original did rather than what the YAML appears to say.
+
+#### Regular expressions are full matches
+
+Core Mesh emits Envoy `safe_regex`, which evaluates as an RE2 **full** match, and Istio compiles
+Gateway API `RegularExpression` to the same. Two consequences:
+
+- `safeRegexMatch` carries over verbatim — the semantics are identical, no anchoring needed.
+- A synthesized prefix must be `<value>.*` and a suffix `.*<value>`. A bare `^<value>` matches
+  nothing under full-match semantics, and the route would silently stop matching.
+
+Escape RE2 metacharacters in the literal before synthesizing: `prefixMatch: v1.2` becomes
+`v1\.2.*`, not `v1.2.*`, which would also match `v1x2`.
+
+#### Inversion
+
+`invertMatch` is a modifier on whichever specifier is set, not a specifier of its own — Core Mesh
+builds the matcher and then negates it. Gateway API has no negated header match: `HTTPHeaderMatch`
+offers only `Exact` and `RegularExpression`, with no inversion field. Istio's own `VirtualService`
+has `withoutHeaders`, but that is not Gateway API and not what this mapping emits.
+
+So `invertMatch: true` makes the whole matcher unconvertible whatever else it sets: OMIT the header
+match and `# ⚠ MANUAL REVIEW`. The same applies to `presentMatch: false`, which is inversion by
+another name.
+
+Dropping an inverted matcher **widens** the route — it will match requests the original excluded —
+so the flag has to be acted on rather than noted.
 
 ---
 
@@ -278,3 +298,18 @@ When Rule.allowed is false - omit `backendRefs` field for it. This will force is
   → See [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md).
   → A DestinationRule is generated for the route's destination host.
   → The DestinationRule is written after the HTTPRoute in the same output file (`---` separator).
+
+---
+
+### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
+
+| Source | Field | Trigger |
+|---|---|---|
+| `RouteConfiguration.spec` | `overridden` | non-empty |
+| `VirtualService` | `rateLimit` / `overridden` | non-empty |
+| `VirtualService.hosts[]` | `*` host | appears on an east-west (mesh) route |
+| `RouteDestination` | `cluster` / `httpVersion` / `circuitBreaker` / `tcpKeepalive` | non-empty; `cluster` is **not** flagged on egress external destinations (used as ServiceEntry name) |
+| `VirtualService.name` | reused on the same gateway **and this CR emits virtual-service-level headers** | the reused names carry different `addHeaders` / `removeHeaders`; Core Mesh keeps one list, Istio gives each HTTPRoute its own. A CR whose headers are all rule-level does not fire this |
+| `RouteV3.Rule` | `idleTimeout` / `rateLimit` / `deny` | non-empty / non-nil |
+| `HeaderMatcher` | `invertMatch: true` or `presentMatch: false` | Gateway API has no negated header match; dropping it widens the route |
+| `HeaderMatcher` | `rangeMatch` | numeric range has no Gateway API equivalent |

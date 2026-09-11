@@ -2,11 +2,11 @@
 name: core-mesh-crs-to-istio
 description: >
   Convert Qubership Cloud-Core Mesh CRs in a Helm chart (FacadeService, Gateway,
-  RouteConfiguration, StatefulSession, LoadBalance, HttpFilters) to Istio Ambient
-  Mesh resources (Gateway API Gateway + HTTPRoute, DestinationRule,
-  TrafficExtension), keeping the chart deployable on both mesh types. Use when
-  asked to migrate, convert, or transform mesh CRs in a Helm chart to Istio, or
-  as a sub-skill of core-mesh-to-istio-migration.
+  RouteConfiguration, TlsDef, StatefulSession, LoadBalance, HttpFilters) to Istio
+  Ambient Mesh resources (Gateway API Gateway + HTTPRoute, DestinationRule,
+  ServiceEntry, TrafficExtension), keeping the chart deployable on both mesh types.
+  Use when asked to migrate, convert, or transform mesh CRs in a Helm chart to Istio,
+  or as a sub-skill of core-mesh-to-istio-migration.
 ---
 
 # Qubership Cloud Core Mesh CRs → Istio Ambient Mesh — Helm Transformer
@@ -22,6 +22,8 @@ This skill transforms Helm chart templates from the homegrown **Cloud Core Mesh*
 | `Gateway` (`spec.type: mesh`) | omitted — routes become east-west `HTTPRoute` (parents are Services) |
 | `FacadeService` | `Service` (HTTPRoute parent); also resolves mesh gateway name via `spec.gateway` |
 | `RouteConfiguration` | `HTTPRoute` per virtualService; rule-level `statefulSession` → `DestinationRule` |
+| `RouteConfiguration` on an egress gateway with `https://` / `tlsConfigName` | HTTPRoute Hostname backend + `ServiceEntry` + TLS `DestinationRule` (see [tls-def-mapping.md](tls-def-mapping.md)) |
+| `TlsDef` | `Secret` (CA / client cert) referenced by `DestinationRule.credentialName`; `kubernetes.io/tls` when it carries a client cert |
 | `StatefulSession` (standalone) | `DestinationRule` with `consistentHash.httpCookie` |
 | `LoadBalance` | `DestinationRule` with `consistentHash.*` |
 | `HttpFilters` + `RouteConfiguration` rules with `luaFilter` | `TrafficExtension` (requires Istio ≥ 1.30) |
@@ -58,7 +60,10 @@ delegated run must always be `interactive: false`.
 In addition to the chat Output Summary, write a machine-readable report to
 `.mesh-migration/reports/core-mesh-crs-to-istio.yaml` (create the directory, and ensure
 `.mesh-migration/` is listed in the repo's `.gitignore` — reports are working
-files, never committed; the orchestrator handles both in orchestrated runs):
+files, never committed). In an orchestrated run the orchestrator creates the
+directory and the `.gitignore` entry, and this skill writes only the report. In a
+direct run it does both itself, which is the one edit it makes outside
+`chartPath`:
 
 ```yaml
 reportSchema: 1
@@ -75,6 +80,8 @@ resources:
   statefulSession: <N>
   loadBalance: <N>
   luaFilters: <N>
+  tlsDef: <N>
+  serviceEntry: <N>
   skipped: <N>
 backendRef:
   name: <value or null>
@@ -99,8 +106,17 @@ mismatch instead of guessing field meanings.
 
 ### Side effects
 
-Modifies only mesh-CR files and their `-istio` siblings, `values.yaml`, and
-`values.schema.json` under `chartPath`, plus the report file.
+Modifies only:
+
+- mesh-CR files and their `-istio` siblings, under `chartPath`
+- `values.yaml` and `values.schema.json`, under `chartPath`
+- the report file at `.mesh-migration/reports/core-mesh-crs-to-istio.yaml`
+- `.gitignore`, to add `.mesh-migration/` if it is not already listed — the only
+  permitted edit outside `chartPath`, and only that one line. A direct run makes
+  it; an orchestrated run leaves `.gitignore` to the orchestrator
+
+Nothing else. This list is the boundary — if a rule elsewhere appears to ask for
+a write not on it, the list wins and the rule is wrong.
 
 ---
 
@@ -116,8 +132,10 @@ documents in the same file.
 
 **Do NOT touch** (do not edit, wrap, reformat, or generate siblings for):
 
-- Deployments, Services, ConfigMaps, Secrets, ServiceAccounts, HPAs, PVCs,
+- Deployments, Services, ConfigMaps, ServiceAccounts, HPAs, PVCs,
   Ingresses, NetworkPolicies, CronJobs, or any other non-mesh kind.
+  **Exception:** a `Secret` generated from a `TlsDef` (see
+  [tls-def-mapping.md](tls-def-mapping.md)) is in scope; do not edit any other Secret.
 - `_helpers.tpl` / any `*.tpl` files and the named template helpers
   (`{{- define }}` / `{{- include }}`) they contain. Do **not** trigger on a
   template helper just because it appears in a chart — only the rendered mesh CR
@@ -152,6 +170,7 @@ grep -rl \
   -e 'kind: StatefulSession' \
   -e 'kind: LoadBalance' \
   -e 'kind: HttpFilters' \
+  -e 'kind: TlsDef' \
   --include="*.yaml" --include="*.yml" \
   <folder>
 ```
@@ -218,6 +237,11 @@ review instead.
 untouched — never nest a second guard. This matters on a follow-up run with
 `resolutions`, where previously processed documents are already wrapped.
 
+A guard the document shares with others counts: one guard around a whole file
+leaves every document in it already guarded, and the file is left alone. Do not
+split a shared guard into per-document ones — the rendered output is the same and
+the rewrite is pure churn.
+
 In the **original files**, wrap each not-yet-guarded mesh CR document with the
 Core guard:
 
@@ -230,7 +254,10 @@ kind: Mesh
 ```
 
 Legacy declarative files keep their `nc.core.mesh/*` apiVersion inside the guard.
-For multi-document YAML files (separated by `---`): wrap each document individually.
+For multi-document YAML files (separated by `---`), this governs how a guard is **added**
+to documents that lack one: wrap each not-yet-guarded document individually. It does not
+ask you to normalize a file that is already guarded — one shared guard around several
+documents leaves each of them enclosed, so the file is left alone.
 
 ### Step 4 — Generate Istio files (single pass)
 
@@ -242,6 +269,7 @@ Create a **new file** for each original, with `-istio` before the extension:
 ```text
 templates/gateway.yaml           → templates/gateway-istio.yaml
 templates/route-config.yaml      → templates/route-config-istio.yaml
+templates/tls-def.yaml           → templates/tls-def-istio.yaml
 templates/stateful-session.yaml  → templates/stateful-session-istio.yaml
 templates/load-balance.yaml      → templates/load-balance-istio.yaml
 templates/http-filters.yaml      → templates/http-filters-istio.yaml
@@ -262,7 +290,10 @@ Process CR kinds in this order, following the mapping reference for each:
 3. List in chat all resolved gateways: mesh gateways and ingress/egress gateways.
 4. `RouteConfiguration` CRs → [route-configuration-mapping.md](route-configuration-mapping.md);
    rule-level `statefulSession` → [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md)
-   (DestinationRule in the same output file, after the HTTPRoute, `---` separated)
+   (DestinationRule in the same output file, after the HTTPRoute, `---` separated).
+   Egress destinations (`https://`, `tlsConfigName`, FQDN) →
+   [tls-def-mapping.md](tls-def-mapping.md) (ServiceEntry, Secret, TLS DestinationRule
+   in the same output file, after the HTTPRoute).
 5. Sort each HTTPRoute's `rules[]` by path specificity per the shared procedure in
    [path-specificity-sorting](../path-specificity-sorting/SKILL.md)
    (sort on each rule's `match.prefix` / `match.path` / `match.regExp` value)
@@ -271,6 +302,8 @@ Process CR kinds in this order, following the mapping reference for each:
 8. `HttpFilters` + `RouteConfiguration` rules with `luaFilter` →
    [lua-filter-mapping.md](lua-filter-mapping.md). Input is one pair with matching
    gateways; when a chart defines Lua on several gateways, process once per pair.
+9. Leftover `TlsDef` CRs that no egress destination consumed → Secret only plus
+   `# ⚠ MANUAL REVIEW` per [tls-def-mapping.md](tls-def-mapping.md).
 
 **One DestinationRule per host:** a rule-level `statefulSession` and a standalone
 `StatefulSession` / `LoadBalance` CR may target the same `spec.host`, and Istio's
@@ -291,7 +324,8 @@ migrated chart contains only routes for its own service**.
    "Endpoint to backendRef resolution"), collect the parsed `(name, port)` pairs.
 2. Exclude destinations whose `name` is a well-known platform gateway service
    (`public-gateway-service`, `private-gateway-service`, `internal-gateway-service`,
-   `egress-gateway`).
+   `egress-gateway`), and exclude **egress external** destinations (Hostname
+   backends / `https://` / FQDN hosts from [tls-def-mapping.md](tls-def-mapping.md)).
 3. Determine the result:
    - **Exactly one distinct `(name, port)` remains** → that is the detected
      `backendRefName` / `backendRefPort`. Preserve Helm expressions verbatim.
@@ -344,10 +378,19 @@ below, skip — do not duplicate keys or nest a second copy.
 ### Step 8 — Preserve Helm templating
 
 - Keep all `{{ .Values.X }}` expressions — never hardcode parameterized values
-- Always use `{{ .Release.Namespace }}` for namespace fields
+- An `indent N` inside a preserved expression is the exception to "verbatim": it encodes the
+  depth of the block scalar it feeds, so recompute `N` for the target nesting and leave the
+  rest of the expression untouched. A `TlsDef` PEM moving from `spec.tls.trustedCA` (depth 6)
+  to a Secret's `stringData.ca.crt` (depth 4) becomes `| indent 4`; copying `indent 6` yields
+  YAML that parses but leaves two stray spaces on every PEM line, and the certificate no
+  longer loads
+- Do not set `metadata.namespace` on generated resources — Helm installs them
+  into the release namespace, and a source CR's namespace is not carried over
 - Preserve `{{- if }}` conditionals, `{{- range }}` loops, `{{- include }}` calls
 - If a named helper produces mesh-specific output, add `# ⚠ MANUAL REVIEW`
-- Do not add comments to generated resources
+- Do not add comments to generated resources, with one exception: `# ⚠ MANUAL REVIEW`
+  markers, which exist only as comments and are required wherever a trigger fires.
+  The bar is on explanatory or decorative comments, not on review markers
 
 ### Step 9 — Validation checklist
 
@@ -357,8 +400,14 @@ After generating all files, verify:
 - [ ] Every original file's CRs are wrapped in `Core` condition
 - [ ] Every autogenerated file's resources are wrapped in `Istio` condition
 - [ ] Every `FacadeService` produces a `Service` (no `FacadeService` kind in Istio output); no `mesh` type Gateways — only their derived HTTPRoutes
-- [ ] All `ingress` / `egress` type Gateways (and `egress-gateway` by name) produce an Istio Gateway
+- [ ] Every `ingress` / `egress` type Gateway **CR defined in this chart** produces an Istio
+      Gateway. A chart that only routes to a platform gateway — `egress-gateway` and the other
+      well-known names in [parent-refs-resolution.md](parent-refs-resolution.md) — defines no
+      Gateway CR and must not invent one; it would collide with the platform-owned object
 - [ ] `RouteConfiguration` → HTTPRoute parentRefs correctly use Gateway or Service kind
+- [ ] Egress `https://` / `tlsConfigName` destinations → ServiceEntry + Hostname backendRef
+      + TLS DestinationRule / Secret per [tls-def-mapping.md](tls-def-mapping.md)
+- [ ] `TlsDef` wrapped in Core guard; `tls.enabled: false` / empty `tls` skip Istio TLS output
 - [ ] Each HTTPRoute's `rules[]` are sorted by path specificity (most specific first)
 - [ ] Rule-level `statefulSession` → DestinationRule added to the same output file
 - [ ] `StatefulSession` with cookie → DestinationRule generated; delete/disabled requests skipped
@@ -376,29 +425,24 @@ After generating all files, verify:
 
 ## Fields that MUST be flagged with `⚠ MANUAL REVIEW`
 
-When the listed field is non-empty / non-nil on the source CR, omit it from the
-Istio output (unless a mapping says otherwise) **and** leave a `# ⚠ MANUAL REVIEW`
-comment on the generated resource (or on the Core-guarded original if the
-resource is fully omitted).
+Each mapping file owns the triggers for the CR it converts, next to the rules they qualify, so a
+trigger and its mapping cannot drift apart:
 
-| Source | Field | Trigger |
-|---|---|---|
-| `RouteConfiguration.spec` | `overridden` | non-empty |
-| `VirtualService` | `rateLimit` / `overridden` | non-empty |
-| `VirtualService.hosts[]` | `*` host | appears on an east-west (mesh) route |
-| `RouteDestination` | `cluster` / `httpVersion` / `circuitBreaker` / `tcpKeepalive` | non-empty |
-| `RouteV3.Rule` | `idleTimeout` / `rateLimit` / `deny` | non-empty / non-nil |
-| `Rule` | `luaFilter` | name not found in `HttpFilters.spec.luaFilters` |
-| `StatefulSession.spec` | `hostname` / `port` | non-empty |
-| `StatefulSession.spec` / `LoadBalance.spec` | `overridden` | `true` |
-| `LoadBalance.spec.policies` | more than one entry | — |
-| `DestinationRule` | conflicting policies for one `spec.host` | rule-level vs standalone source |
-| `TrafficExtension` | path-scoped script | same `luaFilter` name used on rules with different prefixes |
-| `HttpFilters` / `RouteConfiguration` | `gateways` | gateway context cannot be classified |
-| `FacadeService` | neither `spec.port` nor `spec.gatewayPorts` | — |
-| Any template helper | `{{- include ... }}` renders mesh CRs | — |
+| CR | Triggers |
+|---|---|
+| `FacadeService` | [facade-service-mapping.md](facade-service-mapping.md) |
+| `RouteConfiguration` | [route-configuration-mapping.md](route-configuration-mapping.md) |
+| `TlsDef` and egress destinations | [tls-def-mapping.md](tls-def-mapping.md) |
+| `StatefulSession` (standalone) | [stateful-session-mapping.md](stateful-session-mapping.md) |
+| `StatefulSession` (rule-level) | [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md) |
+| `LoadBalance` | [load-balance-mapping.md](load-balance-mapping.md) |
+| `HttpFilters` / Lua | [lua-filter-mapping.md](lua-filter-mapping.md) |
 
----
+One trigger belongs to no single CR:
+
+| Source | Trigger |
+|---|---|
+| Any template helper | `{{- include ... }}` renders mesh CRs — the helper is out of scope, so its output is unconverted |
 
 ## Output Summary (report after completion)
 
@@ -419,13 +463,17 @@ Resources transformed:
   StatefulSession           → DestinationRule (<N> instances)
   LoadBalance               → DestinationRule (<N> instances)
   Lua filters               → TrafficExtension (<N> instances)
-  Skipped (no cookie / disabled / no policies / no luaFilters): <N>
+  TlsDef                    → Secret + TLS DestinationRule (<N> instances)
+  Egress external hosts     → ServiceEntry (<N> instances)
+  Skipped (no cookie / disabled / no policies / no luaFilters / disabled TlsDef): <N>
 
 Detected backend reference (for code-generated HTTPRoutes / Maven plugin):
   backendRefName: <name or "unresolved">
   backendRefPort: <port or "unresolved">
   # if unresolved, state why: no RouteConfiguration destinations found
   #                           | conflicting backends: <list of name:port>
+  #                           | all destinations excluded (egress-external or
+  #                             platform gateway) — nothing to detect, not a failure
 
 Detected output labels (for Maven plugin / code-generated HTTPRoutes):
   labels: <k1=v1, k2=v2, ... or "unresolved">
@@ -446,6 +494,7 @@ field-by-field rules, and full examples:
 - [facade-service-mapping.md](facade-service-mapping.md) — FacadeService → Service
 - [gateway-mapping.md](gateway-mapping.md) — Gateway → Istio Gateway
 - [route-configuration-mapping.md](route-configuration-mapping.md) — RouteConfiguration → HTTPRoute
+- [tls-def-mapping.md](tls-def-mapping.md) — egress TlsDef + https destinations → Secret, ServiceEntry, DestinationRule
 - [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md) — Rule-level StatefulSession → DestinationRule
 - [stateful-session-mapping.md](stateful-session-mapping.md) — Standalone StatefulSession → DestinationRule
 - [load-balance-mapping.md](load-balance-mapping.md) — LoadBalance → DestinationRule

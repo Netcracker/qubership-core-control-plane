@@ -8,7 +8,8 @@ Step 6 (`labels.values`).
 When the source CR has `metadata.labels`:
 
 1. Copy **all** labels onto every generated Istio resource from that CR
-   (`HTTPRoute`, `Gateway`, `DestinationRule`, `TrafficExtension`, `Service`).
+   (`HTTPRoute`, `Gateway`, `DestinationRule`, `TrafficExtension`, `Service`,
+   `ServiceEntry`, `Secret`).
 2. Replace any label **value** that equals `core-operator` with `istiod`
    (typical key: `app.kubernetes.io/managed-by`).
 3. Preserve Helm expressions verbatim (`{{ .Values.* }}`).
