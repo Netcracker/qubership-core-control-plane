@@ -182,19 +182,23 @@ func contains(applied migrate.MigrationSlice, migration migrate.Migration) bool 
 
 // Main constructor
 func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
-	user := cfg.GetDBUserName()
-	password := cfg.GetDBPassword()
-	database := cfg.GetDBName()
-	host := cfg.GetDBHost()
-	port := cfg.GetDBPort()
-	role := cfg.GetDBRole()
-
-	if user == "" || password == "" || database == "" || host == "" || role == "" {
-		log.PanicC(ctx, "Database name, username, password, role or address must not be empty")
-	}
-	log.InfoC(ctx, "For connection to postgres, using database=%s on host=%s, port=%s with username=%s", database, host, port, user)
-
 	getProvider := func() (db.DBProvider, error) {
+		if cfg == nil {
+			return db.NewDBProvider(dbaasbase.NewDbaaSPool())
+		}
+
+		user := cfg.GetDBUserName()
+		password := cfg.GetDBPassword()
+		database := cfg.GetDBName()
+		host := cfg.GetDBHost()
+		port := cfg.GetDBPort()
+		role := cfg.GetDBRole()
+
+		if user == "" || password == "" || database == "" || host == "" || role == "" {
+			log.PanicC(ctx, "Database name, username, password, role or address must not be empty")
+		}
+		log.InfoC(ctx, "For connection to postgres, using database=%s on host=%s, port=%s with username=%s", database, host, port, user)
+
 		provider := NewDbaasAggregatorLogicalDbProvider(cfg)
 		poolOptions := model.PoolOptions{
 			LogicalDbProviders: []model.LogicalDbProvider{provider},
