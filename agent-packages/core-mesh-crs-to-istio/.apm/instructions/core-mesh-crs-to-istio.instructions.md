@@ -4,7 +4,7 @@ applyTo: "**/*.{yaml,yml}"
 ---
 
 When editing Helm templates (`*.yaml` / `*.yml`) that contain Cloud-Core Mesh
-custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`, `Mesh`,
-`StatefulSession`, `LoadBalance`, `HttpFilters`) and asked to migrate, convert,
-or transform them to Istio / Gateway API, apply the `core-mesh-crs-to-istio`
-skill.
+custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`, `TlsDef`,
+`Mesh`, `StatefulSession`, `LoadBalance`, `HttpFilters`) and asked to migrate,
+convert, or transform them to Istio / Gateway API, apply the
+`core-mesh-crs-to-istio` skill.

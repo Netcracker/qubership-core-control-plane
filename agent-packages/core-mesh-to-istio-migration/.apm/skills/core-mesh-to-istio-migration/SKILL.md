@@ -311,7 +311,9 @@ report that Steps 2.3 and 2.4 read for `backendRef` and `labels.values`.
    guards, generate `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`,
    convert `Gateway(ingress/egress)` → Istio Gateway, convert
    `RouteConfiguration` → HTTPRoute (including any rule-level `statefulSession`
-   → `DestinationRule`), convert `FacadeService` → `Service`, omit mesh-type
+   → `DestinationRule`), convert egress `TlsDef` + `https://` destinations →
+   `ServiceEntry` + cert `Secret` + TLS-origination `DestinationRule`, convert
+   `FacadeService` → `Service`, omit mesh-type
    `Gateway` (generates east-west HTTPRoutes instead, where parent is of kind
    Service, processed by waypoint proxy), convert standalone `StatefulSession` /
    `LoadBalance` →

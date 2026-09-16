@@ -4,7 +4,6 @@ kind: Mesh
 subKind: HttpFilters
 metadata:
   name: catalog-lua-filters
-  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/processed-by-operator: "core-operator"
 spec:
@@ -26,7 +25,6 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: catalog-routes
-  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/processed-by-operator: "core-operator"
 spec:
@@ -52,7 +50,6 @@ kind: Mesh
 subKind: HttpFilters
 metadata:
   name: catalog-mesh-lua-filters
-  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/processed-by-operator: "core-operator"
 spec:
@@ -74,7 +71,6 @@ kind: Mesh
 subKind: RouteConfiguration
 metadata:
   name: catalog-mesh-routes
-  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/processed-by-operator: "core-operator"
 spec:

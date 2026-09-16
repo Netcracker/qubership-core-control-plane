@@ -66,7 +66,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: <httproute-name>-sticky
-  namespace: {{ .Release.Namespace }}
 spec:
   host: <host parsed from RouteDestination.endpoint>
   trafficPolicy:
@@ -77,3 +76,11 @@ spec:
           ttl: "0s"
           path: /
 ```
+
+---
+
+### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
+
+| Source | Field | Trigger |
+|---|---|---|
+| `StatefulSession.spec` / `LoadBalance.spec` | `overridden` | `true` |

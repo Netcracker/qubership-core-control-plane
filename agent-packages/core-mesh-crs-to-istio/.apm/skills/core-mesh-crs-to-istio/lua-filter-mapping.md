@@ -91,7 +91,6 @@ apiVersion: extensions.istio.io/v1alpha1
 kind: TrafficExtension
 metadata:
   name: <destination-service>-<lua-filter-name>
-  namespace: <RouteConfiguration.metadata.namespace>
 spec:
   targetRefs:
   - kind: Gateway

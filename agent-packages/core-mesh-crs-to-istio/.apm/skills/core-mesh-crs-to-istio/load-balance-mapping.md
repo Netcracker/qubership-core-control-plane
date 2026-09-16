@@ -151,3 +151,11 @@ spec:
       consistentHash:
         httpHeaderName: BID
 ```
+
+---
+
+### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
+
+| Source | Field | Trigger |
+|---|---|---|
+| `LoadBalance.spec.policies` | more than one entry | — |

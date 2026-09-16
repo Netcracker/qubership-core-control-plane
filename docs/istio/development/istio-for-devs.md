@@ -88,7 +88,7 @@ Rollback to the previous state (without Istio) can be achieved by redeploying **
 
 We require the Egress gateway to be managed by Cloud-Core before migrating to Istio. The [facade-operator](https://github.com/Netcracker/qubership-core-facade-operator) with Istio support includes a feature to migrate legacy Cloud-Core egress to an Istio gateway. To avoid collisions of CRs describing legacy egress causing unwanted deletion of legacy egress during migration, a new legacy CR for egress was introduced: TBD: link to CR in ingress-gateway repo
 
-This relates only to the egress gateway deployment, but routes for egress should be migrated by the route configuration owners.
+This relates only to the egress gateway deployment, but routes for egress should be migrated by the route configuration owners. How to declare those routes and originate TLS to an external host is covered in [Egress Routing](./egress-routing.md).
 
 Migration of Core to Istio should come before migration of other apps - otherwise the facade-operator might delete migrated services since it is not yet aware of which resource to delete during migration.
 

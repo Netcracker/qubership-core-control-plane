@@ -108,7 +108,6 @@ apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: trace-service-sticky
-  namespace: trace-namespace
 spec:
   host: trace-service
   trafficPolicy:
@@ -119,3 +118,11 @@ spec:
           ttl: "0s"
           path: /
 ```
+
+---
+
+### Fields that MUST be flagged with `# ⚠ MANUAL REVIEW`
+
+| Source | Field | Trigger |
+|---|---|---|
+| `StatefulSession.spec` | `hostname` / `port` | non-empty |
