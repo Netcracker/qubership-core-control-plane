@@ -113,9 +113,13 @@ func RunServer() {
 		defaultVersion = "v1"
 	}
 
-	constStorageCfg, err := constancy.NewPostgresStorageConfigurator()
-	if err != nil {
-		panic(err)
+	var constStorageCfg constancy.Configurator
+	if !strings.EqualFold(os.Getenv("DBAAS_OPERATOR_ENABLED"), "true") {
+		legacyStorageCfg, err := constancy.NewPostgresStorageConfigurator()
+		if err != nil {
+			panic(err)
+		}
+		constStorageCfg = legacyStorageCfg
 	}
 	constantStorage := constancy.NewStorage(ctx, constStorageCfg)
 	entityService := entity.NewService(defaultVersion)

@@ -75,12 +75,18 @@ spec:
             -   name: topology
                 configMap:
                     name: topology
+{{- if .Capabilities.APIVersions.Has "dbaas.netcracker.com/v1" }}
+            -   name: dbaas-db-admin-secret
+                secret:
+                    secretName: '{{ .Values.SERVICE_NAME }}-db-admin-secret'
+{{- end }}
 {{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
             -   name: sslcerts
                 emptyDir: {}
             -   name: cacerts
                 emptyDir: {}
 {{ end }}
+{{- if not (.Capabilities.APIVersions.Has "dbaas.netcracker.com/v1") }}
             -   name: pod-secrets
                 projected:
                     sources:
@@ -103,6 +109,7 @@ spec:
                             items:
                             -   key: tls
                                 path: PG_TLS
+{{- end }}
             containers:
             -   name: '{{ .Values.SERVICE_NAME }}'
                 image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
@@ -114,15 +121,22 @@ spec:
                 -   name: topology
                     mountPath: /etc/topology
                     readOnly: true
+{{- if .Capabilities.APIVersions.Has "dbaas.netcracker.com/v1" }}
+                -   name: dbaas-db-admin-secret
+                    mountPath: /etc/secrets/dbaas-secrets/{{ .Values.SERVICE_NAME }}-db-admin-secret
+                    readOnly: true
+{{- end }}
 {{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
                 -   name: sslcerts
                     mountPath: /etc/ssl/certs
                 -   name: cacerts
                     mountPath: /usr/local/share/ca-certificates
 {{ end }}
+{{- if not (.Capabilities.APIVersions.Has "dbaas.netcracker.com/v1") }}
                 -   name: pod-secrets
                     mountPath: /etc/secrets/pod-secrets
                     readOnly: true
+{{- end }}
                 args:
                 - /app/control-plane
                 ports:
@@ -246,7 +260,9 @@ spec:
                 - name: KUBERNETES_M2M_ENABLED
                   value: '{{ .Values.KUBERNETES_M2M_ENABLED }}'
                 - name: API_DBAAS_ADDRESS
-                  value: '{{ .Values.API_DBAAS_ADDRESS }}'                
+                  value: '{{ .Values.API_DBAAS_ADDRESS }}'
+                - name: DBAAS_OPERATOR_ENABLED
+                  value: '{{ .Capabilities.APIVersions.Has "dbaas.netcracker.com/v1" }}'
                 resources:
                     requests:
                         cpu: '{{ .Values.CPU_REQUEST }}'

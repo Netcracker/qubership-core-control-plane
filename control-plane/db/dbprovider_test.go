@@ -19,6 +19,12 @@ func TestMain(m *testing.M) {
 // Test error cases
 // Required to suppress coverage requirement
 
+func TestBuildServiceDbParams(t *testing.T) {
+	params := buildServiceDbParams()
+	assert.NotNil(t, params.Classifier)
+	assert.Equal(t, "admin", params.BaseDbParams.Role)
+}
+
 func TestNewDBProvider(t *testing.T) {
 	os.Setenv("microservice.namespace", "test")
 	configloader.Init(configloader.EnvPropertySource())
