@@ -5,6 +5,7 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 
 	dbaasbase "github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3"
+	"github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3/model/rest"
 	pgdbaas "github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4"
 	"github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4/model"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
@@ -68,8 +69,11 @@ func (p *DefaultDBProvider) GetConn(ctx context.Context) (*bun.Conn, error) {
 }
 
 func buildServiceDbParams() model.DbParams {
+	// Must match DatabaseSecretClaim.spec.userRole so the mounted-secret provider
+	// hits and does not fall through to dbaas-agent.
 	return model.DbParams{
-		Classifier: createControlPlaneServiceClassifier,
+		Classifier:   createControlPlaneServiceClassifier,
+		BaseDbParams: rest.BaseDbParams{Role: "admin"},
 	}
 }
 
