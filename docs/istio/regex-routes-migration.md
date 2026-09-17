@@ -18,11 +18,11 @@ In case prefix contains path variable, it is translated to regex matcher and reg
 
 ```json
 {
-  "matcher: { "regExp": "/api/v1/workplaces-platform/dashboards/([^/]+)/widgetInstances(/.*)?" },
+  "matcher: { "regExp": "/api/v1/my-service/([^/]+)/my-resource/([^/]+)/subresource(/.*)?" },
   "action": {
     "clusterName": "wp-backend||wp-backend||8080",
     "hostRewrite": "wp-backend:8080",
-    "regexpRewrite": "/api/v1/workplaces-platform/dashboards/\\1/widgetInstances\\2"
+    "regexpRewrite": "/api/v1/\\1/my-resource/\\2/subresource\\3"
   }
 }
 ```
