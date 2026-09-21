@@ -189,10 +189,14 @@ func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
 	port := cfg.GetDBPort()
 	role := cfg.GetDBRole()
 
-	if user == "" || password == "" || database == "" || host == "" || role == "" {
-		log.PanicC(ctx, "Database name, username, password, role or address must not be empty")
+	if OperatorSecretMounted() {
+		log.InfoC(ctx, "A DBaaS Operator Secret is mounted; resolving the database from it, with the DBaaS REST API as fallback")
+	} else {
+		if user == "" || password == "" || database == "" || host == "" || role == "" {
+			log.PanicC(ctx, "Database name, username, password, role or address must not be empty")
+		}
+		log.InfoC(ctx, "For connection to postgres, using database=%s on host=%s, port=%s with username=%s", database, host, port, user)
 	}
-	log.InfoC(ctx, "For connection to postgres, using database=%s on host=%s, port=%s with username=%s", database, host, port, user)
 
 	getProvider := func() (db.DBProvider, error) {
 		provider := NewDbaasAggregatorLogicalDbProvider(cfg)
