@@ -209,9 +209,6 @@ func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
 // no application provider, so the base client resolves the database from the mounted operator
 // Secret and calls the DBaaS REST API only when that lookup misses.
 func NewOperatorStorage(ctx context.Context) *StorageImpl {
-	if err := db.VerifyOperatorSecret(ctx, db.OperatorSecretsPath); err != nil {
-		log.PanicC(ctx, "DBaaS Operator mode is enabled, but %v. Check spec.classifier, spec.type, and spec.userRole of this service's DatabaseSecretClaim. Refusing to start: without a matching Secret, the database would be resolved over the DBaaS REST API instead.", err)
-	}
 	log.InfoC(ctx, "DBaaS Operator is enabled; resolving the database from the mounted operator Secret, with the DBaaS REST API as fallback")
 	return newStorage(ctx, func() (db.DBProvider, error) {
 		return db.NewDBProvider(dbaasbase.NewDbaaSPool())
