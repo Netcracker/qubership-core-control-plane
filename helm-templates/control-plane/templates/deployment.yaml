@@ -81,6 +81,11 @@ spec:
             -   name: cacerts
                 emptyDir: {}
 {{ end }}
+{{- if .Capabilities.APIVersions.Has "dbaas.netcracker.com/v1" }}
+            -   name: control-plane-postgresql-service-default-secret
+                secret:
+                    secretName: control-plane-postgresql-service-default-credentials
+{{- end }}
             -   name: pod-secrets
                 projected:
                     sources:
@@ -123,6 +128,11 @@ spec:
                 -   name: pod-secrets
                     mountPath: /etc/secrets/pod-secrets
                     readOnly: true
+{{- if .Capabilities.APIVersions.Has "dbaas.netcracker.com/v1" }}
+                -   name: control-plane-postgresql-service-default-secret
+                    mountPath: /etc/secrets/dbaas-secrets/control-plane-postgresql-service-default-credentials
+                    readOnly: true
+{{- end }}
                 args:
                 - /app/control-plane
                 ports:
