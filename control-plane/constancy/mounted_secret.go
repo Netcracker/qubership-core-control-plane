@@ -40,3 +40,10 @@ func hasMountedDbaasSecret(basePath string) bool {
 	}
 	return false
 }
+
+// OperatorSecretMounted reports whether a DBaaS Operator Secret is mounted for this pod. When it is,
+// the database is resolved from that Secret, so the legacy pg.* credentials projected from
+// DB_CREDENTIALS_SECRET are neither required nor used.
+func OperatorSecretMounted() bool {
+	return hasMountedDbaasSecret(dbaasMountedSecretsPath)
+}
