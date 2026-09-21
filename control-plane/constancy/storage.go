@@ -180,7 +180,8 @@ func contains(applied migrate.MigrationSlice, migration migrate.Migration) bool 
 	return false
 }
 
-// Main constructor
+// NewStorage builds the storage on the credentials core-bootstrap writes to DB_CREDENTIALS_SECRET.
+// It is used when the DBaaS Operator is not enabled.
 func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
 	user := cfg.GetDBUserName()
 	password := cfg.GetDBPassword()
@@ -189,23 +190,32 @@ func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
 	port := cfg.GetDBPort()
 	role := cfg.GetDBRole()
 
-	if OperatorSecretMounted() {
-		log.InfoC(ctx, "A DBaaS Operator Secret is mounted; resolving the database from it, with the DBaaS REST API as fallback")
-	} else {
-		if user == "" || password == "" || database == "" || host == "" || role == "" {
-			log.PanicC(ctx, "Database name, username, password, role or address must not be empty")
-		}
-		log.InfoC(ctx, "For connection to postgres, using database=%s on host=%s, port=%s with username=%s", database, host, port, user)
+	if user == "" || password == "" || database == "" || host == "" || role == "" {
+		log.PanicC(ctx, "Database name, username, password, role or address must not be empty")
 	}
+	log.InfoC(ctx, "For connection to postgres, using database=%s on host=%s, port=%s with username=%s", database, host, port, user)
 
-	getProvider := func() (db.DBProvider, error) {
+	return newStorage(ctx, func() (db.DBProvider, error) {
 		provider := NewDbaasAggregatorLogicalDbProvider(cfg)
 		poolOptions := model.PoolOptions{
 			LogicalDbProviders: []model.LogicalDbProvider{provider},
 		}
 		dbPool := dbaasbase.NewDbaaSPool(poolOptions)
 		return db.NewDBProvider(dbPool)
-	}
+	})
+}
+
+// NewOperatorStorage builds the storage on the database the DBaaS Operator publishes. The pool gets
+// no application provider, so the base client resolves the database from the mounted operator
+// Secret and calls the DBaaS REST API only when that lookup misses.
+func NewOperatorStorage(ctx context.Context) *StorageImpl {
+	log.InfoC(ctx, "DBaaS Operator is enabled; resolving the database from the mounted operator Secret, with the DBaaS REST API as fallback")
+	return newStorage(ctx, func() (db.DBProvider, error) {
+		return db.NewDBProvider(dbaasbase.NewDbaaSPool())
+	})
+}
+
+func newStorage(ctx context.Context, getProvider func() (db.DBProvider, error)) *StorageImpl {
 	dbProvider, err := getProvider()
 	if err != nil {
 		log.PanicC(ctx, "Failed to create DBProvider, err = %v", err)
@@ -262,35 +272,21 @@ type DbaasAggregatorLogicalDbProvider struct {
 	database string
 	tls      string
 	role     string
-	// mountedSecretsPath is the directory the DBaaS base client scans for operator-managed
-	// database Secrets. It is a field so tests can point it at a temporary directory.
-	mountedSecretsPath string
 }
 
 func NewDbaasAggregatorLogicalDbProvider(cfg Configurator) *DbaasAggregatorLogicalDbProvider {
 	return &DbaasAggregatorLogicalDbProvider{
-		host:               cfg.GetDBHost(),
-		port:               cfg.GetDBPort(),
-		username:           cfg.GetDBUserName(),
-		password:           cfg.GetDBPassword(),
-		database:           cfg.GetDBName(),
-		tls:                cfg.GetDBTls(),
-		role:               cfg.GetDBRole(),
-		mountedSecretsPath: dbaasMountedSecretsPath,
+		host:     cfg.GetDBHost(),
+		port:     cfg.GetDBPort(),
+		username: cfg.GetDBUserName(),
+		password: cfg.GetDBPassword(),
+		database: cfg.GetDBName(),
+		tls:      cfg.GetDBTls(),
+		role:     cfg.GetDBRole(),
 	}
-}
-
-// deferToMountedSecret reports whether this provider must decline the request so that the base
-// client can resolve the database from a Secret published by the DBaaS Operator.
-func (p *DbaasAggregatorLogicalDbProvider) deferToMountedSecret() bool {
-	return hasMountedDbaasSecret(p.mountedSecretsPath)
 }
 
 func (p *DbaasAggregatorLogicalDbProvider) GetOrCreateDb(dbType string, classifier map[string]interface{}, params rest.BaseDbParams) (*model.LogicalDb, error) {
-	if p.deferToMountedSecret() {
-		log.Debugf("Declining GetOrCreateDb for classifier %+v: a DBaaS Operator Secret is mounted", classifier)
-		return nil, nil
-	}
 	logicalDB := &model.LogicalDb{}
 	connectionProperties := make(map[string]interface{})
 	connectionProperties["password"] = p.password
@@ -306,10 +302,6 @@ func (p *DbaasAggregatorLogicalDbProvider) GetOrCreateDb(dbType string, classifi
 }
 
 func (p *DbaasAggregatorLogicalDbProvider) GetConnection(dbType string, classifier map[string]interface{}, params rest.BaseDbParams) (map[string]interface{}, error) {
-	if p.deferToMountedSecret() {
-		log.Debugf("Declining GetConnection for classifier %+v: a DBaaS Operator Secret is mounted", classifier)
-		return nil, nil
-	}
 	connectionProperties := make(map[string]interface{})
 	connectionProperties["password"] = p.password
 	connectionProperties["username"] = p.username

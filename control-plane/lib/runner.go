@@ -113,11 +113,16 @@ func RunServer() {
 		defaultVersion = "v1"
 	}
 
-	constStorageCfg, err := constancy.NewPostgresStorageConfigurator()
-	if err != nil {
-		panic(err)
+	var constantStorage *constancy.StorageImpl
+	if constancy.OperatorModeEnabled() {
+		constantStorage = constancy.NewOperatorStorage(ctx)
+	} else {
+		constStorageCfg, err := constancy.NewPostgresStorageConfigurator()
+		if err != nil {
+			panic(err)
+		}
+		constantStorage = constancy.NewStorage(ctx, constStorageCfg)
 	}
-	constantStorage := constancy.NewStorage(ctx, constStorageCfg)
 	entityService := entity.NewService(defaultVersion)
 	inMemCfg := config.NewInMemoryStorageConfigurator(constantStorage, constantStorage)
 
