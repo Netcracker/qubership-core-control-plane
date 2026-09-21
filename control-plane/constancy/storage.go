@@ -258,21 +258,35 @@ type DbaasAggregatorLogicalDbProvider struct {
 	database string
 	tls      string
 	role     string
+	// mountedSecretsPath is the directory the DBaaS base client scans for operator-managed
+	// database Secrets. It is a field so tests can point it at a temporary directory.
+	mountedSecretsPath string
 }
 
 func NewDbaasAggregatorLogicalDbProvider(cfg Configurator) *DbaasAggregatorLogicalDbProvider {
 	return &DbaasAggregatorLogicalDbProvider{
-		host:     cfg.GetDBHost(),
-		port:     cfg.GetDBPort(),
-		username: cfg.GetDBUserName(),
-		password: cfg.GetDBPassword(),
-		database: cfg.GetDBName(),
-		tls:      cfg.GetDBTls(),
-		role:     cfg.GetDBRole(),
+		host:               cfg.GetDBHost(),
+		port:               cfg.GetDBPort(),
+		username:           cfg.GetDBUserName(),
+		password:           cfg.GetDBPassword(),
+		database:           cfg.GetDBName(),
+		tls:                cfg.GetDBTls(),
+		role:               cfg.GetDBRole(),
+		mountedSecretsPath: dbaasMountedSecretsPath,
 	}
 }
 
+// deferToMountedSecret reports whether this provider must decline the request so that the base
+// client can resolve the database from a Secret published by the DBaaS Operator.
+func (p *DbaasAggregatorLogicalDbProvider) deferToMountedSecret() bool {
+	return hasMountedDbaasSecret(p.mountedSecretsPath)
+}
+
 func (p *DbaasAggregatorLogicalDbProvider) GetOrCreateDb(dbType string, classifier map[string]interface{}, params rest.BaseDbParams) (*model.LogicalDb, error) {
+	if p.deferToMountedSecret() {
+		log.Debugf("Declining GetOrCreateDb for classifier %+v: a DBaaS Operator Secret is mounted", classifier)
+		return nil, nil
+	}
 	logicalDB := &model.LogicalDb{}
 	connectionProperties := make(map[string]interface{})
 	connectionProperties["password"] = p.password
@@ -288,6 +302,10 @@ func (p *DbaasAggregatorLogicalDbProvider) GetOrCreateDb(dbType string, classifi
 }
 
 func (p *DbaasAggregatorLogicalDbProvider) GetConnection(dbType string, classifier map[string]interface{}, params rest.BaseDbParams) (map[string]interface{}, error) {
+	if p.deferToMountedSecret() {
+		log.Debugf("Declining GetConnection for classifier %+v: a DBaaS Operator Secret is mounted", classifier)
+		return nil, nil
+	}
 	connectionProperties := make(map[string]interface{})
 	connectionProperties["password"] = p.password
 	connectionProperties["username"] = p.username
