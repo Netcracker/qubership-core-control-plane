@@ -26,29 +26,30 @@ type PostgresStorageConfigurator struct {
 }
 
 func NewPostgresStorageConfigurator() (*PostgresStorageConfigurator, error) {
-	return newPostgresStorageConfigurator(!OperatorSecretMounted())
-}
-
-// newPostgresStorageConfigurator reads the legacy pg.* connection properties. They are mandatory
-// only when requireCredentials is true. With a DBaaS Operator Secret mounted they are optional,
-// because the connection is resolved from that Secret and DB_CREDENTIALS_SECRET may not exist.
-func newPostgresStorageConfigurator(requireCredentials bool) (*PostgresStorageConfigurator, error) {
 	cfg := &PostgresStorageConfigurator{}
-	required := []struct {
-		property string
-		target   *string
-	}{
-		{"pg.host", &cfg.dbHost},
-		{"pg.port", &cfg.dbPort},
-		{"pg.db", &cfg.dbName},
-		{"pg.user", &cfg.dbUserName},
-		{"pg.passwd", &cfg.dbPassword},
+	cfg.dbHost = configloader.GetOrDefaultString("pg.host", "")
+	if cfg.dbHost == "" {
+		return nil, fmt.Errorf("can't find property pg.host")
 	}
-	for _, r := range required {
-		*r.target = configloader.GetOrDefaultString(r.property, "")
-		if *r.target == "" && requireCredentials {
-			return nil, fmt.Errorf("can't find property %s", r.property)
-		}
+
+	cfg.dbPort = configloader.GetOrDefaultString("pg.port", "")
+	if cfg.dbPort == "" {
+		return nil, fmt.Errorf("can't find property pg.port")
+	}
+
+	cfg.dbName = configloader.GetOrDefaultString("pg.db", "")
+	if cfg.dbName == "" {
+		return nil, fmt.Errorf("can't find property pg.db")
+	}
+
+	cfg.dbUserName = configloader.GetOrDefaultString("pg.user", "")
+	if cfg.dbUserName == "" {
+		return nil, fmt.Errorf("can't find property pg.user")
+	}
+
+	cfg.dbPassword = configloader.GetOrDefaultString("pg.passwd", "")
+	if cfg.dbPassword == "" {
+		return nil, fmt.Errorf("can't find property pg.passwd")
 	}
 	cfg.dbTls = configloader.GetOrDefaultString("pg.tls", "false")
 
