@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v5"
 	dbaasbase "github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3"
-	"github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3/model/rest"
 	pgdbaas "github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
@@ -176,9 +175,10 @@ func (db *pgDbWithPasswordReset) reconnect() {
 }
 
 func (db *pgDbWithPasswordReset) getPasswordFromDbaas(ctx context.Context) (string, error) {
-	params := rest.BaseDbParams{}
+	// The same identity as the main connection, so rotation resolves the same mounted Secret.
+	service := buildServiceDbParams()
 
-	newConnection, dbErr := db.dbaasClient.GetConnection(ctx, pgdbaas.DB_TYPE, createControlPlaneServiceClassifier(ctx), params)
+	newConnection, dbErr := db.dbaasClient.GetConnection(ctx, pgdbaas.DB_TYPE, service.Classifier(ctx), service.BaseDbParams)
 	if dbErr != nil {
 		log.ErrorC(ctx, "Can't update connection with dbaasClient: %v", dbErr)
 		return "", dbErr
