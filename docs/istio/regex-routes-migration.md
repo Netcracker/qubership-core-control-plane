@@ -10,7 +10,11 @@ When migration routes from Legacy Cloud-Core Service Mesh to Istio ambient mesh,
 
 #### Control-Plane API -> Envoyproxy Configuration Mapping
 
-In Legacy Cloud-Core Service Mesh API there were only fields `prefix` and `prefixRewrite` for matching and rewriting path in route. But these fields support specifying path variables in Spring Framework format, e.g. `prefix: /api/v1/my-service/{var1}/my-resource/{var2}/subresource` and `prefixRewrite: /{var1}/my-resource/{var2}/subresource`. 
+In Legacy Cloud-Core Service Mesh API there were only fields `prefix` and `prefixRewrite` for matching and rewriting path in route. But these fields support specifying path variables in Spring Framework format, e.g. 
+
+`prefix: /api/v1/my-service/{var1}/my-resource/{var2}/subresource` and 
+
+`prefixRewrite: /api/v1/{var1}/my-resource/{var2}/subresource`. 
 
 Regular prefixes (and prefixRewrites) without path variables are translated to prefix matchers (and prefix rewrites) in envoy.
 
@@ -18,7 +22,7 @@ In case prefix contains path variable, it is translated to regex matcher and reg
 
 ```json
 {
-  "matcher: { "regExp": "/api/v1/my-service/([^/]+)/my-resource/([^/]+)/subresource(/.*)?" },
+  "matcher": { "regExp": "/api/v1/my-service/([^/]+)/my-resource/([^/]+)/subresource(/.*)?" },
   "action": {
     "clusterName": "wp-backend||wp-backend||8080",
     "hostRewrite": "wp-backend:8080",
@@ -31,6 +35,8 @@ Regex groups description:
 
 - `([^/]+)` - matches single path variable;
 - `(/.*)?` - emulates prefix behavior.
+
+
 
 #### Legacy Mesh Routes Ordering
 
@@ -98,6 +104,8 @@ In Istio Ambient Mesh routes are ordered in bit differently:
 1. `Exact` match routes match first - from longest to shortest match. In our solution we do not use `Exact` match at all.
 2. `Prefix` match routes match only if not a single `Exact` route matched regardless of the match length (`Exact` will win even if it is shorter than `Prefix`). Amoung `Prefix` routes the longest match wins.
 3. `Regex` match routes match only if not a single `Exact` or `Prefix` route matched regardless of the match length (`Prefix` will win even if it is shorter than `Regex`). Amoung `Regex` routes the longest match wins.
+
+
 
 #### Evidence that Route Precedence Is Not Configurable
 
@@ -167,7 +175,11 @@ By route behavior we mean:
     b) route rewrites path; and
     c) route modificates (add/remove) request headers.
 
+
+
 ## Possible Solutions
+
+
 
 ### Option 1: Prefix Matches Everywhere - Forbidden Routes Move To AuthorizationPolicy - Choosen Option
 
@@ -231,6 +243,8 @@ Limitations:
 3. **Path normalization must be enabled.** The deny decision is path-based, so `%2F`, `..` and duplicate slashes become bypass vectors. `meshConfig.pathNormalization.normalization` must be at least `MERGE_SLASHES` (see [Authorization Policy Normalization](https://istio.io/latest/docs/ops/best-practices/security/#understand-path-normalization)).
 4. `DENY` **policies should be scoped to a port.** For non-HTTP traffic all HTTP attributes are missing, and missing attributes are treated as matches in a `DENY` rule, so an unscoped policy denies more than intended.
 
+
+
 ### Option 2: Normalize The Tier - Convert Conflicting Prefix Routes To Regex
 
 Since the tie-break inside the regex tier is longest-match-wins, we can restore legacy ordering by making sure conflicting routes live in the *same* tier: convert the shorter prefix route to a regex matcher as well (`/api/v4/tenant-manager/tenants` -> `/api/v4/tenant-manager/tenants(/.*)?`). This reproduces legacy Cloud-Core Service Mesh semantics exactly, because legacy ordering already treated a regex matcher as a prefix and compared lengths.
@@ -239,6 +253,8 @@ Limitations:
 
 1. **No prefix rewrite.** `ReplacePrefixMatch` is only compatible with a `PathPrefix` match; using it together with a regex match makes Istio set `Accepted: False` on the whole route. Only `ReplaceFullPath` remains, which rewrites to a static path and therefore loses path variables (Istio compiles it to `uriRegexRewrite` with match `/.`*). So this option is applicable to routes that need **no** rewrite - in particular the `allowed: false` (404) routes - or a static rewrite.
 2. **The tie-break metric is not the same as in legacy.** Legacy compared the prefix string containing `{tenantId}` (10 characters), while Istio compares the compiled regex where the same variable becomes `([^/]+)` (8 characters). Variable-heavy paths therefore shrink relative to literal-heavy ones, and the relative order of two routes can flip. Any generator using this option must verify (or pad/normalize the produced regexes) so that regex source length preserves the legacy ordering.
+
+
 
 ### Option 3: VirtualService On The Waypoint
 
@@ -261,10 +277,10 @@ Rewriting the generated route table order with an `EnvoyFilter` doesn't seem to 
 
 But adding regexRewrite to the routes can be achieved via `EnvoyFilter` by referencing route from `HTTPRoute` by its generated name. This solution is even more fragile then Option 3. While working, `EnvoyFilter` for ambient is not officially supported, and is actively discouraged by the maintainers.
 
-
 ### Summary
 
 [Option 1](#option-1-prefix-matches-everywhere---forbidden-routes-move-to-authorizationpolicy---choosen-option) is the choosen option. Manual fallback to [Option 3](#option-3-virtualservice-on-the-waypoint) in very rare case when option 1 leads to having two allowed routes with different behavior and it is impossible to choose single universal behavior for them.
+
 
 | Option                                                                            | Fixes ordering                                                 | Fixes regex rewrite                 | Maturity                                                                                   |
 | --------------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------ |
