@@ -8,16 +8,16 @@ import (
 
 func TestConfigPropertySources_LegacyModeAddsPodSecrets(t *testing.T) {
 	legacy := configPropertySources(false)
-	operator := configPropertySources(true)
+	dbaasOperator := configPropertySources(true)
 
-	assert.Len(t, legacy, len(operator)+1, "legacy mode must add exactly the pod-secrets source")
+	assert.Len(t, legacy, len(dbaasOperator)+1, "legacy mode must add exactly the pod-secrets source")
 }
 
-func TestConfigPropertySources_OperatorModeKeepsBaseSources(t *testing.T) {
-	operator := configPropertySources(true)
+func TestConfigPropertySources_DbaasOperatorModeKeepsBaseSources(t *testing.T) {
+	dbaasOperator := configPropertySources(true)
 	legacy := configPropertySources(false)
 
-	for i := range operator {
-		assert.IsType(t, legacy[i].Provider, operator[i].Provider, "source %d", i)
+	for i := range dbaasOperator {
+		assert.IsType(t, legacy[i].Provider, dbaasOperator[i].Provider, "source %d", i)
 	}
 }

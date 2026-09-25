@@ -90,28 +90,28 @@ var (
 	shutdownHooks []func()
 )
 
-// configPropertySources returns the property sources configuration is loaded from. Outside operator
-// mode they include pod-secrets, where core-bootstrap's database credentials are mounted. In operator
-// mode the chart mounts no pod-secrets volume, so the source is left out.
-func configPropertySources(operatorMode bool) []*configloader.PropertySource {
+// configPropertySources returns the property sources configuration is loaded from. Outside DBaaS
+// Operator mode they include pod-secrets, where core-bootstrap's database credentials are mounted. In
+// DBaaS Operator mode the chart mounts no pod-secrets volume, so the source is left out.
+func configPropertySources(dbaasOperatorMode bool) []*configloader.PropertySource {
 	sources := configloader.BasePropertySources()
-	if !operatorMode {
+	if !dbaasOperatorMode {
 		sources = podsecrets.AddPodSecretsPropertySource(sources)
 	}
 	return sources
 }
 
 func RunServer() {
-	operatorMode := constancy.OperatorModeEnabled()
+	dbaasOperatorMode := constancy.DbaasOperatorModeEnabled()
 	consulPS := consul.NewLoggingPropertySource()
-	propertySources := configPropertySources(operatorMode)
+	propertySources := configPropertySources(dbaasOperatorMode)
 	configloader.InitWithSourcesArray(append(propertySources, consulPS))
 	consul.StartWatchingForPropertiesWithRetry(context.Background(), consulPS, func(event interface{}, err error) {
 	})
 
 	logger = logging.GetLogger("server")
 
-	if operatorMode {
+	if dbaasOperatorMode {
 		logger.Info("DBaaS Operator mode: pod-secrets property source and watcher are disabled")
 	} else if podSecretsWatcher, err := podsecrets.StartWatcher(); err != nil {
 		logger.Warn("Pod-secrets watcher could not start: %v", err)
