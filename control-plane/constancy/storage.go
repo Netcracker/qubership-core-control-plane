@@ -180,7 +180,8 @@ func contains(applied migrate.MigrationSlice, migration migrate.Migration) bool 
 	return false
 }
 
-// Main constructor
+// NewStorage builds the storage on the credentials core-bootstrap writes to DB_CREDENTIALS_SECRET.
+// It is used when the DBaaS Operator is not enabled.
 func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
 	user := cfg.GetDBUserName()
 	password := cfg.GetDBPassword()
@@ -194,7 +195,13 @@ func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
 	}
 	log.InfoC(ctx, "For connection to postgres, using database=%s on host=%s, port=%s with username=%s", database, host, port, user)
 
-	getProvider := func() (db.DBProvider, error) {
+	return newStorage(ctx, legacyDbProvider(cfg))
+}
+
+// legacyDbProvider builds the pool on the credentials core-bootstrap writes. Its own provider
+// answers every request, so neither a mounted Secret nor the DBaaS REST API is consulted.
+func legacyDbProvider(cfg Configurator) func() (db.DBProvider, error) {
+	return func() (db.DBProvider, error) {
 		provider := NewDbaasAggregatorLogicalDbProvider(cfg)
 		poolOptions := model.PoolOptions{
 			LogicalDbProviders: []model.LogicalDbProvider{provider},
@@ -202,6 +209,47 @@ func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
 		dbPool := dbaasbase.NewDbaaSPool(poolOptions)
 		return db.NewDBProvider(dbPool)
 	}
+}
+
+// NewDbaasOperatorStorage builds the storage on the database the DBaaS Operator publishes. The pool
+// gets no application provider, so the base client resolves the database from the mounted DBaaS
+// Operator Secret and calls the DBaaS REST API only when that lookup misses.
+func NewDbaasOperatorStorage(ctx context.Context) *StorageImpl {
+	return newStorage(ctx, dbaasOperatorDbProvider(ctx))
+}
+
+// dbaasOperatorDbProvider builds the pool with no application provider, so the base client resolves
+// the database from the mounted DBaaS Operator Secret and calls the DBaaS REST API only when that
+// lookup misses.
+func dbaasOperatorDbProvider(ctx context.Context) func() (db.DBProvider, error) {
+	return func() (db.DBProvider, error) {
+		log.InfoC(ctx, "DBaaS Operator is enabled; resolving the database from the mounted DBaaS Operator Secret, with the DBaaS REST API as fallback")
+		return db.NewDBProvider(dbaasbase.NewDbaaSPool())
+	}
+}
+
+// Replaced in tests, so the choice below can be covered without a database.
+var (
+	dbaasOperatorStorage = NewDbaasOperatorStorage
+	legacyStorage        = NewStorage
+	configureLegacy      = NewPostgresStorageConfigurator
+)
+
+// NewConfiguredStorage builds the storage on whichever database source this deployment uses: the
+// Secret published by the DBaaS Operator, or the credentials core-bootstrap writes.
+func NewConfiguredStorage(ctx context.Context) *StorageImpl {
+	if DbaasOperatorModeEnabled() {
+		return dbaasOperatorStorage(ctx)
+	}
+	cfg, err := configureLegacy()
+	if err != nil {
+		panic(err)
+	}
+	return legacyStorage(ctx, cfg)
+}
+
+// A variable, so the constructors above can be covered without a database.
+var newStorage = func(ctx context.Context, getProvider func() (db.DBProvider, error)) *StorageImpl {
 	dbProvider, err := getProvider()
 	if err != nil {
 		log.PanicC(ctx, "Failed to create DBProvider, err = %v", err)

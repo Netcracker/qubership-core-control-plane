@@ -81,6 +81,15 @@ spec:
             -   name: cacerts
                 emptyDir: {}
 {{ end }}
+{{- if .Capabilities.APIVersions.Has "dbaas.netcracker.com/v1" }}
+            -   name: control-plane-postgresql-service-default-secret
+                secret:
+                    secretName: control-plane-postgresql-service-default-credentials
+{{- end }}
+{{- /* Legacy credentials written by core-bootstrap. With the DBaaS Operator the database is
+       resolved from the mounted operator Secret instead, and core-bootstrap no longer
+       creates DB_CREDENTIALS_SECRET, so the volume must not be required there. */}}
+{{- if not (.Capabilities.APIVersions.Has "dbaas.netcracker.com/v1") }}
             -   name: pod-secrets
                 projected:
                     sources:
@@ -103,6 +112,7 @@ spec:
                             items:
                             -   key: tls
                                 path: PG_TLS
+{{- end }}
             containers:
             -   name: '{{ .Values.SERVICE_NAME }}'
                 image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
@@ -120,9 +130,16 @@ spec:
                 -   name: cacerts
                     mountPath: /usr/local/share/ca-certificates
 {{ end }}
+{{- if not (.Capabilities.APIVersions.Has "dbaas.netcracker.com/v1") }}
                 -   name: pod-secrets
                     mountPath: /etc/secrets/pod-secrets
                     readOnly: true
+{{- end }}
+{{- if .Capabilities.APIVersions.Has "dbaas.netcracker.com/v1" }}
+                -   name: control-plane-postgresql-service-default-secret
+                    mountPath: /etc/secrets/dbaas-secrets/control-plane-postgresql-service-default-credentials
+                    readOnly: true
+{{- end }}
                 args:
                 - /app/control-plane
                 ports:
@@ -245,6 +262,13 @@ spec:
                   value: '{{ .Values.SERVICE_MESH_TYPE }}'
                 - name: KUBERNETES_M2M_ENABLED
                   value: '{{ .Values.KUBERNETES_M2M_ENABLED }}'
+{{- if .Capabilities.APIVersions.Has "dbaas.netcracker.com/v1" }}
+                # Same condition as the operator Secret volume, so the two cannot disagree. Rendered
+                # only where the operator is present: unset means legacy mode, here and in
+                # core-bootstrap, and leaving it out keeps the pod spec unchanged elsewhere.
+                - name: DBAAS_OPERATOR_ENABLED
+                  value: 'true'
+{{- end }}
                 - name: API_DBAAS_ADDRESS
                   value: '{{ .Values.API_DBAAS_ADDRESS }}'                
                 resources:
