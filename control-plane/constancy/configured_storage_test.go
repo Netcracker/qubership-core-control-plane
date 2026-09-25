@@ -15,43 +15,43 @@ import (
 
 // withStorageStubs replaces the constructors NewConfiguredStorage chooses between, so the choice can
 // be covered without a database, and restores them when the test ends.
-func withStorageStubs(t *testing.T, operator func(context.Context) *StorageImpl,
+func withStorageStubs(t *testing.T, dbaasOperator func(context.Context) *StorageImpl,
 	legacy func(context.Context, Configurator) *StorageImpl,
 	configure func() (*PostgresStorageConfigurator, error)) {
 	t.Helper()
-	previousOperator, previousLegacy, previousConfigure := operatorStorage, legacyStorage, configureLegacy
+	previousDbaasOperator, previousLegacy, previousConfigure := dbaasOperatorStorage, legacyStorage, configureLegacy
 	t.Cleanup(func() {
-		operatorStorage, legacyStorage, configureLegacy = previousOperator, previousLegacy, previousConfigure
+		dbaasOperatorStorage, legacyStorage, configureLegacy = previousDbaasOperator, previousLegacy, previousConfigure
 	})
-	operatorStorage, legacyStorage, configureLegacy = operator, legacy, configure
+	dbaasOperatorStorage, legacyStorage, configureLegacy = dbaasOperator, legacy, configure
 }
 
-func TestNewConfiguredStorage_UsesTheOperatorSecret(t *testing.T) {
-	t.Setenv(OperatorModeEnvVar, "true")
-	operatorCalls, legacyCalls, configureCalls := 0, 0, 0
+func TestNewConfiguredStorage_UsesTheDbaasOperatorSecret(t *testing.T) {
+	t.Setenv(DbaasOperatorModeEnvVar, "true")
+	dbaasOperatorCalls, legacyCalls, configureCalls := 0, 0, 0
 	expected := &StorageImpl{}
 	withStorageStubs(t,
-		func(context.Context) *StorageImpl { operatorCalls++; return expected },
+		func(context.Context) *StorageImpl { dbaasOperatorCalls++; return expected },
 		func(context.Context, Configurator) *StorageImpl { legacyCalls++; return nil },
 		func() (*PostgresStorageConfigurator, error) { configureCalls++; return nil, nil })
 
 	storage := NewConfiguredStorage(context.Background())
 
 	assert.Same(t, expected, storage)
-	assert.Equal(t, 1, operatorCalls)
-	// The legacy credentials are neither read nor required in operator mode.
+	assert.Equal(t, 1, dbaasOperatorCalls)
+	// The legacy credentials are neither read nor required in DBaaS Operator mode.
 	assert.Zero(t, legacyCalls)
 	assert.Zero(t, configureCalls)
 }
 
 func TestNewConfiguredStorage_UsesTheLegacyCredentials(t *testing.T) {
-	t.Setenv(OperatorModeEnvVar, "false")
-	operatorCalls := 0
+	t.Setenv(DbaasOperatorModeEnvVar, "false")
+	dbaasOperatorCalls := 0
 	expected := &StorageImpl{}
 	configured := &PostgresStorageConfigurator{dbHost: "pg-host"}
 	var got Configurator
 	withStorageStubs(t,
-		func(context.Context) *StorageImpl { operatorCalls++; return nil },
+		func(context.Context) *StorageImpl { dbaasOperatorCalls++; return nil },
 		func(_ context.Context, cfg Configurator) *StorageImpl { got = cfg; return expected },
 		func() (*PostgresStorageConfigurator, error) { return configured, nil })
 
@@ -59,11 +59,11 @@ func TestNewConfiguredStorage_UsesTheLegacyCredentials(t *testing.T) {
 
 	assert.Same(t, expected, storage)
 	assert.Same(t, configured, got)
-	assert.Zero(t, operatorCalls)
+	assert.Zero(t, dbaasOperatorCalls)
 }
 
 func TestNewConfiguredStorage_PanicsWithoutLegacyCredentials(t *testing.T) {
-	t.Setenv(OperatorModeEnvVar, "false")
+	t.Setenv(DbaasOperatorModeEnvVar, "false")
 	withStorageStubs(t,
 		func(context.Context) *StorageImpl { return nil },
 		func(context.Context, Configurator) *StorageImpl { return nil },
@@ -81,8 +81,8 @@ func TestDbProviders(t *testing.T) {
 	t.Cleanup(func() { _ = os.Unsetenv("microservice.namespace") })
 	configloader.Init(configloader.EnvPropertySource())
 
-	t.Run("operator", func(t *testing.T) {
-		provider, err := operatorDbProvider(context.Background())()
+	t.Run("dbaas operator", func(t *testing.T) {
+		provider, err := dbaasOperatorDbProvider(context.Background())()
 
 		assert.NoError(t, err)
 		assert.NotNil(t, provider)
@@ -99,7 +99,7 @@ func TestDbProviders(t *testing.T) {
 	})
 }
 
-// withStorageSeam replaces the shared constructor, so NewStorage and NewOperatorStorage can be
+// withStorageSeam replaces the shared constructor, so NewStorage and NewDbaasOperatorStorage can be
 // covered without a database. It records the provider each was given, without calling it.
 func withStorageSeam(t *testing.T, built *StorageImpl) *func() (db.DBProvider, error) {
 	t.Helper()
@@ -113,11 +113,11 @@ func withStorageSeam(t *testing.T, built *StorageImpl) *func() (db.DBProvider, e
 	return &given
 }
 
-func TestNewOperatorStorage(t *testing.T) {
+func TestNewDbaasOperatorStorage(t *testing.T) {
 	expected := &StorageImpl{}
 	given := withStorageSeam(t, expected)
 
-	storage := NewOperatorStorage(context.Background())
+	storage := NewDbaasOperatorStorage(context.Background())
 
 	assert.Same(t, expected, storage)
 	assert.NotNil(t, *given)
