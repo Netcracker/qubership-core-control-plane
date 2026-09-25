@@ -90,17 +90,30 @@ var (
 	shutdownHooks []func()
 )
 
+// configPropertySources returns the property sources configuration is loaded from. Outside operator
+// mode they include pod-secrets, where core-bootstrap's database credentials are mounted. In operator
+// mode the chart mounts no pod-secrets volume, so the source is left out.
+func configPropertySources(operatorMode bool) []*configloader.PropertySource {
+	sources := configloader.BasePropertySources()
+	if !operatorMode {
+		sources = podsecrets.AddPodSecretsPropertySource(sources)
+	}
+	return sources
+}
+
 func RunServer() {
+	operatorMode := constancy.OperatorModeEnabled()
 	consulPS := consul.NewLoggingPropertySource()
-	propertySources := configloader.BasePropertySources()
-	propertySources = podsecrets.AddPodSecretsPropertySource(propertySources)
+	propertySources := configPropertySources(operatorMode)
 	configloader.InitWithSourcesArray(append(propertySources, consulPS))
 	consul.StartWatchingForPropertiesWithRetry(context.Background(), consulPS, func(event interface{}, err error) {
 	})
 
 	logger = logging.GetLogger("server")
 
-	if podSecretsWatcher, err := podsecrets.StartWatcher(); err != nil {
+	if operatorMode {
+		logger.Info("DBaaS Operator mode: pod-secrets property source and watcher are disabled")
+	} else if podSecretsWatcher, err := podsecrets.StartWatcher(); err != nil {
 		logger.Warn("Pod-secrets watcher could not start: %v", err)
 	} else {
 		shutdownHooks = append(shutdownHooks, podSecretsWatcher.Stop)
