@@ -6,7 +6,7 @@ metadata:
     name: 'control-plane-postgresql-service-db'
     namespace: '{{ .Values.NAMESPACE }}'
     labels:
-        app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
+        app.kubernetes.io/name: 'control-plane'
         app.kubernetes.io/part-of: 'Cloud-Core'
         app.kubernetes.io/managed-by: 'saasDeployer'
         deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
@@ -19,5 +19,4 @@ spec:
         namespace: '{{ .Values.NAMESPACE }}'
         scope: 'service'
     type: 'postgresql'
-    lazy: false
 {{- end }}
