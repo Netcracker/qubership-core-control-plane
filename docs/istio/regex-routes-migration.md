@@ -54,7 +54,11 @@ So logically route type considered `internal` if it is exposed on internal gatew
 
 Sometimes, in microservice there is a REST controller (root resource, e.g. `/api/v1/my-service/resource`) that should be `public`. But single endpoint in it shoud be `private` or `internal`, e.g. `/api/v1/my-service/resource/{var1}/internal-api` should only be accessible via `internal` gateway.
 
-To achive such behaviour, in Legacy Cloud-Core Service Mesh you can register route with field `allowed: false` that will create route with directResponse code 404. So, complete configuration for our example:
+To achive such behaviour, in Legacy Cloud-Core Service Mesh you can register route with field `allowed: false` that will create route with directResponse code 404.
+
+Routes can also differ by header matchers only. In our example listing of resources (`GET /api/v1/my-service/resource`) is served by `another-service`, while reading a single resource (`GET /api/v1/my-service/resource/{var1}`) is still served by `my-service`. So a route with `:method` header matcher is registered on the controller root, and a route with path variable keeps single resource requests on `my-service`.
+
+So, complete configuration for our example:
 
 ```yaml
 routeConfigurations:
@@ -68,6 +72,15 @@ routeConfigurations:
   - prefix: /api/v1/my-service/resource/{var1}/migrated-api
     prefixRewrite: /resource
     cluster: "another-service||another-service||8080"
+  - prefix: /api/v1/my-service/resource
+    headerMatchers:
+    - name: ":method"
+      exactMatch: "GET"
+    prefixRewrite: /resource
+    cluster: "another-service||another-service||8080"
+  - prefix: /api/v1/my-service/resource/{var1}
+    prefixRewrite: /resource/{var1}
+    cluster: "my-service||my-service||8080"
 - gateway: private-gateway-service
   routes:
   - prefix: /api/v1/my-service/resource
@@ -78,6 +91,15 @@ routeConfigurations:
     cluster: "another-service||another-service||8080"
   - prefix: /api/v1/my-service/resource/{var1}/internal-api
     allowed: false
+  - prefix: /api/v1/my-service/resource
+    headerMatchers:
+    - name: ":method"
+      exactMatch: "GET"
+    prefixRewrite: /resource
+    cluster: "another-service||another-service||8080"
+  - prefix: /api/v1/my-service/resource/{var1}
+    prefixRewrite: /resource/{var1}
+    cluster: "my-service||my-service||8080"
 - gateway: internal-gateway
   routes:
   - prefix: /api/v1/my-service/resource
@@ -89,7 +111,18 @@ routeConfigurations:
   - prefix: /api/v1/my-service/resource/{var1}/internal-api
     prefixRewrite: /resource/{var1}/internal-api
     cluster: "my-service||my-service||8080"
+  - prefix: /api/v1/my-service/resource
+    headerMatchers:
+    - name: ":method"
+      exactMatch: "GET"
+    prefixRewrite: /resource
+    cluster: "another-service||another-service||8080"
+  - prefix: /api/v1/my-service/resource/{var1}
+    prefixRewrite: /resource/{var1}
+    cluster: "my-service||my-service||8080"
 ```
+
+In legacy mesh `GET /api/v1/my-service/resource/123` goes to `my-service`: `/api/v1/my-service/resource/{var1}` is the longer match, and header matchers only break ties between matches of equal length. So the `:method` route only receives the bare collection path `/api/v1/my-service/resource` (and `/api/v1/my-service/resource/`).
 
 
 
@@ -101,7 +134,7 @@ routeConfigurations:
 
 In Istio Ambient Mesh routes are ordered in bit differently:
 
-1. `Exact` match routes match first - from longest to shortest match. In our solution we do not use `Exact` match at all.
+1. `Exact` match routes match first - from longest to shortest match.
 2. `Prefix` match routes match only if not a single `Exact` route matched regardless of the match length (`Exact` will win even if it is shorter than `Prefix`). Amoung `Prefix` routes the longest match wins.
 3. `Regex` match routes match only if not a single `Exact` or `Prefix` route matched regardless of the match length (`Prefix` will win even if it is shorter than `Regex`). Amoung `Regex` routes the longest match wins.
 
@@ -158,8 +191,6 @@ In HTTPRoute resource there is no RegexRewrite rule for path, supported options 
 
 Actual differences in behavior that need to be adressed:
 
-1. Regex rewrite instruction in route: we cannot rewrite matched regex anymore so req
-
 
 | Problem       | Descrition                                                                                                                     | Solution                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -188,7 +219,7 @@ Instead of fighting the tier ranking, we can stop using the regex tier at all. T
 1. **Every route becomes a** `PathPrefix` **match.** A legacy prefix containing path variables is truncated at the first variable: `/api/v1/my-service/resource/{var1}/internal-api` -> `/api/v1/my-service/resource`. Because all routes then live in the same tier, the legacy "longest prefix wins" ordering is reproduced exactly by Istio's longest-`PathPrefix`-wins tie-break, and `ReplacePrefixMatch` stays available, so rewrites keep working and path variables survive - in the vast majority of our routes `prefixRewrite` only strips the gateway-facing part of the path, so everything after the first variable is byte-identical in `prefix` and `prefixRewrite`.
 2. **Every** `allowed: false` **route becomes an** `AuthorizationPolicy` **with** `action: DENY`, using the `{*}` / `{**}` path template operators instead of a regex match. Authorization is enforced in the RBAC HTTP filter, which runs *before* route selection and before the router filter applies the rewrite, so the policy sees the original request path and the route tier ranking is irrelevant. `DENY` is also evaluated before any `ALLOW` policy, so it cannot be overridden.
 
-For the example above, the first and the third route migrate cleanly:
+For the example above, the first and the second route migrate cleanly:
 
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
@@ -208,7 +239,7 @@ spec:
           urlRewrite:
             path:
               type: ReplacePrefixMatch
-              replacePrefixMatch: "/api/v1/resource"
+              replacePrefixMatch: "/resource"
       backendRefs:
         - name: my-service
           port: 8080
@@ -239,9 +270,50 @@ Since the policy is attached to one specific `Gateway`, the per-gateway exposure
 Limitations:
 
 1. **Routes that need both a variable and a distinct behavior are still broken.** The third route of the example (`/api/v1/my-service/resource/{var1}/migrated-api` -> `another-service`) truncates to `/api/v1/my-service/resource`, which is exactly the prefix of the first route, so the two rules collide. This option only works for a route with path variables when the route is forbidden, or when truncating at the first variable does not overlap another route with different behavior (different cluster, different rewrite or different header modifications). The residual conflicts have to fall back to [Option 3](#option-3-virtualservice-on-the-waypoint). This is the same overlap check as in the `Regex Rewrite` row of [Actual Problems](#actual-problems) - the point of moving forbidden routes to `AuthorizationPolicy` is that it removes the largest source of such overlaps.
-2. **The status code changes from 404 to 403.** Legacy `allowed: false` produced a `directResponse` with code 404; a denied request gets `403` with body `RBAC: access denied`. There is no way to make `AuthorizationPolicy` return 404, so a client that distinguishes the two sees a BWC break.
-3. **Path normalization must be enabled.** The deny decision is path-based, so `%2F`, `..` and duplicate slashes become bypass vectors. `meshConfig.pathNormalization.normalization` must be at least `MERGE_SLASHES` (see [Authorization Policy Normalization](https://istio.io/latest/docs/ops/best-practices/security/#understand-path-normalization)).
-4. `DENY` **policies should be scoped to a port.** For non-HTTP traffic all HTTP attributes are missing, and missing attributes are treated as matches in a `DENY` rule, so an unscoped policy denies more than intended.
+2. **Header-matched controller root route takes over requests with path variables.** The fifth route of the example (`/api/v1/my-service/resource/{var1}` -> `my-service`) truncates to `/api/v1/my-service/resource` and gets the same behavior as the first route, so on its own it migrates cleanly. But the fourth route (`/api/v1/my-service/resource` with `:method: GET` -> `another-service`) now has exactly the same `PathPrefix`. Path lengths tie, and Gateway API picks the rule with the method match, so every `GET` below the controller root, including `GET /api/v1/my-service/resource/123`, goes to `another-service` instead of `my-service`. Truncating to `/api/v1/my-service/resource/` does not help, since Istio strips the trailing `/` from a `PathPrefix` value. Such a header-matched controller root route must be registered as `Exact` match on the root path and the root path with a trailing `/` - the only paths it received in legacy. `Exact` is ranked above every `PathPrefix`, so collection requests still reach `another-service`, and everything below the root falls through to the truncated prefix route. `ReplacePrefixMatch` is not allowed with `Exact` match, so the rewrite becomes `ReplaceFullPath`. Query parameters are not part of the path, so `GET /api/v1/my-service/resource?page=2` still matches:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: my-public-routes
+spec:
+  parentRefs:
+    - name: public-gateway-service
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: "/api/v1/my-service/resource"
+          method: GET
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplaceFullPath
+              replaceFullPath: "/resource"
+      backendRefs:
+        - name: another-service
+          port: 8080
+    - matches:
+        - path:
+            type: Exact
+            value: "/api/v1/my-service/resource/"
+          method: GET
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplaceFullPath
+              replaceFullPath: "/resource/"
+      backendRefs:
+        - name: another-service
+          port: 8080
+```
+
+3. **The status code changes from 404 to 403.** Legacy `allowed: false` produced a `directResponse` with code 404; a denied request gets `403` with body `RBAC: access denied`. There is no way to make `AuthorizationPolicy` return 404, so a client that distinguishes the two sees a BWC break.
+4. **Path normalization must be enabled.** The deny decision is path-based, so `%2F`, `..` and duplicate slashes become bypass vectors. `meshConfig.pathNormalization.normalization` must be at least `MERGE_SLASHES` (see [Authorization Policy Normalization](https://istio.io/latest/docs/ops/best-practices/security/#understand-path-normalization)).
+5. `DENY` **policies should be scoped to a port.** For non-HTTP traffic all HTTP attributes are missing, and missing attributes are treated as matches in a `DENY` rule, so an unscoped policy denies more than intended.
 
 
 
