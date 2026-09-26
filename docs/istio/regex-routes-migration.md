@@ -60,6 +60,8 @@ A longer route can allow single endpoint back below the forbidden one: in our ex
 
 Routes can also differ by header matchers only. In our example listing of resources (`GET /api/v1/my-service/resource`) is served by `another-service`, while reading a single resource (`GET /api/v1/my-service/resource/{var1}`) is still served by `my-service`. So a route with `:method` header matcher is registered on the controller root, and a route with path variable keeps single resource requests on `my-service`.
 
+Not every controller has a route on its root. In our example only `/api/v1/my-service/order/{var1}/items` is exposed from the order controller, and every other path below `/api/v1/my-service/order` is not routed to `my-service` at all.
+
 So, complete configuration for our example:
 
 ```yaml
@@ -86,6 +88,9 @@ routeConfigurations:
   - prefix: /api/v1/my-service/resource/{var1}/internal-api/status
     prefixRewrite: /resource/{var1}/internal-api/status
     cluster: "my-service||my-service||8080"
+  - prefix: /api/v1/my-service/order/{var1}/items
+    prefixRewrite: /order/{var1}/items
+    cluster: "my-service||my-service||8080"
 - gateway: private-gateway-service
   routes:
   - prefix: /api/v1/my-service/resource
@@ -107,6 +112,9 @@ routeConfigurations:
     cluster: "my-service||my-service||8080"
   - prefix: /api/v1/my-service/resource/{var1}/internal-api/status
     prefixRewrite: /resource/{var1}/internal-api/status
+    cluster: "my-service||my-service||8080"
+  - prefix: /api/v1/my-service/order/{var1}/items
+    prefixRewrite: /order/{var1}/items
     cluster: "my-service||my-service||8080"
 - gateway: internal-gateway
   routes:
@@ -130,6 +138,9 @@ routeConfigurations:
     cluster: "my-service||my-service||8080"
   - prefix: /api/v1/my-service/resource/{var1}/internal-api/status
     prefixRewrite: /resource/{var1}/internal-api/status
+    cluster: "my-service||my-service||8080"
+  - prefix: /api/v1/my-service/order/{var1}/items
+    prefixRewrite: /order/{var1}/items
     cluster: "my-service||my-service||8080"
 ```
 
@@ -342,9 +353,24 @@ spec:
               - "/api/v1/my-service/resource/{*}/internal-api/status/{**}"
 ```
 
-4. **The status code changes from 404 to 403.** Legacy `allowed: false` produced a `directResponse` with code 404; a denied request gets `403` with body `RBAC: access denied`. There is no way to make `AuthorizationPolicy` return 404, so a client that distinguishes the two sees a BWC break.
-5. **Path normalization must be enabled.** The deny decision is path-based, so `%2F`, `..` and duplicate slashes become bypass vectors. `meshConfig.pathNormalization.normalization` must be at least `MERGE_SLASHES` (see [Authorization Policy Normalization](https://istio.io/latest/docs/ops/best-practices/security/#understand-path-normalization)).
-6. `DENY` **policies should be scoped to a port.** For non-HTTP traffic all HTTP attributes are missing, and missing attributes are treated as matches in a `DENY` rule, so an unscoped policy denies more than intended.
+4. **Truncated route exposes paths which were not routed before.** A legacy route with path variables matches only its exact shape: the seventh route of the example exposes `/api/v1/my-service/order/{var1}/items` and nothing else, so `GET /api/v1/my-service/order/123` falls through to the gateway's own `/` route. After truncation to `/api/v1/my-service/order` the whole subtree below the controller is routed to `my-service`, including `GET /api/v1/my-service/order/123` and `DELETE /api/v1/my-service/order/123`, which may be `internal` endpoints of `my-service` never meant to be exposed on this gateway. If the route ends with a variable (`/api/v1/my-service/order/{var1}`), only the bare `/api/v1/my-service/order` and `/api/v1/my-service/order/` become exposed. No `allowed: false` route exists for these paths, so no `DENY` rule is generated from legacy configuration - the generator must create an additional `DENY` rule itself: `paths` are the truncated prefix and the truncated prefix followed by `/{**}`, `notPaths` are the original route and every other allowed route below the truncated prefix, in the same form as in the previous item. Such rule is needed only when no allowed route shorter than the truncated prefix covers it (the gateway's own `/` route does not count). Otherwise these paths were already exposed via the shorter route in legacy, and denying them would break it:
+
+```yaml
+  rules:
+    - to:
+        - operation:
+            ports: ["8080"]
+            paths:
+              - "/api/v1/my-service/order"
+              - "/api/v1/my-service/order/{**}"
+            notPaths:
+              - "/api/v1/my-service/order/{*}/items"
+              - "/api/v1/my-service/order/{*}/items/{**}"
+```
+
+5. **The status code changes from 404 to 403.** Legacy `allowed: false` produced a `directResponse` with code 404; a denied request gets `403` with body `RBAC: access denied`. There is no way to make `AuthorizationPolicy` return 404, so a client that distinguishes the two sees a BWC break.
+6. **Path normalization must be enabled.** The deny decision is path-based, so `%2F`, `..` and duplicate slashes become bypass vectors. `meshConfig.pathNormalization.normalization` must be at least `MERGE_SLASHES` (see [Authorization Policy Normalization](https://istio.io/latest/docs/ops/best-practices/security/#understand-path-normalization)).
+7. `DENY` **policies should be scoped to a port.** For non-HTTP traffic all HTTP attributes are missing, and missing attributes are treated as matches in a `DENY` rule, so an unscoped policy denies more than intended.
 
 
 
