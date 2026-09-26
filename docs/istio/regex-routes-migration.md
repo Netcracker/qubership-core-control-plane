@@ -56,6 +56,8 @@ Sometimes, in microservice there is a REST controller (root resource, e.g. `/api
 
 To achive such behaviour, in Legacy Cloud-Core Service Mesh you can register route with field `allowed: false` that will create route with directResponse code 404.
 
+A longer route can allow single endpoint back below the forbidden one: in our example `/api/v1/my-service/resource/{var1}/internal-api/status` stays `public` on all gateways. Legacy mesh picks the longest match, so this route wins over the forbidden `/api/v1/my-service/resource/{var1}/internal-api`.
+
 Routes can also differ by header matchers only. In our example listing of resources (`GET /api/v1/my-service/resource`) is served by `another-service`, while reading a single resource (`GET /api/v1/my-service/resource/{var1}`) is still served by `my-service`. So a route with `:method` header matcher is registered on the controller root, and a route with path variable keeps single resource requests on `my-service`.
 
 So, complete configuration for our example:
@@ -81,6 +83,9 @@ routeConfigurations:
   - prefix: /api/v1/my-service/resource/{var1}
     prefixRewrite: /resource/{var1}
     cluster: "my-service||my-service||8080"
+  - prefix: /api/v1/my-service/resource/{var1}/internal-api/status
+    prefixRewrite: /resource/{var1}/internal-api/status
+    cluster: "my-service||my-service||8080"
 - gateway: private-gateway-service
   routes:
   - prefix: /api/v1/my-service/resource
@@ -99,6 +104,9 @@ routeConfigurations:
     cluster: "another-service||another-service||8080"
   - prefix: /api/v1/my-service/resource/{var1}
     prefixRewrite: /resource/{var1}
+    cluster: "my-service||my-service||8080"
+  - prefix: /api/v1/my-service/resource/{var1}/internal-api/status
+    prefixRewrite: /resource/{var1}/internal-api/status
     cluster: "my-service||my-service||8080"
 - gateway: internal-gateway
   routes:
@@ -119,6 +127,9 @@ routeConfigurations:
     cluster: "another-service||another-service||8080"
   - prefix: /api/v1/my-service/resource/{var1}
     prefixRewrite: /resource/{var1}
+    cluster: "my-service||my-service||8080"
+  - prefix: /api/v1/my-service/resource/{var1}/internal-api/status
+    prefixRewrite: /resource/{var1}/internal-api/status
     cluster: "my-service||my-service||8080"
 ```
 
@@ -261,11 +272,16 @@ spec:
             paths:
               - "/api/v1/my-service/resource/{*}/internal-api"
               - "/api/v1/my-service/resource/{*}/internal-api/{**}"
+            notPaths:
+              - "/api/v1/my-service/resource/{*}/internal-api/status"
+              - "/api/v1/my-service/resource/{*}/internal-api/status/{**}"
 ```
 
 `{*}` matches exactly one path segment and `{**}` matches zero or more, and `{**}` must be the last operator. Two entries are needed to reproduce legacy prefix semantics: `{**}` is preceded by a literal `/`, so `/.../internal-api/{**}` covers `/.../internal-api/` and everything below it, while the first entry covers the bare `/.../internal-api`.
 
 Since the policy is attached to one specific `Gateway`, the per-gateway exposure model is preserved: the same path can be denied on `public-gateway-service` and left untouched on `internal-gateway`.
+
+`notPaths` restores the legacy "longest match wins" precedence for allowed routes below the forbidden one (see limitations below). The sixth route of the example (`/api/v1/my-service/resource/{var1}/internal-api/status`) is then routed by the `/api/v1/my-service/resource` rule like any other path below the controller root.
 
 Limitations:
 
@@ -311,9 +327,24 @@ spec:
           port: 8080
 ```
 
-3. **The status code changes from 404 to 403.** Legacy `allowed: false` produced a `directResponse` with code 404; a denied request gets `403` with body `RBAC: access denied`. There is no way to make `AuthorizationPolicy` return 404, so a client that distinguishes the two sees a BWC break.
-4. **Path normalization must be enabled.** The deny decision is path-based, so `%2F`, `..` and duplicate slashes become bypass vectors. `meshConfig.pathNormalization.normalization` must be at least `MERGE_SLASHES` (see [Authorization Policy Normalization](https://istio.io/latest/docs/ops/best-practices/security/#understand-path-normalization)).
-5. `DENY` **policies should be scoped to a port.** For non-HTTP traffic all HTTP attributes are missing, and missing attributes are treated as matches in a `DENY` rule, so an unscoped policy denies more than intended.
+3. **Forbidden route blocks longer allowed routes below it.** In legacy the forbidden route is a regular route, so a longer allowed route below it wins: `GET /api/v1/my-service/resource/123/internal-api/status` matches the sixth route of the example and goes to `my-service` on every gateway. `AuthorizationPolicy` is evaluated before route selection, so a `DENY` rule on `/api/v1/my-service/resource/{*}/internal-api/{**}` alone would block this request with 403 regardless of any longer route. Every allowed route which is longer than the forbidden one and lies below it must be added to `notPaths` of the same `DENY` rule - the bare path and the path followed by `/{**}`, with every path variable replaced by `{*}`. A request is denied only if it matches `paths` and does not match `notPaths`, and `notPaths` supports the same `{*}` / `{**}` path templates as `paths`. The typical case is a whole microservice root forbidden on `public-gateway-service` with only a few endpoints below it allowed - there every allowed endpoint ends up in `notPaths`. If the allowed route also has a `:method` header matcher, excluding its path from the `DENY` rule allows it for every method, so the other methods need a separate `DENY` rule with the same path and `notMethods`:
+
+```yaml
+  rules:
+    - to:
+        - operation:
+            ports: ["8080"]
+            paths:
+              - "/api/v1/my-service/resource/{*}/internal-api"
+              - "/api/v1/my-service/resource/{*}/internal-api/{**}"
+            notPaths:
+              - "/api/v1/my-service/resource/{*}/internal-api/status"
+              - "/api/v1/my-service/resource/{*}/internal-api/status/{**}"
+```
+
+4. **The status code changes from 404 to 403.** Legacy `allowed: false` produced a `directResponse` with code 404; a denied request gets `403` with body `RBAC: access denied`. There is no way to make `AuthorizationPolicy` return 404, so a client that distinguishes the two sees a BWC break.
+5. **Path normalization must be enabled.** The deny decision is path-based, so `%2F`, `..` and duplicate slashes become bypass vectors. `meshConfig.pathNormalization.normalization` must be at least `MERGE_SLASHES` (see [Authorization Policy Normalization](https://istio.io/latest/docs/ops/best-practices/security/#understand-path-normalization)).
+6. `DENY` **policies should be scoped to a port.** For non-HTTP traffic all HTTP attributes are missing, and missing attributes are treated as matches in a `DENY` rule, so an unscoped policy denies more than intended.
 
 
 
