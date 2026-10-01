@@ -17,12 +17,20 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxhelper"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-core-lib-go/v3/security"
+	"github.com/netcracker/qubership-core-lib-go/v3/security/rest"
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
 	"github.com/valyala/fasthttp"
 )
 
+type m2mTokens interface {
+	Token(ctx context.Context, targetUrl string) (token string, fallbackAllowed bool, err error)
+	LegacyToken(ctx context.Context) (string, error)
+	UseLegacyToken(targetUrl string)
+}
+
 type utilConfig struct {
 	getToken  func(ctx context.Context) (string, error)
+	m2mTokens m2mTokens
 	doTimeout func(req *fasthttp.Request, resp *fasthttp.Response, timeout time.Duration) error
 	client    *fasthttp.Client
 }
@@ -75,6 +83,7 @@ func createConfig() {
 	}
 	config = &utilConfig{
 		getToken:  security.GetTokenFunc(),
+		m2mTokens: rest.NewM2MTokens(),
 		doTimeout: httpclient.DoTimeout,
 		client:    httpclient,
 	}
@@ -113,9 +122,39 @@ func DoRetryRequest(logContext context.Context, method string, url string, data 
 	return nil, errors.New(errMsg)
 }
 
+// DoRequest sends the request with the M2M token. In hybrid mode a 401 response to the Kubernetes token makes it resend
+// the request with the legacy M2M token, and a successful resend makes later requests to url use the legacy token.
 func DoRequest(logContext context.Context, method string, url string, data []byte, logger logging.Logger) (*fasthttp.Response, error) {
+	tokens := getConfig().m2mTokens
+	token, fallbackAllowed, err := tokens.Token(logContext, url)
+	if err != nil {
+		logger.ErrorC(logContext, "Can't refresh token %v", err)
+		errMsg := fmt.Sprintf("Secure %s request handler to %s failed with error: %s", method, url, err)
+		logger.WarnC(logContext, "%s", errMsg)
+		return nil, errors.New(errMsg)
+	}
+	response, err := doRequestWithToken(logContext, method, url, data, token, logger)
+	if err != nil || !fallbackAllowed || response.StatusCode() != fasthttp.StatusUnauthorized {
+		return response, err
+	}
+	fasthttp.ReleaseResponse(response)
+	logger.InfoC(logContext, "%s request to %s was rejected with 401 for the Kubernetes token, resending it with the legacy M2M token", method, url)
+	legacyToken, err := tokens.LegacyToken(logContext)
+	if err != nil {
+		errMsg := fmt.Sprintf("Secure %s request handler to %s failed with error: %s", method, url, err)
+		logger.WarnC(logContext, "%s", errMsg)
+		return nil, errors.New(errMsg)
+	}
+	response, err = doRequestWithToken(logContext, method, url, data, legacyToken, logger)
+	if err == nil && response.StatusCode() < fasthttp.StatusBadRequest {
+		tokens.UseLegacyToken(url)
+	}
+	return response, err
+}
+
+func doRequestWithToken(logContext context.Context, method string, url string, data []byte, token string, logger logging.Logger) (*fasthttp.Response, error) {
 	errMsg := ""
-	req, err := constructRequest(logContext, method, url, data, logger)
+	req, err := constructRequest(logContext, method, url, data, token, logger)
 	if err != nil {
 		fasthttp.ReleaseRequest(req)
 		errMsg = fmt.Sprintf("Secure %s request handler to %s failed with error: %s", method, url, err)
@@ -141,13 +180,8 @@ func DoRequest(logContext context.Context, method string, url string, data []byt
 	}
 }
 
-func constructRequest(ctx context.Context, method string, url string, data []byte, logger logging.Logger) (*fasthttp.Request, error) {
+func constructRequest(ctx context.Context, method string, url string, data []byte, m2mToken string, logger logging.Logger) (*fasthttp.Request, error) {
 	req := fasthttp.AcquireRequest()
-	m2mToken, err := getConfig().getToken(ctx)
-	if err != nil {
-		logger.ErrorC(ctx, "Can't refresh token %v", err)
-		return req, err
-	}
 	logger.DebugC(ctx, "Request will be sent with token")
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", m2mToken))
 	req.Header.Add("Content-Type", "application/json")

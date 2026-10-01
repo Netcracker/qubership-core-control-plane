@@ -29,13 +29,13 @@ require (
 	github.com/mustafaturan/bus/v3 v3.0.3
 	github.com/mustafaturan/monoton/v3 v3.0.0
 	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.0
-	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.7.2
+	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.7.3-0.20260930122940-74058c7ad436
 	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.5.2
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.1
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.0
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.9.0
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.9.1-0.20260930125751-a62ec208ada5
 	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.6.1
-	github.com/netcracker/qubership-core-lib-go/v3 v3.14.1
+	github.com/netcracker/qubership-core-lib-go/v3 v3.14.2-0.20260930115738-1de4576730ab
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.24.1
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
