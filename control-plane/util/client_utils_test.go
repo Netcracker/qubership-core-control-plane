@@ -192,3 +192,41 @@ func TestDoRetryRequestSecondTryFine(t *testing.T) {
 	assert.Equal(t, fasthttp.StatusOK, resp.StatusCode())
 	assert.Equal(t, []byte("BodyOK"), resp.Body())
 }
+
+func TestDoRequest_SendsTokenAndBody(t *testing.T) {
+	getConfig().getToken = func(context.Context) (string, error) {
+		return "m2m", nil
+	}
+	var gotAuth, gotBody string
+	getConfig().doTimeout = func(req *fasthttp.Request, resp *fasthttp.Response, d time.Duration) error {
+		gotAuth = string(req.Header.Peek("Authorization"))
+		gotBody = string(req.Body())
+		resp.SetStatusCode(fasthttp.StatusOK)
+		return nil
+	}
+
+	resp, err := DoRequest(context.Background(), fasthttp.MethodPost, "http://target:8080/api", []byte("payload"), logging.GetLogger(""))
+
+	assert.NoError(t, err)
+	assert.Equal(t, fasthttp.StatusOK, resp.StatusCode())
+	assert.Equal(t, "Bearer m2m", gotAuth)
+	assert.Equal(t, "payload", gotBody)
+}
+
+func TestDoRequest_Returns401WithoutResending(t *testing.T) {
+	getConfig().getToken = func(context.Context) (string, error) {
+		return "m2m", nil
+	}
+	calls := 0
+	getConfig().doTimeout = func(req *fasthttp.Request, resp *fasthttp.Response, d time.Duration) error {
+		calls++
+		resp.SetStatusCode(fasthttp.StatusUnauthorized)
+		return nil
+	}
+
+	resp, err := DoRequest(context.Background(), fasthttp.MethodGet, "http://target:8080/api", nil, logging.GetLogger(""))
+
+	assert.NoError(t, err)
+	assert.Equal(t, fasthttp.StatusUnauthorized, resp.StatusCode())
+	assert.Equal(t, 1, calls)
+}
