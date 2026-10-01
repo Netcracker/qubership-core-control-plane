@@ -10,6 +10,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"github.com/gorilla/websocket"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-core-lib-go/v3/security"
@@ -17,9 +18,14 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/security/tokensource"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/valyala/fasthttp"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -32,34 +38,24 @@ func (p *stubTokenProvider) GetToken(context.Context) (string, error) {
 	return "legacy-token", nil
 }
 
-type stubTokenSource struct{}
+type stubTokenSource struct {
+	err error
+}
 
 func (s *stubTokenSource) GetAudienceToken(context.Context, tokensource.TokenAudience) (string, error) {
-	return "k8s-token", nil
+	return "k8s-token", s.err
 }
 
 func (s *stubTokenSource) GetServiceAccountToken(context.Context) (string, error) {
 	return "", nil
 }
 
-type stubM2MTokens struct {
-	err error
-}
-
-func (t *stubM2MTokens) Token(context.Context, string) (string, bool, error) {
-	return "m2m", false, t.err
-}
-
-func (t *stubM2MTokens) LegacyToken(context.Context) (string, error) {
-	return "", errors.New("unexpected legacy token request")
-}
-
-func (t *stubM2MTokens) UseLegacyToken(string) {}
+var k8sTokenSource = &stubTokenSource{}
 
 func TestMain(m *testing.M) {
 	serviceloader.Register(1, &security.DummyToken{})
 	serviceloader.Register(100, &stubTokenProvider{})
-	serviceloader.Register(100, &stubTokenSource{})
+	serviceloader.Register(100, k8sTokenSource)
 
 	configloader.Init()
 	os.Exit(m.Run())
@@ -186,7 +182,9 @@ func getSomeRootCert() *pem.Block {
 	return block1
 }
 func TestDoRequestErrOnM2mErr(t *testing.T) {
-	getConfig().m2mTokens = &stubM2MTokens{err: errors.New("m2m err")}
+	useM2MAuthMode(t, security.M2MAuthModeK8s)
+	k8sTokenSource.err = errors.New("m2m err")
+	t.Cleanup(func() { k8sTokenSource.err = nil })
 	resp, err := DoRequest(context.Background(), fasthttp.MethodGet, "http://aaa:8080", nil, logging.GetLogger(""))
 	assert.NotNil(t, err)
 	assert.Nil(t, resp)
@@ -202,7 +200,7 @@ func TestConstructRequestFine(t *testing.T) {
 }
 
 func TestDoRetryRequestSecondTryFine(t *testing.T) {
-	getConfig().m2mTokens = &stubM2MTokens{}
+	useM2MAuthMode(t, security.M2MAuthModeLegacy)
 	tryNum := 1
 	getConfig().doTimeout = func(req *fasthttp.Request, resp *fasthttp.Response, d time.Duration) error {
 		if tryNum == 2 {
@@ -222,11 +220,11 @@ func TestDoRetryRequestSecondTryFine(t *testing.T) {
 	assert.Equal(t, []byte("BodyOK"), resp.Body())
 }
 
-// useM2MAuthMode makes DoRequest take its tokens from rest.M2MTokens in mode; the legacy token is "legacy-token" and
-// the Kubernetes token is "k8s-token".
+// useM2MAuthMode makes requests send the tokens of mode; the legacy token is "legacy-token" and the Kubernetes token
+// is "k8s-token".
 func useM2MAuthMode(t *testing.T, mode security.M2MAuthMode) {
 	t.Setenv(security.M2MAuthModeEnv, string(mode))
-	getConfig().m2mTokens = rest.NewM2MTokens()
+	getConfig().m2mRequestSender = rest.NewM2MRequestSender()
 }
 
 // respondInTurn answers each request with the next status in statuses and records the Authorization header it got.
@@ -321,4 +319,30 @@ func TestDoRequest_HybridDoesNotKeepLegacyTokenAfterFailedResend(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"Bearer k8s-token", "Bearer legacy-token", "Bearer k8s-token"}, *gotAuth)
+}
+
+func TestSecureWebSocketDial_HybridRedialsWithLegacyTokenAfter401(t *testing.T) {
+	useM2MAuthMode(t, security.M2MAuthModeHybrid)
+	var gotAuth []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = append(gotAuth, r.Header.Get("Authorization"))
+		if r.Header.Get("Authorization") != "Bearer legacy-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		conn, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
+		if err == nil {
+			conn.Close()
+		}
+	}))
+	t.Cleanup(server.Close)
+	wsURL, err := url.Parse("ws" + strings.TrimPrefix(server.URL, "http") + "/watch")
+	require.NoError(t, err)
+
+	conn, resp, err := SecureWebSocketDial(context.Background(), *wsURL, websocket.Dialer{}, nil, logging.GetLogger(""))
+
+	require.NoError(t, err)
+	conn.Close()
+	assert.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
+	assert.Equal(t, []string{"Bearer k8s-token", "Bearer legacy-token"}, gotAuth)
 }

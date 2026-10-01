@@ -16,23 +16,15 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxhelper"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"github.com/netcracker/qubership-core-lib-go/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/security/rest"
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
 	"github.com/valyala/fasthttp"
 )
 
-type m2mTokens interface {
-	Token(ctx context.Context, targetUrl string) (token string, fallbackAllowed bool, err error)
-	LegacyToken(ctx context.Context) (string, error)
-	UseLegacyToken(targetUrl string)
-}
-
 type utilConfig struct {
-	getToken  func(ctx context.Context) (string, error)
-	m2mTokens m2mTokens
-	doTimeout func(req *fasthttp.Request, resp *fasthttp.Response, timeout time.Duration) error
-	client    *fasthttp.Client
+	m2mRequestSender *rest.M2MRequestSender
+	doTimeout        func(req *fasthttp.Request, resp *fasthttp.Response, timeout time.Duration) error
+	client           *fasthttp.Client
 }
 
 var configOnce = sync.Once{}
@@ -82,10 +74,9 @@ func createConfig() {
 		DialDualStack:                 true,
 	}
 	config = &utilConfig{
-		getToken:  security.GetTokenFunc(),
-		m2mTokens: rest.NewM2MTokens(),
-		doTimeout: httpclient.DoTimeout,
-		client:    httpclient,
+		m2mRequestSender: rest.NewM2MRequestSender(),
+		doTimeout:        httpclient.DoTimeout,
+		client:           httpclient,
 	}
 }
 
@@ -122,34 +113,22 @@ func DoRetryRequest(logContext context.Context, method string, url string, data 
 	return nil, errors.New(errMsg)
 }
 
-// DoRequest sends the request with the M2M token. In hybrid mode a 401 response to the Kubernetes token makes it resend
-// the request with the legacy M2M token, and a successful resend makes later requests to url use the legacy token.
+// DoRequest sends the request with the M2M token. In hybrid mode a 401 to the Kubernetes token makes it resend the
+// request with the legacy M2M token.
 func DoRequest(logContext context.Context, method string, url string, data []byte, logger logging.Logger) (*fasthttp.Response, error) {
-	tokens := getConfig().m2mTokens
-	token, fallbackAllowed, err := tokens.Token(logContext, url)
+	var response *fasthttp.Response
+	err := getConfig().m2mRequestSender.Send(logContext, url, func(token string) (int, error) {
+		var err error
+		response, err = doRequestWithToken(logContext, method, url, data, token, logger)
+		if err != nil {
+			return 0, err
+		}
+		return response.StatusCode(), nil
+	})
 	if err != nil {
-		logger.ErrorC(logContext, "Can't refresh token %v", err)
-		errMsg := fmt.Sprintf("Secure %s request handler to %s failed with error: %s", method, url, err)
-		logger.WarnC(logContext, "%s", errMsg)
-		return nil, errors.New(errMsg)
+		return nil, err
 	}
-	response, err := doRequestWithToken(logContext, method, url, data, token, logger)
-	if err != nil || !fallbackAllowed || response.StatusCode() != fasthttp.StatusUnauthorized {
-		return response, err
-	}
-	fasthttp.ReleaseResponse(response)
-	logger.InfoC(logContext, "%s request to %s was rejected with 401 for the Kubernetes token, resending it with the legacy M2M token", method, url)
-	legacyToken, err := tokens.LegacyToken(logContext)
-	if err != nil {
-		errMsg := fmt.Sprintf("Secure %s request handler to %s failed with error: %s", method, url, err)
-		logger.WarnC(logContext, "%s", errMsg)
-		return nil, errors.New(errMsg)
-	}
-	response, err = doRequestWithToken(logContext, method, url, data, legacyToken, logger)
-	if err == nil && response.StatusCode() < fasthttp.StatusBadRequest {
-		tokens.UseLegacyToken(url)
-	}
-	return response, err
+	return response, nil
 }
 
 func doRequestWithToken(logContext context.Context, method string, url string, data []byte, token string, logger logging.Logger) (*fasthttp.Response, error) {
@@ -202,19 +181,26 @@ func constructRequest(ctx context.Context, method string, url string, data []byt
 	return req, nil
 }
 
+// SecureWebSocketDial dials webSocketURL with the M2M token. In hybrid mode a 401 to the Kubernetes token makes it dial
+// again with the legacy M2M token.
 func SecureWebSocketDial(logContext context.Context, webSocketURL url.URL, dialer websocket.Dialer, requestHeaders http.Header, logger logging.Logger) (*websocket.Conn, *http.Response, error) {
-	m2mToken, err := getConfig().getToken(logContext)
-	if err != nil {
-		logger.ErrorC(logContext, "Can't refresh token %v", err)
-		return nil, nil, err
-	}
 	if requestHeaders == nil {
 		logger.WarnC(logContext, "Headers are nil. Creating default headers")
 		requestHeaders = http.Header{}
 	}
 	requestHeaders = addHeaderIfAbsent(requestHeaders, "Host", webSocketURL.Host)
-	requestHeaders = addHeaderIfAbsent(requestHeaders, "Authorization", "Bearer "+m2mToken)
-	return dialer.Dial(webSocketURL.String(), requestHeaders)
+	var conn *websocket.Conn
+	var resp *http.Response
+	err := getConfig().m2mRequestSender.Send(logContext, webSocketURL.String(), func(token string) (int, error) {
+		headers := addHeaderIfAbsent(requestHeaders.Clone(), "Authorization", "Bearer "+token)
+		var err error
+		conn, resp, err = dialer.Dial(webSocketURL.String(), headers)
+		if resp == nil {
+			return 0, err
+		}
+		return resp.StatusCode, err
+	})
+	return conn, resp, err
 }
 
 func addHeaderIfAbsent(requestHeaders http.Header, headerName, headerValue string) http.Header {
