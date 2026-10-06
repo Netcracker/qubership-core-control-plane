@@ -51,11 +51,11 @@ func init() {
 func buildProtobufEvent(any interface{}) (*Event, error) {
 	switch t := any.(type) {
 	case *data.Snapshot:
-		return buildProtobufEventFromSnapshot(any.(*data.Snapshot))
+		return buildProtobufEventFromSnapshot(t)
 	case *events.ChangeEvent:
-		return buildProtoEvent(EventType_CHANGE, any.(*events.ChangeEvent))
+		return buildProtoEvent(EventType_CHANGE, copyChangeEventForPublish(t))
 	case *events.ReloadEvent:
-		return buildProtoEvent(EventType_RELOAD, any.(*events.ReloadEvent))
+		return buildProtoEvent(EventType_RELOAD, copyReloadEventForPublish(t))
 	default:
 		log.Debugf("Event bus doesn't support events of type %T!", t)
 		return nil, ErrUnsupportedEvent
@@ -63,7 +63,7 @@ func buildProtobufEvent(any interface{}) (*Event, error) {
 }
 
 func buildProtoEvent(evType EventType, source domain.MarshalPreparer) (*Event, error) {
-	log.Debugf("buildProtoChangeEvent %s %+v", evType, source)
+	log.Debugf("buildProtoEvent %s %+v", evType, source)
 	buf := &bytes.Buffer{}
 	if err := source.MarshalPrepare(); err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func buildProtoEvent(evType EventType, source domain.MarshalPreparer) (*Event, e
 	}
 	marshalledEvent, err := ptypes.MarshalAny(&RawBytesData{Data: buf.Bytes()})
 	if err != nil {
-		log.Errorf("Failed to marshall ReloadEvent to protobuf: %v", err)
+		log.Errorf("Failed to marshall event %s to protobuf: %v", evType, err)
 		return nil, err
 	}
 	return &Event{EventType: evType, Data: marshalledEvent}, nil
