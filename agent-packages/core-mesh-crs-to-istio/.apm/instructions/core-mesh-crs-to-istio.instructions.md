@@ -7,4 +7,6 @@ When editing Helm templates (`*.yaml` / `*.yml`) that contain Cloud-Core Mesh
 custom resources (`FacadeService`, `Gateway`, `RouteConfiguration`, `TlsDef`,
 `Mesh`, `StatefulSession`, `LoadBalance`, `HttpFilters`) and asked to migrate,
 convert, or transform them to Istio / Gateway API, apply the
-`core-mesh-crs-to-istio` skill.
+`core-mesh-crs-to-istio` skill. Do not hand-convert routes with `{variables}` or
+`allowed: false` — the skill cuts them to `PathPrefix` and generates
+`AuthorizationPolicy` DENY rules.

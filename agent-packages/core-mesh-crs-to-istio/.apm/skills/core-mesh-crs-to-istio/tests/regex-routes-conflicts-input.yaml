@@ -1,0 +1,78 @@
+# One case per conflict type of regex-routes-migration Step 5, plus a forbidden
+# path with a variable on a gateway without DENY policies (Step 7).
+#   R1 + R2  DUP     both cut to /api/v1/shop/items, different backends
+#   R3 + R4  EXPAND  R4 cuts to /api/v1/billing/invoices, which R3 served in legacy
+#   R5 + R6  STEAL   R6 is a longer PathPrefix than R5's cut /api/v1/catalog
+#   R7 + R8  R8 is forbidden on internal-gateway-service, where no DENY is generated
+---
+apiVersion: nc.core.mesh/v3
+kind: RouteConfiguration
+metadata:
+  name: shop-routes
+spec:
+  gateways: ["public-gateway-service"]
+  virtualServices:
+    - name: shop
+      hosts: ["*"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: shop
+              endpoint: http://shop:8080
+            rules:
+              - match:
+                  prefix: /api/v1/shop/items
+                prefixRewrite: /items
+          - destination:
+              cluster: reviews
+              endpoint: http://reviews:8080
+            rules:
+              - match:
+                  prefix: /api/v1/shop/items/{id}/reviews
+                prefixRewrite: /items/{id}/reviews
+          - destination:
+              cluster: billing
+              endpoint: http://billing:8080
+            rules:
+              - match:
+                  prefix: /api/v1/billing
+                prefixRewrite: /billing
+              - match:
+                  prefix: /api/v1/billing/invoices/{id}/pdf
+                prefixRewrite: /pdf/invoices/{id}/pdf
+          - destination:
+              cluster: export
+              endpoint: http://export:8080
+            rules:
+              - match:
+                  prefix: /api/v1/catalog/{tenant}/export
+                prefixRewrite: /export-api/{tenant}/export
+          - destination:
+              cluster: catalog
+              endpoint: http://catalog:8080
+            rules:
+              - match:
+                  prefix: /api/v1/catalog/public
+                prefixRewrite: /catalog/public
+---
+apiVersion: nc.core.mesh/v3
+kind: RouteConfiguration
+metadata:
+  name: billing-internal-routes
+spec:
+  gateways: ["internal-gateway-service"]
+  virtualServices:
+    - name: internal-gateway-service
+      hosts: ["internal-gateway-service"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: billing
+              endpoint: http://billing:8080
+            rules:
+              - match:
+                  prefix: /api/v1/billing
+                prefixRewrite: /billing
+              - match:
+                  prefix: /api/v1/billing/{id}/audit
+                allowed: false
