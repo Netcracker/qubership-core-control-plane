@@ -30,7 +30,7 @@ require (
 	github.com/mustafaturan/monoton/v3 v3.0.0
 	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.1
 	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.8.0
-	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.5.2
+	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.5.3
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.2
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.1
 	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.9.1
