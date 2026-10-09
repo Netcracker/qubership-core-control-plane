@@ -120,7 +120,8 @@ func (p *PostgreSqlService) GetMaster(cnn *bun.Conn) (*MasterMetadata, error) {
 }
 
 func (p *PostgreSqlService) Count(cnn *bun.Conn) (int, error) {
-	return cnn.NewSelect().Model(&MasterMetadata{}).Count(ctx)
+	n, err := cnn.NewSelect().Model(&MasterMetadata{}).Count(ctx)
+	return int(n), err
 }
 
 func (p *PostgreSqlService) Conn() (*bun.Conn, error) {
