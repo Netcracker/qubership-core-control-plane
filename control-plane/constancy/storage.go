@@ -228,7 +228,7 @@ func dbaasOperatorDbProvider(ctx context.Context) func() (db.DBProvider, error) 
 	}
 }
 
-// Replaced in tests, so the choice below can be covered without a database.
+// Replaced in tests, so NewConfiguredStorage's choice of source can be covered without a database.
 var (
 	dbaasOperatorStorage = NewDbaasOperatorStorage
 	legacyStorage        = NewStorage
@@ -248,7 +248,7 @@ func NewConfiguredStorage(ctx context.Context) *StorageImpl {
 	return legacyStorage(ctx, cfg)
 }
 
-// A variable, so the constructors above can be covered without a database.
+// A variable, so NewStorage and NewDbaasOperatorStorage can be covered without a database.
 var newStorage = func(ctx context.Context, getProvider func() (db.DBProvider, error)) *StorageImpl {
 	dbProvider, err := getProvider()
 	if err != nil {

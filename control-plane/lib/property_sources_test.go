@@ -1,23 +1,29 @@
 package lib
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/podsecrets-propertysource"
+	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConfigPropertySources_LegacyModeAddsPodSecrets(t *testing.T) {
-	legacy := configPropertySources(false)
-	dbaasOperator := configPropertySources(true)
+// providerTypes names each source by its provider type, so a mismatch prints both lists in full.
+func providerTypes(sources []*configloader.PropertySource) []string {
+	types := make([]string, len(sources))
+	for i, source := range sources {
+		types[i] = fmt.Sprintf("%T", source.Provider)
+	}
+	return types
+}
 
-	assert.Len(t, legacy, len(dbaasOperator)+1, "legacy mode must add exactly the pod-secrets source")
+func TestConfigPropertySources_LegacyModeAddsPodSecrets(t *testing.T) {
+	withPodSecrets := podsecrets.AddPodSecretsPropertySource(configloader.BasePropertySources())
+
+	assert.Equal(t, providerTypes(withPodSecrets), providerTypes(configPropertySources(false)))
 }
 
 func TestConfigPropertySources_DbaasOperatorModeKeepsBaseSources(t *testing.T) {
-	dbaasOperator := configPropertySources(true)
-	legacy := configPropertySources(false)
-
-	for i := range dbaasOperator {
-		assert.IsType(t, legacy[i].Provider, dbaasOperator[i].Provider, "source %d", i)
-	}
+	assert.Equal(t, providerTypes(configloader.BasePropertySources()), providerTypes(configPropertySources(true)))
 }
