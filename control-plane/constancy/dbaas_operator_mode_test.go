@@ -2,6 +2,7 @@ package constancy
 
 import (
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,7 +22,7 @@ func TestDbaasOperatorModeEnabled(t *testing.T) {
 		{"yes", false},
 		{" true", false},
 	} {
-		t.Run(tc.value, func(t *testing.T) {
+		t.Run(strconv.Quote(tc.value), func(t *testing.T) {
 			t.Setenv(DbaasOperatorModeEnvVar, tc.value)
 			assert.Equal(t, tc.want, DbaasOperatorModeEnabled())
 		})

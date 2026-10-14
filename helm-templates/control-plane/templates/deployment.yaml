@@ -86,9 +86,9 @@ spec:
                 secret:
                     secretName: '{{ .Values.SERVICE_NAME }}-postgresql-service-default-credentials'
 {{- end }}
-{{- /* Legacy credentials written by core-bootstrap. With the DBaaS Operator the database is
-       resolved from the mounted operator Secret instead, and core-bootstrap no longer
-       creates DB_CREDENTIALS_SECRET, so the volume must not be required there. */}}
+{{- /* Legacy credentials written by core-bootstrap. Not rendered with the DBaaS Operator:
+       core-bootstrap does not write DB_CREDENTIALS_SECRET there, and the database comes from
+       the mounted operator Secret. */}}
 {{- if not (include "coretpl.dbaasOperatorEnabled" $) }}
             -   name: pod-secrets
                 projected:
