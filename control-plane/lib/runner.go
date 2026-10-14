@@ -101,6 +101,22 @@ func configPropertySources(dbaasOperatorMode bool) []*configloader.PropertySourc
 	return sources
 }
 
+// startPodSecretsWatcher starts the watcher of the pod-secrets directory and returns the hook that
+// stops it. It returns nil when no watcher runs: in DBaaS Operator mode, where no pod-secrets volume
+// is mounted, or when the watcher cannot start.
+func startPodSecretsWatcher(dbaasOperatorMode bool) func() {
+	if dbaasOperatorMode {
+		logger.Info("DBaaS Operator mode: pod-secrets property source and watcher are disabled")
+		return nil
+	}
+	podSecretsWatcher, err := podsecrets.StartWatcher()
+	if err != nil {
+		logger.Warn("Pod-secrets watcher could not start: %v", err)
+		return nil
+	}
+	return podSecretsWatcher.Stop
+}
+
 func RunServer() {
 	dbaasOperatorMode := constancy.DbaasOperatorModeEnabled()
 	consulPS := consul.NewLoggingPropertySource()
@@ -111,12 +127,8 @@ func RunServer() {
 
 	logger = logging.GetLogger("server")
 
-	if dbaasOperatorMode {
-		logger.Info("DBaaS Operator mode: pod-secrets property source and watcher are disabled")
-	} else if podSecretsWatcher, err := podsecrets.StartWatcher(); err != nil {
-		logger.Warn("Pod-secrets watcher could not start: %v", err)
-	} else {
-		shutdownHooks = append(shutdownHooks, podSecretsWatcher.Stop)
+	if stopPodSecretsWatcher := startPodSecretsWatcher(dbaasOperatorMode); stopPodSecretsWatcher != nil {
+		shutdownHooks = append(shutdownHooks, stopPodSecretsWatcher)
 	}
 
 	tlsmode.SetUpTlsProperties()

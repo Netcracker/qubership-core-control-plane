@@ -6,131 +6,90 @@ import (
 	"os"
 	"testing"
 
-	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/db"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/stretchr/testify/assert"
 )
 
-// withStorageStubs replaces the constructors NewConfiguredStorage chooses between, so the choice can
-// be covered without a database, and restores them when the test ends.
-func withStorageStubs(t *testing.T, dbaasOperator func(context.Context) *StorageImpl,
-	legacy func(context.Context, Configurator) *StorageImpl,
-	configure func() (*PostgresStorageConfigurator, error)) {
-	t.Helper()
-	previousDbaasOperator, previousLegacy, previousConfigure := dbaasOperatorStorage, legacyStorage, configureLegacy
-	t.Cleanup(func() {
-		dbaasOperatorStorage, legacyStorage, configureLegacy = previousDbaasOperator, previousLegacy, previousConfigure
+func legacyCredentials() *PostgresStorageConfigurator {
+	return &PostgresStorageConfigurator{dbHost: "pg-host", dbPort: "5432", dbName: "cp",
+		dbUserName: "user", dbPassword: "password", dbRole: "admin"}
+}
+
+// The pool must have no application provider in DBaaS Operator mode: a provider there answers before
+// the base client looks at the mounted DBaaS Operator Secret, so the Secret would never be read.
+func TestLogicalDbProviders_NoneInDbaasOperatorMode(t *testing.T) {
+	configureCalls := 0
+
+	providers, err := logicalDbProviders(context.Background(), true, func() (*PostgresStorageConfigurator, error) {
+		configureCalls++
+		return legacyCredentials(), nil
 	})
-	dbaasOperatorStorage, legacyStorage, configureLegacy = dbaasOperator, legacy, configure
+
+	assert.NoError(t, err)
+	assert.Empty(t, providers)
+	assert.Zero(t, configureCalls, "DBaaS Operator mode must not read the legacy credentials")
 }
 
-func TestNewConfiguredStorage_UsesTheDbaasOperatorSecret(t *testing.T) {
-	t.Setenv(DbaasOperatorModeEnvVar, "true")
-	dbaasOperatorCalls, legacyCalls, configureCalls := 0, 0, 0
-	expected := &StorageImpl{}
-	withStorageStubs(t,
-		func(context.Context) *StorageImpl { dbaasOperatorCalls++; return expected },
-		func(context.Context, Configurator) *StorageImpl { legacyCalls++; return nil },
-		func() (*PostgresStorageConfigurator, error) { configureCalls++; return nil, nil })
-
-	storage := NewConfiguredStorage(context.Background())
-
-	assert.Same(t, expected, storage)
-	assert.Equal(t, 1, dbaasOperatorCalls)
-	// The legacy credentials are neither read nor required in DBaaS Operator mode.
-	assert.Zero(t, legacyCalls)
-	assert.Zero(t, configureCalls)
-}
-
-func TestNewConfiguredStorage_UsesTheLegacyCredentials(t *testing.T) {
-	t.Setenv(DbaasOperatorModeEnvVar, "false")
-	dbaasOperatorCalls := 0
-	expected := &StorageImpl{}
-	configured := &PostgresStorageConfigurator{dbHost: "pg-host"}
-	var got Configurator
-	withStorageStubs(t,
-		func(context.Context) *StorageImpl { dbaasOperatorCalls++; return nil },
-		func(_ context.Context, cfg Configurator) *StorageImpl { got = cfg; return expected },
-		func() (*PostgresStorageConfigurator, error) { return configured, nil })
-
-	storage := NewConfiguredStorage(context.Background())
-
-	assert.Same(t, expected, storage)
-	assert.Same(t, configured, got)
-	assert.Zero(t, dbaasOperatorCalls)
-}
-
-func TestNewConfiguredStorage_PanicsWithoutLegacyCredentials(t *testing.T) {
-	t.Setenv(DbaasOperatorModeEnvVar, "false")
-	withStorageStubs(t,
-		func(context.Context) *StorageImpl { return nil },
-		func(context.Context, Configurator) *StorageImpl { return nil },
-		func() (*PostgresStorageConfigurator, error) { return nil, errors.New("can't find property pg.host") })
-
-	assert.PanicsWithError(t, "can't find property pg.host", func() {
-		NewConfiguredStorage(context.Background())
+func TestLogicalDbProviders_AggregatorProviderInLegacyMode(t *testing.T) {
+	providers, err := logicalDbProviders(context.Background(), false, func() (*PostgresStorageConfigurator, error) {
+		return legacyCredentials(), nil
 	})
+
+	assert.NoError(t, err)
+	if assert.Len(t, providers, 1) {
+		assert.Equal(t, NewDbaasAggregatorLogicalDbProvider(legacyCredentials()), providers[0])
+	}
 }
 
-// The pools themselves are built without contacting a database, so both providers can be exercised.
-func TestDbProviders(t *testing.T) {
+func TestLogicalDbProviders_ReportsMissingLegacyCredentials(t *testing.T) {
+	_, err := logicalDbProviders(context.Background(), false, func() (*PostgresStorageConfigurator, error) {
+		return nil, errors.New("can't find property pg.host")
+	})
+
+	assert.EqualError(t, err, "can't find property pg.host")
+}
+
+func TestLogicalDbProviders_RejectsEmptyLegacyCredentials(t *testing.T) {
+	_, err := logicalDbProviders(context.Background(), false, func() (*PostgresStorageConfigurator, error) {
+		cfg := legacyCredentials()
+		cfg.dbRole = ""
+		return cfg, nil
+	})
+
+	assert.EqualError(t, err, "database name, username, password, role or address must not be empty")
+}
+
+// The pool is built without contacting a database, in both modes.
+func TestNewDbProvider(t *testing.T) {
 	serviceloader.Register(1, &security.DummyToken{})
 	assert.NoError(t, os.Setenv("microservice.namespace", "test"))
 	t.Cleanup(func() { _ = os.Unsetenv("microservice.namespace") })
 	configloader.Init(configloader.EnvPropertySource())
+	configure := func() (*PostgresStorageConfigurator, error) { return legacyCredentials(), nil }
 
-	t.Run("dbaas operator", func(t *testing.T) {
-		provider, err := dbaasOperatorDbProvider(context.Background())()
+	for _, dbaasOperatorMode := range []bool{true, false} {
+		provider, err := newDbProvider(context.Background(), dbaasOperatorMode, configure)
 
-		assert.NoError(t, err)
-		assert.NotNil(t, provider)
-	})
-
-	t.Run("legacy", func(t *testing.T) {
-		cfg := &PostgresStorageConfigurator{dbHost: "pg-host", dbPort: "5432", dbName: "cp",
-			dbUserName: "user", dbPassword: "password", dbRole: "admin"}
-
-		provider, err := legacyDbProvider(cfg)()
-
-		assert.NoError(t, err)
-		assert.NotNil(t, provider)
-	})
-}
-
-// withStorageSeam replaces the shared constructor, so NewStorage and NewDbaasOperatorStorage can be
-// covered without a database. It records the provider each was given, without calling it.
-func withStorageSeam(t *testing.T, built *StorageImpl) *func() (db.DBProvider, error) {
-	t.Helper()
-	var given func() (db.DBProvider, error)
-	previous := newStorage
-	t.Cleanup(func() { newStorage = previous })
-	newStorage = func(_ context.Context, getProvider func() (db.DBProvider, error)) *StorageImpl {
-		given = getProvider
-		return built
+		assert.NoError(t, err, "DBaaS Operator mode %t", dbaasOperatorMode)
+		assert.NotNil(t, provider, "DBaaS Operator mode %t", dbaasOperatorMode)
 	}
-	return &given
 }
 
-func TestNewDbaasOperatorStorage(t *testing.T) {
-	expected := &StorageImpl{}
-	given := withStorageSeam(t, expected)
+func TestNewDbProvider_ReportsMissingLegacyCredentials(t *testing.T) {
+	_, err := newDbProvider(context.Background(), false, func() (*PostgresStorageConfigurator, error) {
+		return nil, errors.New("can't find property pg.host")
+	})
 
-	storage := NewDbaasOperatorStorage(context.Background())
-
-	assert.Same(t, expected, storage)
-	assert.NotNil(t, *given)
+	assert.EqualError(t, err, "can't find property pg.host")
 }
 
-func TestNewStorage_UsesTheConfiguredCredentials(t *testing.T) {
-	expected := &StorageImpl{}
-	given := withStorageSeam(t, expected)
-	cfg := &PostgresStorageConfigurator{dbHost: "pg-host", dbPort: "5432", dbName: "cp",
-		dbUserName: "user", dbPassword: "password", dbRole: "admin"}
+// Without DBaaS Operator mode and without pg.* properties, startup stops before it connects.
+func TestNewConfiguredStorage_PanicsWithoutLegacyCredentials(t *testing.T) {
+	t.Setenv(DbaasOperatorModeEnvVar, "false")
 
-	storage := NewStorage(context.Background(), cfg)
-
-	assert.Same(t, expected, storage)
-	assert.NotNil(t, *given)
+	assert.PanicsWithError(t, "can't find property pg.host", func() {
+		NewConfiguredStorage(context.Background())
+	})
 }
