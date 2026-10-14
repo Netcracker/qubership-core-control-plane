@@ -82,9 +82,9 @@ spec:
                 emptyDir: {}
 {{ end }}
 {{- if include "coretpl.dbaasOperatorEnabled" $ }}
-            -   name: control-plane-postgresql-service-default-secret
+            -   name: '{{ .Values.SERVICE_NAME }}-postgresql-service-default-secret'
                 secret:
-                    secretName: control-plane-postgresql-service-default-credentials
+                    secretName: '{{ .Values.SERVICE_NAME }}-postgresql-service-default-credentials'
 {{- end }}
 {{- /* Legacy credentials written by core-bootstrap. With the DBaaS Operator the database is
        resolved from the mounted operator Secret instead, and core-bootstrap no longer
@@ -136,8 +136,8 @@ spec:
                     readOnly: true
 {{- end }}
 {{- if include "coretpl.dbaasOperatorEnabled" $ }}
-                -   name: control-plane-postgresql-service-default-secret
-                    mountPath: /etc/secrets/dbaas-secrets/control-plane-postgresql-service-default-credentials
+                -   name: '{{ .Values.SERVICE_NAME }}-postgresql-service-default-secret'
+                    mountPath: /etc/secrets/dbaas-secrets/{{ .Values.SERVICE_NAME }}-postgresql-service-default-credentials
                     readOnly: true
 {{- end }}
                 args:

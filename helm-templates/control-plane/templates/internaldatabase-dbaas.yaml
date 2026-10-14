@@ -3,7 +3,7 @@
 apiVersion: dbaas.netcracker.com/v1
 kind: InternalDatabase
 metadata:
-    name: 'control-plane-postgresql-service-db'
+    name: '{{ .Values.SERVICE_NAME }}-postgresql-service-db'
     namespace: '{{ .Values.NAMESPACE }}'
     labels:
         app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
