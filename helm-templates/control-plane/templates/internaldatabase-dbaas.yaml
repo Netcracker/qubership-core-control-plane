@@ -11,7 +11,7 @@ metadata:
         app.kubernetes.io/managed-by: 'saasDeployer'
         deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 spec:
-    operatorNamespace: {{ include "coretpl.dbaasOperatorNamespace" $ | quote }}
+    operatorNamespace: {{ include "coretpl.dbaasNamespace" $ | quote }}
     # Mirrors createControlPlaneServiceClassifier in control-plane/db/dbprovider.go, which reads
     # microserviceName from MICROSERVICE_NAME, set from SERVICE_NAME in deployment.yaml.
     classifier:
