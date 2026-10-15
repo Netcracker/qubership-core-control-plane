@@ -2,6 +2,7 @@ package constancy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	gerrors "github.com/go-errors/errors"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/clustering"
@@ -180,8 +181,42 @@ func contains(applied migrate.MigrationSlice, migration migrate.Migration) bool 
 	return false
 }
 
-// Main constructor
-func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
+// NewConfiguredStorage builds the storage on whichever database source this deployment uses: the
+// Secret published by the DBaaS Operator, or the credentials core-bootstrap writes.
+func NewConfiguredStorage(ctx context.Context) *StorageImpl {
+	dbProvider, err := newDbProvider(ctx, DbaasOperatorModeEnabled(), NewPostgresStorageConfigurator)
+	if err != nil {
+		panic(err)
+	}
+	return NewStorage(ctx, dbProvider)
+}
+
+// newDbProvider builds the database pool on the application providers logicalDbProviders chooses.
+// It does not connect.
+func newDbProvider(ctx context.Context, dbaasOperatorMode bool,
+	configure func() (*PostgresStorageConfigurator, error)) (db.DBProvider, error) {
+	providers, err := logicalDbProviders(ctx, dbaasOperatorMode, configure)
+	if err != nil {
+		return nil, err
+	}
+	return db.NewDBProvider(dbaasbase.NewDbaaSPool(model.PoolOptions{LogicalDbProviders: providers}))
+}
+
+// logicalDbProviders returns the application providers of the database pool. In DBaaS Operator mode
+// there are none: the base client then resolves the database from the mounted DBaaS Operator Secret,
+// and calls the DBaaS REST API only when that lookup misses. Otherwise a single provider answers every
+// request from the credentials core-bootstrap writes to DB_CREDENTIALS_SECRET, read through configure,
+// which DBaaS Operator mode never calls.
+func logicalDbProviders(ctx context.Context, dbaasOperatorMode bool,
+	configure func() (*PostgresStorageConfigurator, error)) ([]model.LogicalDbProvider, error) {
+	if dbaasOperatorMode {
+		log.InfoC(ctx, "DBaaS Operator is enabled; resolving the database from the mounted DBaaS Operator Secret, with the DBaaS REST API as fallback")
+		return nil, nil
+	}
+	cfg, err := configure()
+	if err != nil {
+		return nil, err
+	}
 	user := cfg.GetDBUserName()
 	password := cfg.GetDBPassword()
 	database := cfg.GetDBName()
@@ -190,22 +225,14 @@ func NewStorage(ctx context.Context, cfg Configurator) *StorageImpl {
 	role := cfg.GetDBRole()
 
 	if user == "" || password == "" || database == "" || host == "" || role == "" {
-		log.PanicC(ctx, "Database name, username, password, role or address must not be empty")
+		return nil, errors.New("database name, username, password, role or address must not be empty")
 	}
 	log.InfoC(ctx, "For connection to postgres, using database=%s on host=%s, port=%s with username=%s", database, host, port, user)
+	return []model.LogicalDbProvider{NewDbaasAggregatorLogicalDbProvider(cfg)}, nil
+}
 
-	getProvider := func() (db.DBProvider, error) {
-		provider := NewDbaasAggregatorLogicalDbProvider(cfg)
-		poolOptions := model.PoolOptions{
-			LogicalDbProviders: []model.LogicalDbProvider{provider},
-		}
-		dbPool := dbaasbase.NewDbaaSPool(poolOptions)
-		return db.NewDBProvider(dbPool)
-	}
-	dbProvider, err := getProvider()
-	if err != nil {
-		log.PanicC(ctx, "Failed to create DBProvider, err = %v", err)
-	}
+// NewStorage builds the storage on the given database pool, connects, and applies the migrations.
+func NewStorage(ctx context.Context, dbProvider db.DBProvider) *StorageImpl {
 	instance := StorageImpl{dbProvider, &PGQueryWrapperImpl{}, &PGConnWrapperImpl{}, &PGTxWrapperImpl{}}
 
 	db, err := dbProvider.GetDB(ctx)

@@ -73,11 +73,13 @@ func buildServiceDbParams() model.DbParams {
 	}
 }
 
+// createControlPlaneServiceClassifier builds the classifier of the service database. microserviceName
+// comes from microservice.name, which the chart sets from SERVICE_NAME through MICROSERVICE_NAME, so it
+// matches the classifier the chart declares on the DBaaS Operator CRs.
 func createControlPlaneServiceClassifier(ctx context.Context) map[string]interface{} {
-	namespace := configloader.GetKoanf().MustString("microservice.namespace")
 	return map[string]interface{}{
-		"namespace":        namespace,
-		"microserviceName": "control-plane",
+		"namespace":        configloader.GetKoanf().MustString("microservice.namespace"),
+		"microserviceName": configloader.GetKoanf().MustString("microservice.name"),
 		"scope":            "service",
 	}
 }

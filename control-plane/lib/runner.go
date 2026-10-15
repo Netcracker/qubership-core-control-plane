@@ -90,20 +90,45 @@ var (
 	shutdownHooks []func()
 )
 
+// configPropertySources returns the property sources configuration is loaded from. Outside DBaaS
+// Operator mode they include pod-secrets, where core-bootstrap's database credentials are mounted. In
+// DBaaS Operator mode the chart mounts no pod-secrets volume, so the source is left out.
+func configPropertySources(dbaasOperatorMode bool) []*configloader.PropertySource {
+	sources := configloader.BasePropertySources()
+	if !dbaasOperatorMode {
+		sources = podsecrets.AddPodSecretsPropertySource(sources)
+	}
+	return sources
+}
+
+// startPodSecretsWatcher starts the watcher of the pod-secrets directory and returns the hook that
+// stops it. It returns nil when no watcher runs: in DBaaS Operator mode, where no pod-secrets volume
+// is mounted, or when the watcher cannot start.
+func startPodSecretsWatcher(dbaasOperatorMode bool) func() {
+	if dbaasOperatorMode {
+		logger.Info("DBaaS Operator mode: pod-secrets property source and watcher are disabled")
+		return nil
+	}
+	podSecretsWatcher, err := podsecrets.StartWatcher()
+	if err != nil {
+		logger.Warn("Pod-secrets watcher could not start: %v", err)
+		return nil
+	}
+	return podSecretsWatcher.Stop
+}
+
 func RunServer() {
+	dbaasOperatorMode := constancy.DbaasOperatorModeEnabled()
 	consulPS := consul.NewLoggingPropertySource()
-	propertySources := configloader.BasePropertySources()
-	propertySources = podsecrets.AddPodSecretsPropertySource(propertySources)
+	propertySources := configPropertySources(dbaasOperatorMode)
 	configloader.InitWithSourcesArray(append(propertySources, consulPS))
 	consul.StartWatchingForPropertiesWithRetry(context.Background(), consulPS, func(event interface{}, err error) {
 	})
 
 	logger = logging.GetLogger("server")
 
-	if podSecretsWatcher, err := podsecrets.StartWatcher(); err != nil {
-		logger.Warn("Pod-secrets watcher could not start: %v", err)
-	} else {
-		shutdownHooks = append(shutdownHooks, podSecretsWatcher.Stop)
+	if stopPodSecretsWatcher := startPodSecretsWatcher(dbaasOperatorMode); stopPodSecretsWatcher != nil {
+		shutdownHooks = append(shutdownHooks, stopPodSecretsWatcher)
 	}
 
 	tlsmode.SetUpTlsProperties()
@@ -113,11 +138,8 @@ func RunServer() {
 		defaultVersion = "v1"
 	}
 
-	constStorageCfg, err := constancy.NewPostgresStorageConfigurator()
-	if err != nil {
-		panic(err)
-	}
-	constantStorage := constancy.NewStorage(ctx, constStorageCfg)
+	constantStorage := constancy.NewConfiguredStorage(ctx)
+
 	entityService := entity.NewService(defaultVersion)
 	inMemCfg := config.NewInMemoryStorageConfigurator(constantStorage, constantStorage)
 

@@ -21,6 +21,7 @@ func TestMain(m *testing.M) {
 
 func TestNewDBProvider(t *testing.T) {
 	os.Setenv("microservice.namespace", "test")
+	os.Setenv("microservice.name", "control-plane")
 	configloader.Init(configloader.EnvPropertySource())
 	dbaasPool := dbaasbase.NewDbaaSPool()
 	provider, err := NewDBProvider(dbaasPool)
@@ -30,6 +31,7 @@ func TestNewDBProvider(t *testing.T) {
 
 func TestGetBunDB(t *testing.T) {
 	os.Setenv("microservice.namespace", "test")
+	os.Setenv("microservice.name", "control-plane")
 	configloader.Init(configloader.EnvPropertySource())
 	dbaasPool := dbaasbase.NewDbaaSPool()
 	provider, err := NewDBProvider(dbaasPool)
@@ -41,6 +43,7 @@ func TestGetBunDB(t *testing.T) {
 
 func TestGetConn(t *testing.T) {
 	os.Setenv("microservice.namespace", "test")
+	os.Setenv("microservice.name", "control-plane")
 	configloader.Init(configloader.EnvPropertySource())
 	dbaasPool := dbaasbase.NewDbaaSPool()
 	provider, err := NewDBProvider(dbaasPool)
@@ -48,4 +51,19 @@ func TestGetConn(t *testing.T) {
 
 	_, err = provider.GetConn(context.Background())
 	assert.NotNil(t, err)
+}
+
+func TestCreateControlPlaneServiceClassifier_UsesConfiguredServiceName(t *testing.T) {
+	os.Setenv("microservice.namespace", "test")
+	os.Setenv("microservice.name", "custom-control-plane")
+	defer os.Setenv("microservice.name", "control-plane")
+	configloader.Init(configloader.EnvPropertySource())
+
+	classifier := createControlPlaneServiceClassifier(context.Background())
+
+	assert.Equal(t, map[string]interface{}{
+		"namespace":        "test",
+		"microserviceName": "custom-control-plane",
+		"scope":            "service",
+	}, classifier)
 }
