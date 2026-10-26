@@ -1,0 +1,4 @@
+name: regex-routes-migration
+version: 1.0.0
+description: Shared procedure for migrating legacy Cloud-Core Mesh routes with path variables and forbidden (allowed false) routes to Istio — cut every variable path to a PathPrefix, keep the rewrite, detect behavior conflicts, and move forbidden paths on public/private gateways to AuthorizationPolicy DENY rules. Reused by core-mesh-crs-to-istio and httproute-from-code.
+author: Qubership

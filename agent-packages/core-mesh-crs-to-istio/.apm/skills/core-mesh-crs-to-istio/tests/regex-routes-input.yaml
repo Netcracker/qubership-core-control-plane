@@ -1,0 +1,99 @@
+# The example of docs/istio/regex-routes-migration.md. Rows R1–R7 are the doc's
+# routes 1–7 on public + private; R8–R14 are the same routes on internal, where
+# the internal API (R9) is allowed.
+---
+apiVersion: nc.core.mesh/v3
+kind: RouteConfiguration
+metadata:
+  name: my-service-routes
+spec:
+  gateways: ["public-gateway-service", "private-gateway-service"]
+  virtualServices:
+    - name: my-service
+      hosts: ["*"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: my-service
+              endpoint: http://my-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/my-service/resource
+                prefixRewrite: /resource
+              - match:
+                  prefix: /api/v1/my-service/resource/{var1}/internal-api
+                allowed: false
+          - destination:
+              cluster: another-service
+              endpoint: http://another-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/my-service/resource/{var1}/migrated-api
+                prefixRewrite: /resource
+              - match:
+                  prefix: /api/v1/my-service/resource
+                  headerMatchers:
+                    - name: ":method"
+                      exactMatch: "GET"
+                prefixRewrite: /resource
+          - destination:
+              cluster: my-service
+              endpoint: http://my-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/my-service/resource/{var1}
+                prefixRewrite: /resource/{var1}
+              - match:
+                  prefix: /api/v1/my-service/resource/{var1}/internal-api/status
+                prefixRewrite: /resource/{var1}/internal-api/status
+              - match:
+                  prefix: /api/v1/my-service/order/{var1}/items
+                prefixRewrite: /order/{var1}/items
+---
+apiVersion: nc.core.mesh/v3
+kind: RouteConfiguration
+metadata:
+  name: my-service-internal-routes
+spec:
+  gateways: ["internal-gateway-service"]
+  virtualServices:
+    - name: internal-gateway-service
+      hosts: ["internal-gateway-service"]
+      routeConfiguration:
+        routes:
+          - destination:
+              cluster: my-service
+              endpoint: http://my-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/my-service/resource
+                prefixRewrite: /resource
+              - match:
+                  prefix: /api/v1/my-service/resource/{var1}/internal-api
+                prefixRewrite: /resource/{var1}/internal-api
+          - destination:
+              cluster: another-service
+              endpoint: http://another-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/my-service/resource/{var1}/migrated-api
+                prefixRewrite: /resource
+              - match:
+                  prefix: /api/v1/my-service/resource
+                  headerMatchers:
+                    - name: ":method"
+                      exactMatch: "GET"
+                prefixRewrite: /resource
+          - destination:
+              cluster: my-service
+              endpoint: http://my-service:8080
+            rules:
+              - match:
+                  prefix: /api/v1/my-service/resource/{var1}
+                prefixRewrite: /resource/{var1}
+              - match:
+                  prefix: /api/v1/my-service/resource/{var1}/internal-api/status
+                prefixRewrite: /resource/{var1}/internal-api/status
+              - match:
+                  prefix: /api/v1/my-service/order/{var1}/items
+                prefixRewrite: /order/{var1}/items

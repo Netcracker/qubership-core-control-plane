@@ -15,9 +15,12 @@ This is a shared procedure reused by multiple skills and generators
 Apply it before emitting
 an HTTPRoute so the most specific path match appears first in `rules[]`.
 
-The path to sort on is the rule's prefix/path match value (the `from` path for
-code-registered routes, or the `match.prefix` / `match.path` / `match.regExp`
-value for converted `RouteConfiguration` rules).
+The path to sort on is the path value the rule **emits** — after
+[`regex-routes-migration`](../regex-routes-migration/SKILL.md) has cut paths with
+`{variables}` to their `PathPrefix`. Never sort on the legacy `from` /
+`match.prefix` when it contains a variable: `/api/v1/svc/{id}/items` is emitted,
+and sorted, as `/api/v1/svc`. A raw legacy `match.regExp` (flagged
+`⚠ MANUAL REVIEW`) is sorted on its regex text.
 
 ## Specificity ordering rules
 
@@ -31,6 +34,9 @@ value for converted `RouteConfiguration` rules).
 3. Tie-break by path length (longer string first).
 
 4. Tie-break by lexicographic order (ascending) for stable output.
+
+5. Equal path value: `Exact` before `PathPrefix`, and a rule with a `method` or
+   header match before one without (Gateway API precedence).
 
 ## Example — input order does not matter, output is always sorted
 

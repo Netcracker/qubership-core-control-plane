@@ -3,9 +3,9 @@
 An APM package that converts Qubership Cloud-Core Mesh custom resources in a
 Helm chart (`FacadeService`, `Gateway`, `RouteConfiguration`, `TlsDef`,
 `StatefulSession`, `LoadBalance`, `HttpFilters`) to Istio Ambient Mesh resources
-— Gateway API `Gateway` + `HTTPRoute`, `DestinationRule`, `ServiceEntry`, and
-`TrafficExtension` — in a single pass, while keeping the chart deployable on
-**both** mesh types.
+— Gateway API `Gateway` + `HTTPRoute`, `DestinationRule`, `ServiceEntry`,
+`TrafficExtension`, and `AuthorizationPolicy` DENY rules for forbidden routes —
+in a single pass, while keeping the chart deployable on **both** mesh types.
 
 ## Install
 
@@ -20,7 +20,11 @@ pick up a new version.
 ## What you get
 
 - The [`SKILL.md`](.apm/skills/core-mesh-crs-to-istio/SKILL.md) — the
-  step-by-step transformation, plus its co-located reference files, one per CR
+  step-by-step transformation, with its
+  [`contract.md`](.apm/skills/core-mesh-crs-to-istio/contract.md) (inputs, report
+  schema, side effects) and
+  [`output-summary.md`](.apm/skills/core-mesh-crs-to-istio/output-summary.md)
+  (review triggers, chat summary), plus its co-located reference files, one per CR
   kind:
   - [`facade-service-mapping.md`](.apm/skills/core-mesh-crs-to-istio/facade-service-mapping.md)
   - [`gateway-mapping.md`](.apm/skills/core-mesh-crs-to-istio/gateway-mapping.md)
@@ -34,6 +38,10 @@ pick up a new version.
 - The shared rule-sorting procedure lives in its own package,
   [`path-specificity-sorting`](../path-specificity-sorting) (declared as a
   dependency), referenced as a sibling skill once installed.
+- The shared procedure for routes with `{variables}` and forbidden routes
+  (`PathPrefix` cut, `AuthorizationPolicy` DENY on public/private gateways,
+  route-conflict questions) lives in
+  [`regex-routes-migration`](../regex-routes-migration), also a dependency.
 - An instruction that fires when you work on Helm templates containing mesh CRs,
   steering the agent to the skill.
 - E2E test fixtures under
@@ -52,4 +60,6 @@ call it as a sub-skill.
 It wraps the originals in `SERVICE_MESH_TYPE=Core` guards, generates
 `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`, updates
 `values.yaml` / `values.schema.json`, and reports the detected backend
-reference, output labels, and any `⚠ MANUAL REVIEW` items.
+reference, output labels, and any `⚠ MANUAL REVIEW` items. Route conflicts that
+would change routing behavior come back as questions (`unresolved:` in the
+report) — no `VirtualService` is generated.

@@ -1,0 +1,226 @@
+# Rules are sorted by path specificity, so the order differs from the input.
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: my-service-routes
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: public-gateway
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: private-gateway
+  rules:
+  # ⚠ MANUAL REVIEW: /api/v1/my-service/resource/{var1}/migrated-api needs a regex rewrite
+  # (rewrite /resource); not emitted — its requests now reach the rule that owns
+  # /api/v1/my-service/resource
+  - matches:
+    - path:
+        type: Exact
+        value: /api/v1/my-service/resource/
+      method: GET
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /resource/
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: another-service
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: Exact
+        value: /api/v1/my-service/resource
+      method: GET
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /resource
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: another-service
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/my-service/resource
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /resource
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: my-service
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/my-service/order
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /order
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: my-service
+      port: 8080
+      weight: 1
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: my-service-routes-deny-public
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: public-gateway
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/my-service/order"
+        - "/api/v1/my-service/order/{**}"
+        notPaths:
+        - "/api/v1/my-service/order/{*}/items"
+        - "/api/v1/my-service/order/{*}/items/{**}"
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/my-service/resource/{*}/internal-api"
+        - "/api/v1/my-service/resource/{*}/internal-api/{**}"
+        notPaths:
+        - "/api/v1/my-service/resource/{*}/internal-api/status"
+        - "/api/v1/my-service/resource/{*}/internal-api/status/{**}"
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: my-service-routes-deny-private
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: private-gateway
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/my-service/order"
+        - "/api/v1/my-service/order/{**}"
+        notPaths:
+        - "/api/v1/my-service/order/{*}/items"
+        - "/api/v1/my-service/order/{*}/items/{**}"
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/my-service/resource/{*}/internal-api"
+        - "/api/v1/my-service/resource/{*}/internal-api/{**}"
+        notPaths:
+        - "/api/v1/my-service/resource/{*}/internal-api/status"
+        - "/api/v1/my-service/resource/{*}/internal-api/status/{**}"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: my-service-internal-routes
+spec:
+  parentRefs:
+  - group: ''
+    kind: Service
+    name: internal-gateway-service
+  rules:
+  # ⚠ MANUAL REVIEW: /api/v1/my-service/resource/{var1}/migrated-api needs a regex rewrite
+  # (rewrite /resource); not emitted — its requests now reach the rule that owns
+  # /api/v1/my-service/resource
+  - matches:
+    - path:
+        type: Exact
+        value: /api/v1/my-service/resource/
+      method: GET
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /resource/
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: another-service
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: Exact
+        value: /api/v1/my-service/resource
+      method: GET
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /resource
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: another-service
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/my-service/resource
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /resource
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: my-service
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/my-service/order
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /order
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: my-service
+      port: 8080
+      weight: 1
+{{- end }}

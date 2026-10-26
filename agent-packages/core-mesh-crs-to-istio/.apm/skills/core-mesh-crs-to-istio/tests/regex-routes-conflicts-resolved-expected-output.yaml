@@ -1,0 +1,154 @@
+# Follow-up run with resolutions:
+#   route-conflict/R1-R2: keep-R1   → R1's rule is added, R2 is not emitted
+#   route-conflict/R3-R4: accept    → no change
+#   route-conflict/R5-R6: manual    → MANUAL REVIEW above R5's rule (/api/v1/catalog)
+# Rules are sorted by path specificity, so the order differs from the input.
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: shop-routes
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: public-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing/invoices
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /pdf/invoices
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/catalog/public
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /catalog/public
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: catalog
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/shop/items
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /items
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: shop
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /billing
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing
+      port: 8080
+      weight: 1
+  # ⚠ MANUAL REVIEW: route-conflict/R5-R6 — requests like /api/v1/catalog/public/export now
+  # go to R6 (catalog:8080) instead of R5 (export:8080); handle by hand — e.g. VirtualService
+  # on the waypoint (docs Option 3)
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/catalog
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /export-api
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: export
+      port: 8080
+      weight: 1
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: shop-routes-deny-public
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: public-gateway
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/catalog"
+        - "/api/v1/catalog/{**}"
+        notPaths:
+        - "/api/v1/catalog/public"
+        - "/api/v1/catalog/public/{**}"
+        - "/api/v1/catalog/{*}/export"
+        - "/api/v1/catalog/{*}/export/{**}"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: billing-internal-routes
+spec:
+  parentRefs:
+  - group: ''
+    kind: Service
+    name: internal-gateway-service
+  rules:
+  # ⚠ MANUAL REVIEW: /api/v1/billing/{id}/audit is forbidden in legacy, but on
+  # internal-gateway-service it is now routed by PathPrefix /api/v1/billing; no DENY
+  # policy is generated for this gateway
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /billing
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing
+      port: 8080
+      weight: 1
+{{- end }}

@@ -4,7 +4,8 @@ description: >
   Convert Qubership Cloud-Core Mesh CRs in a Helm chart (FacadeService, Gateway,
   RouteConfiguration, TlsDef, StatefulSession, LoadBalance, HttpFilters) to Istio
   Ambient Mesh resources (Gateway API Gateway + HTTPRoute, DestinationRule,
-  ServiceEntry, TrafficExtension), keeping the chart deployable on both mesh types.
+  ServiceEntry, TrafficExtension, AuthorizationPolicy for forbidden routes), keeping
+  the chart deployable on both mesh types.
   Use when asked to migrate, convert, or transform mesh CRs in a Helm chart to Istio,
   or as a sub-skill of core-mesh-to-istio-migration.
 ---
@@ -22,6 +23,8 @@ This skill transforms Helm chart templates from the homegrown **Cloud Core Mesh*
 | `Gateway` (`spec.type: mesh`) | omitted — routes become east-west `HTTPRoute` (parents are Services) |
 | `FacadeService` | `Service` (HTTPRoute parent); also resolves mesh gateway name via `spec.gateway` |
 | `RouteConfiguration` | `HTTPRoute` per virtualService; rule-level `statefulSession` → `DestinationRule` |
+| `RouteConfiguration` paths with `{variables}` | `PathPrefix` cut before the first variable, rewrite kept (see [regex-routes-migration](../regex-routes-migration/SKILL.md)) |
+| `RouteConfiguration` `allowed: false` on `public-gateway-service` / `private-gateway-service`, and paths the cut newly exposes there | `AuthorizationPolicy` DENY (see [regex-routes-migration](../regex-routes-migration/SKILL.md)) |
 | `RouteConfiguration` on an egress gateway with `https://` / `tlsConfigName` | HTTPRoute Hostname backend + `ServiceEntry` + TLS `DestinationRule` (see [tls-def-mapping.md](tls-def-mapping.md)) |
 | `TlsDef` | `Secret` (CA / client cert) referenced by `DestinationRule.credentialName`; `kubernetes.io/tls` when it carries a client cert |
 | `StatefulSession` (standalone) | `DestinationRule` with `consistentHash.httpCookie` |
@@ -39,84 +42,14 @@ old resources in `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` and new Istio r
 
 ## Contract
 
-### Inputs
-
-| Input | Type | Required | Notes |
-|---|---|---|---|
-| `chartPath` | path | yes | Chart or templates folder to transform |
-| `interactive` | bool | no | `true` only when a user invokes the skill directly in their own session; orchestrators and sub-agent wrappers pass `false` |
-| `resolutions` | map `<unresolved id>: <answer>` | no | Answers to a previous run's `unresolved:` entries |
-
-With `interactive: false` (the default for orchestrated and sub-agent runs),
-never ask the user: every blocking question becomes an `unresolved:` entry.
-Skip only the work that depends on the answer, continue with everything else,
-and set `status: partial` when writing the final report. With
-`interactive: true`, ask blocking questions in chat and wait for the answer. A
-sub-agent has no user channel — its questions die in its transcript — so a
-delegated run must always be `interactive: false`.
-
-### Outputs
-
-In addition to the chat Output Summary, write a machine-readable report to
-`.mesh-migration/reports/core-mesh-crs-to-istio.yaml` (create the directory, and ensure
-`.mesh-migration/` is listed in the repo's `.gitignore` — reports are working
-files, never committed). In an orchestrated run the orchestrator creates the
-directory and the `.gitignore` entry, and this skill writes only the report. In a
-direct run it does both itself, which is the one edit it makes outside
-`chartPath`:
-
-```yaml
-reportSchema: 1
-skill: core-mesh-crs-to-istio
-status: complete            # complete | partial (unresolved items block part of the output)
-generatedAt: <ISO-8601>
-filesModified: [<paths>]
-filesGenerated: [<paths>]
-resources:
-  facadeService: <N>
-  gatewayIngressEgress: <N>
-  gatewayMesh: <N>
-  routeConfiguration: <N>
-  statefulSession: <N>
-  loadBalance: <N>
-  luaFilters: <N>
-  tlsDef: <N>
-  serviceEntry: <N>
-  skipped: <N>
-backendRef:
-  name: <value or null>
-  port: <value or null>
-  unresolvedReason: <string or null>
-labels:
-  values: <map or null>
-  unresolvedReason: <string or null>
-unresolved:                 # empty when status is complete
-  - id: gateway/<gateway-name>
-    question: "Gateway '<gateway-name>' is referenced in routes but not defined in this chart — ingress or mesh?"
-    options: [ingress, mesh]
-    default: null
-    referencedBy: [<CR names>]
-needsReview:
-  - <one line per ⚠ MANUAL REVIEW hit>
-```
-
-Consumers must ignore unknown report fields. A consumer that sees a
-`reportSchema` newer than its own documentation must stop and report a contract
-mismatch instead of guessing field meanings.
-
-### Side effects
-
-Modifies only:
-
-- mesh-CR files and their `-istio` siblings, under `chartPath`
-- `values.yaml` and `values.schema.json`, under `chartPath`
-- the report file at `.mesh-migration/reports/core-mesh-crs-to-istio.yaml`
-- `.gitignore`, to add `.mesh-migration/` if it is not already listed — the only
-  permitted edit outside `chartPath`, and only that one line. A direct run makes
-  it; an orchestrated run leaves `.gitignore` to the orchestrator
-
-Nothing else. This list is the boundary — if a rule elsewhere appears to ask for
-a write not on it, the list wins and the rule is wrong.
+Inputs: `chartPath` (required), `interactive` (default `false` — never ask the
+user then; every blocking question becomes an `unresolved:` entry and the report
+ends with `status: partial`), `resolutions` (answers to a previous run's
+`unresolved:` entries). Output: the report
+`.mesh-migration/reports/core-mesh-crs-to-istio.yaml`. **Read
+[`contract.md`](contract.md) in full with the Read tool before Step 1** — it
+holds the input table, the exact report schema, and the side-effect boundary
+(the files this skill may write).
 
 ---
 
@@ -263,6 +196,11 @@ documents leaves each of them enclosed, so the file is left alone.
 
 **Idempotency check:** if the `-istio` sibling already exists, add only the
 resources it is missing; do not duplicate documents a previous run generated.
+On a follow-up run that receives `route-conflict/*` answers through
+`resolutions`, rebuild the worksheets (item 4a below), apply each answer per
+[regex-routes-migration](../regex-routes-migration/SKILL.md) Step 5, and add the
+rules (or `# ⚠ MANUAL REVIEW` comments) the answers produce to the existing
+HTTPRoutes — leave every other generated rule and policy as it is.
 
 Create a **new file** for each original, with `-istio` before the extension:
 
@@ -288,15 +226,48 @@ Process CR kinds in this order, following the mapping reference for each:
 1. `Gateway` CRs → [gateway-mapping.md](gateway-mapping.md)
 2. `FacadeService` CRs → [facade-service-mapping.md](facade-service-mapping.md)
 3. List in chat all resolved gateways: mesh gateways and ingress/egress gateways.
-4. `RouteConfiguration` CRs → [route-configuration-mapping.md](route-configuration-mapping.md);
-   rule-level `statefulSession` → [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md)
-   (DestinationRule in the same output file, after the HTTPRoute, `---` separated).
-   Egress destinations (`https://`, `tlsConfigName`, FQDN) →
-   [tls-def-mapping.md](tls-def-mapping.md) (ServiceEntry, Secret, TLS DestinationRule
-   in the same output file, after the HTTPRoute).
+4. `RouteConfiguration` CRs, in **two passes** — a rule's Istio form depends on
+   the other routes of the same gateway, so collect everything before emitting:
+   - **4a — Collect.** **Open the sibling skill `regex-routes-migration` with the
+     Read tool now** — the folder next to this skill's folder
+     ([link](../regex-routes-migration/SKILL.md)). Read **all four** of its files
+     in full: `SKILL.md`, `procedure.md`, `render.md`, `worked-example.md`. The
+     worksheet, the row command, the conflict questions and the
+     AuthorizationPolicy template are defined only there — never write them from
+     memory. Then write one worksheet per resolved gateway name
+     (`.mesh-migration/work/core-mesh-crs-to-istio-<gateway>.md`) and add one row
+     per `Rule` of **every** RouteConfiguration in the chart, in discovery order
+     (file, document, virtualService, route, rule → `R1`, `R2`, …). A CR with
+     several `spec.gateways` adds the same row (same id) to each of their
+     worksheets. Fill the consumer columns per
+     [route-configuration-mapping.md](route-configuration-mapping.md) →
+     "Worksheet row". Skip CRs whose gateways are all unresolved (Step 2).
+   - **4b — Decide.** Run the regex-routes-migration procedure (Steps 1–7) on
+     every worksheet. Route conflicts become `unresolved:` entries
+     (`interactive: false`) or chat questions (`interactive: true`).
+   - **Gate before 4c:** `ls .mesh-migration/work/` lists one
+     `core-mesh-crs-to-istio-<gateway>.md` per gateway, every row has `emit`, and
+     every worksheet has its `## Row command output`, `## Conflicts` and
+     `## DENY rules` sections. Run the
+     regex-routes-migration self-check (its Step 9). Do not emit anything before
+     this gate passes.
+   - **4c — Emit.** Convert each CR per
+     [route-configuration-mapping.md](route-configuration-mapping.md), rendering
+     each rule as its worksheet `emit` says. Rule-level `statefulSession` →
+     [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md)
+     (DestinationRule in the same output file, after the HTTPRoute, `---` separated).
+     Egress destinations (`https://`, `tlsConfigName`, FQDN) →
+     [tls-def-mapping.md](tls-def-mapping.md) (ServiceEntry, Secret, TLS DestinationRule
+     in the same output file, after the HTTPRoute).
+   - **4d — DENY policies.** For each HTTPRoute that owns DENY rules on
+     `public-gateway-service` / `private-gateway-service`, write the
+     `AuthorizationPolicy` named `<HTTPRoute name>-deny-public` /
+     `<HTTPRoute name>-deny-private` right after that HTTPRoute (and its
+     DestinationRules) in the same `-istio` file, per regex-routes-migration
+     Step 8. Add its three precondition lines to `needsReview` once per run.
 5. Sort each HTTPRoute's `rules[]` by path specificity per the shared procedure in
    [path-specificity-sorting](../path-specificity-sorting/SKILL.md)
-   (sort on each rule's `match.prefix` / `match.path` / `match.regExp` value)
+   (sort on the value each rule actually emits — after the cut)
 6. Standalone `StatefulSession` → [stateful-session-mapping.md](stateful-session-mapping.md)
 7. `LoadBalance` → [load-balance-mapping.md](load-balance-mapping.md)
 8. `HttpFilters` + `RouteConfiguration` rules with `luaFilter` →
@@ -409,6 +380,16 @@ After generating all files, verify:
       + TLS DestinationRule / Secret per [tls-def-mapping.md](tls-def-mapping.md)
 - [ ] `TlsDef` wrapped in Core guard; `tls.enabled: false` / empty `tls` skip Istio TLS output
 - [ ] Each HTTPRoute's `rules[]` are sorted by path specificity (most specific first)
+- [ ] Every RouteConfiguration rule is a row in the worksheet of each of its gateways,
+      and the regex-routes-migration self-check (its Step 9) passes
+- [ ] No emitted path contains `{name}`; no `RegularExpression` path match except raw
+      `regExp` rules flagged `# ⚠ MANUAL REVIEW`
+- [ ] `allowed: false` on `public-gateway-service` / `private-gateway-service` →
+      `AuthorizationPolicy` DENY rule, not a rule without `backendRefs`
+- [ ] AuthorizationPolicies exist only for `public-gateway` / `private-gateway`, sit in
+      the owner HTTPRoute's `-istio` file, and are inside the Istio guard
+- [ ] Every route conflict is answered or listed under `unresolved:`; no `VirtualService`
+      was generated
 - [ ] Rule-level `statefulSession` → DestinationRule added to the same output file
 - [ ] `StatefulSession` with cookie → DestinationRule generated; delete/disabled requests skipped
 - [ ] `StatefulSession` with `hostname`/`port` → DestinationRule generated per the endpoint-level targeting rules **and** `# ⚠ MANUAL REVIEW` comment added
@@ -423,66 +404,12 @@ After generating all files, verify:
 
 ---
 
-## Fields that MUST be flagged with `⚠ MANUAL REVIEW`
+## Manual review triggers and Output Summary
 
-Each mapping file owns the triggers for the CR it converts, next to the rules they qualify, so a
-trigger and its mapping cannot drift apart:
-
-| CR | Triggers |
-|---|---|
-| `FacadeService` | [facade-service-mapping.md](facade-service-mapping.md) |
-| `RouteConfiguration` | [route-configuration-mapping.md](route-configuration-mapping.md) |
-| `TlsDef` and egress destinations | [tls-def-mapping.md](tls-def-mapping.md) |
-| `StatefulSession` (standalone) | [stateful-session-mapping.md](stateful-session-mapping.md) |
-| `StatefulSession` (rule-level) | [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md) |
-| `LoadBalance` | [load-balance-mapping.md](load-balance-mapping.md) |
-| `HttpFilters` / Lua | [lua-filter-mapping.md](lua-filter-mapping.md) |
-
-One trigger belongs to no single CR:
-
-| Source | Trigger |
-|---|---|
-| Any template helper | `{{- include ... }}` renders mesh CRs — the helper is out of scope, so its output is unconverted |
-
-## Output Summary (report after completion)
-
-Write the contract report file first (see [Contract → Outputs](#outputs)), then
-print this summary in chat:
-
-```
-Transformation complete.
-
-Files modified:     <list> (Core condition wrapper added)
-Files generated:    <list> (Istio resources)
-
-Resources transformed:
-  FacadeService             → Service (<N> instances)
-  Gateway/ingress/egress    → Istio Gateway + HTTPRoute (<N> instances)
-  Gateway/mesh              → omitted, east-west HTTPRoute only (<N> instances)
-  RouteConfiguration        → HTTPRoute (<N> instances)
-  StatefulSession           → DestinationRule (<N> instances)
-  LoadBalance               → DestinationRule (<N> instances)
-  Lua filters               → TrafficExtension (<N> instances)
-  TlsDef                    → Secret + TLS DestinationRule (<N> instances)
-  Egress external hosts     → ServiceEntry (<N> instances)
-  Skipped (no cookie / disabled / no policies / no luaFilters / disabled TlsDef): <N>
-
-Detected backend reference (for code-generated HTTPRoutes / Maven plugin):
-  backendRefName: <name or "unresolved">
-  backendRefPort: <port or "unresolved">
-  # if unresolved, state why: no RouteConfiguration destinations found
-  #                           | conflicting backends: <list of name:port>
-  #                           | all destinations excluded (egress-external or
-  #                             platform gateway) — nothing to detect, not a failure
-
-Detected output labels (for Maven plugin / code-generated HTTPRoutes):
-  labels: <k1=v1, k2=v2, ... or "unresolved">
-  # if unresolved, state why: helper indirection not resolvable
-  #                           | conflicting label definitions
-
-Items needing manual review:
-  <list every ⚠ MANUAL REVIEW hit — one line per hit>
-```
+Each mapping file owns the `# ⚠ MANUAL REVIEW` triggers for its CR. **After
+Step 9, read [`output-summary.md`](output-summary.md) in full with the Read
+tool**: it lists where the triggers live, and the exact chat summary to print
+after writing the report.
 
 ---
 
@@ -500,4 +427,5 @@ field-by-field rules, and full examples:
 - [load-balance-mapping.md](load-balance-mapping.md) — LoadBalance → DestinationRule
 - [lua-filter-mapping.md](lua-filter-mapping.md) — HttpFilters + RouteConfiguration → TrafficExtension
 - [labels.md](labels.md) — Common label resolution
+- [regex-routes-migration](../regex-routes-migration/SKILL.md) — Paths with `{variables}` → `PathPrefix`, forbidden routes → `AuthorizationPolicy` DENY, route conflicts (shared with `httproute-from-code`)
 - [path-specificity-sorting](../path-specificity-sorting/SKILL.md) — Sort HTTPRoute `rules[]` by path specificity (shared with `httproute-from-code`)

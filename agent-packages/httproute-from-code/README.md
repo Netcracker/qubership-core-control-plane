@@ -18,10 +18,19 @@ pick up a new version.
 
 - The [`SKILL.md`](.apm/skills/httproute-from-code/SKILL.md) — how to detect
   route definitions in Go/Java, map them to HTTPRoute rules, and emit one CR per
-  route type.
+  route type — with
+  [`route-detection.md`](.apm/skills/httproute-from-code/route-detection.md)
+  (call-site patterns, field extraction) and
+  [`rendering.md`](.apm/skills/httproute-from-code/rendering.md) (CR layout,
+  AuthorizationPolicy, output, summary).
 - The shared `rules[]` ordering procedure lives in its own package,
   [`path-specificity-sorting`](../path-specificity-sorting) (declared as a
   dependency), referenced as a sibling skill once installed.
+- Routes with `{variables}` and forbidden routes are handled by the shared
+  [`regex-routes-migration`](../regex-routes-migration) procedure, also a
+  dependency: the `PathPrefix` cut, `AuthorizationPolicy` DENY rules on the
+  public/private gateways, and route-conflict questions.
+- An E2E fixture under [`tests/`](.apm/skills/httproute-from-code/tests).
 - An instruction that fires when you work on Go/Java route-registration code,
   steering the agent to the skill.
 
@@ -33,6 +42,8 @@ or directory, e.g. "run httproute-from-code on internal/routes".
 
 It scans the Go/Java files, extracts the route registrations, groups
 them by route type, sorts rules by path specificity, and writes one HTTPRoute CR
-per type to `helm-templates/<service>/templates/source-code-httproutes.yaml`.
+per type to `helm-templates/<service>/templates/source-code-httproutes.yaml`,
+followed by the `AuthorizationPolicy` DENY rules that keep legacy forbidden
+routes forbidden.
 Pass `backendRefName` / `backendRefPort` / `routeLabels` to keep the generated
 routes consistent with the declarative and Maven-plugin output.
