@@ -200,7 +200,7 @@ review instead.
         * `"egress-gateway"` → **egress** type
         * `"public-gateway-service"` → **ingress** type
         * `"private-gateway-service"` → **ingress** type
-        * `"internal-gateway-service"` → **mesh** type (parentRef = Service;
+        * `"internal-gateway-service"` → **mesh** type (parentRef = Service, no `port`;
           Lua and other extensions target the mesh Gateway from discovery,
           `waypoint` on Cloud Core)
     2. **Gateway CR in the scanned chart/folder** — used only if the name is not well-known:
