@@ -20,7 +20,6 @@ spec:
     - name: {{ .Values.INTERNAL_SERVICE_NAME}}
       kind: Service
       group: ""
-      port: 8080
   rules:
     - matches:
         - path:
@@ -213,7 +212,6 @@ spec:
     - name: {{ .Values.INTERNAL_SERVICE_NAME}}
       kind: Service
       group: ""
-      port: 8080
   rules:
     - matches:
         - path:
