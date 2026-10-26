@@ -18,14 +18,16 @@ run-name: >
 
 on:
   push:
-    paths-ignore:
-      - 'httproute-generator/**'
+    paths:
+      - 'control-plane/**'
+      - 'Dockerfile'
     branches:
       - main
       - 'lts/**'
   pull_request:
-    paths-ignore:
-      - 'httproute-generator/**'
+    paths:
+      - 'control-plane/**'
+      - 'Dockerfile'
     types: [opened, synchronize, reopened]
 
 jobs:
