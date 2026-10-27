@@ -65,6 +65,8 @@ spec:
     condition: gateway = `internal-gateway-service` OR gateway is in list of discovered mesh Gateways
     parentRef name resolution:
         normalized host from virtualService.hosts[]
+    port: never set. On Cloud Core the internal fallback route of core-mesh-config has no port, and
+        the waypoint lets it shadow every route to the same Service whose parentRef sets one.
 
 Example:
 ```yaml
