@@ -11,7 +11,7 @@ require (
 	github.com/fasthttp/websocket v1.5.12
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-errors/errors v1.5.1
-	github.com/gofiber/fiber/v2 v2.52.16
+	github.com/gofiber/fiber/v3 v3.6.1
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
@@ -38,14 +38,14 @@ require (
 	github.com/netcracker/qubership-core-lib-go/v3 v3.15.3
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.25.0
-	github.com/puzpuzpuz/xsync/v3 v3.5.1
+	github.com/puzpuzpuz/xsync/v4 v4.5.0
 	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/swag v1.16.6
 	github.com/tidwall/gjson v1.20.0
 	github.com/uptrace/bun v1.3.0
 	github.com/uptrace/bun/dialect/pgdialect v1.3.0
 	github.com/uptrace/bun/driver/pgdriver v1.3.0
-	github.com/urfave/cli/v2 v2.27.7
+	github.com/urfave/cli/v3 v3.14.0
 	github.com/valyala/fasthttp v1.77.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261026165753-2ffab32bce7e
 	google.golang.org/grpc v1.85.0
