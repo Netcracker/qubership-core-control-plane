@@ -22,7 +22,7 @@ require (
 	github.com/hashicorp/memberlist v0.7.0
 	github.com/hashicorp/serf v0.11.0
 	github.com/jackc/pgconn v1.14.3
-	github.com/jackc/pgx/v5 v5.11.0
+	github.com/jackc/pgx/v5 v5.12.0
 	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/mapstructure v1.5.0
@@ -99,7 +99,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.3.3 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/jackc/puddle/v2 v2.2.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect
