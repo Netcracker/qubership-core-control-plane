@@ -4,6 +4,8 @@ Context: [allowed-and-forbidden-routes.md](allowed-and-forbidden-routes.md) prop
 
 Assumption: all apps, the legacy public gateway and the Istio public gateway live in **one namespace**.
 
+Constraint: apps migrate **once**. Their HTTPRoutes and AuthorizationPolicies are written in the final form. In phase 3 (legacy mesh removal), only core configuration may change.
+
 ## The Problem
 
 ```mermaid
@@ -52,16 +54,17 @@ flowchart LR
 
 ## Comparison
 
-| Criterion | 1. Allow all | 2. Deny always | 3. Allow all + flag | 4. Allow all + app DENY | 5. Waypoint | 6. Public routes last | 7. Generated fallback allow | 8. ext_authz |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Phase 1: non-migrated apps reachable | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Phase 2: forbidden routes blocked on prod | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Phase 2: forbidden routes testable | ❌ | ✅ | ⚠️ flag-on envs only | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Fail-safe if app forgets its policy | ❌ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| No new runtime component | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ controller | ❌ authz service |
-| No extra hop / latency | ✅ | ✅ | ✅ | ✅ | ❌ waypoint | ⚠️ 2 gateways for public routes | ✅ | ❌ authz call |
-| Project allow-more / deny-more with plain policies | ⚠️ deny only | ✅ | ⚠️ deny only | ⚠️ deny only | ✅ | ⚠️ legacy declarative config | ✅ | ⚠️ custom |
-| No app rework at phase 3 | ✅ | ✅ | ✅ | ❌ DENY → ALLOW | ✅ | ❌ 2nd migration of public routes | ✅ | ❌ |
+| Criterion | 1. Allow all | 2. Deny always | 3. Allow all + flag | 4. Allow all + app DENY | 5. Waypoint | 6. Public routes last | 7. Generated fallback allow | 8. ext_authz | 9. Legacy in front |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Phase 1: non-migrated apps reachable | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Phase 2: forbidden routes blocked on prod | ❌ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Phase 2: forbidden routes testable | ❌ | ✅ | ⚠️ flag-on envs only | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Fail-safe if app forgets its policy | ❌ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| No new runtime component | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ reconciler (can live in control-plane) | ❌ authz service | ✅ |
+| No extra hop / latency | ✅ | ✅ | ✅ | ✅ | ❌ waypoint | ⚠️ 2 gateways for public routes | ✅ | ❌ authz call | ⚠️ 2 gateways for migrated routes |
+| Project allow-more / deny-more with plain policies | ⚠️ deny only | ✅ | ⚠️ deny only | ⚠️ deny only | ✅ | ⚠️ legacy declarative config | ✅ | ⚠️ custom | ✅ |
+| **Phase 3: core-only switch, no app changes** | ✅ | ✅ | ✅ | ❌ DENY → ALLOW | ✅ | ❌ 2nd migration of public routes | ✅ | ❌ | ✅ |
+| What core switches in phase 3 | ALLOW ALL → deny-unless-permit | nothing | flag ON everywhere | — | nothing | — | delete fallback policy | — | public host → PGW Istio |
 
 ---
 
@@ -143,6 +146,8 @@ flowchart LR
 | Forbidden routes testable in flag-on envs | Pushes towards a big-bang production migration |
 
 ## Option 4. ALLOW ALL + per-App DENY
+
+> ❌ Violates the constraint: apps rewrite DENY into ALLOW in phase 3.
 
 Each migrated app ships a DENY policy covering **its own route roots except its public paths**. A DENY policy only touches its own paths, so it can't affect other apps or the fallback.
 
@@ -284,6 +289,8 @@ spec:
 
 ## Option 6. Public Routes Migrate Last
 
+> ❌ Violates the constraint: public routes of every app are migrated in phase 3.
+
 During BWC, migrated apps keep registering their **public-gateway routes in the legacy mesh**, so the legacy gateway still returns 404 for forbidden routes. Their HTTPRoutes attach only to the private gateway and the waypoint. The Istio public gateway has only the fallback route and no policy. In phase 3, public routes move to HTTPRoutes together with deny-unless-permit.
 
 ```mermaid
@@ -335,11 +342,13 @@ flowchart LR
 
 | Pros | Cons |
 |---|---|
-| Deny-by-default in all phases, no extra hop | New runtime component (controller) to build and operate |
+| Deny-by-default in all phases, no extra hop | Reconciler to build and operate: a new controller, or control-plane extended with a k8s client and RBAC for HTTPRoutes and AuthorizationPolicies |
 | App policies are final from day one | Regex HTTPRoute matches only approximated (literal prefix + `*`) |
 | Phase 3: delete one policy | Policy is briefly stale between HTTPRoute change and reconcile |
 
 ## Option 8. External Authorization (`action: CUSTOM`)
+
+> ❌ Violates the constraint, unless the authz service reads apps' standard AuthorizationPolicies: removing it in phase 3 means apps need ALLOW policies.
 
 The public gateway asks an external authz service that knows which routes are migrated and which are public.
 
@@ -365,6 +374,67 @@ flowchart LR
 | Any logic possible | New runtime component on the hot path: latency, single point of failure |
 | | Custom config format instead of standard AuthorizationPolicy |
 
+## Option 9. Reverse Fallback: Legacy in Front, Istio Behind
+
+The public contract host stays on the **legacy** public gateway until phase 3. Core adds one lowest-priority catch-all route on the legacy gateway: `/**` → PGW Istio, keeping the original Host. Non-migrated apps are matched by their own legacy routes. Everything else falls through to PGW Istio.
+
+PGW Istio runs its **final** configuration from day one: deny-unless-permit, app HTTPRoutes and app ALLOW policies, and **no** fallback route. That removes the authz/fallback conflict.
+
+```mermaid
+flowchart LR
+  C((Client)) --> PL{{"PGW Legacy<br/>routes of non-migrated apps<br/>+ core: catch-all /** → PGW Istio"}}
+  PL -->|"/leg/public ✅"| AL["app-legacy"]
+  PL -->|"/leg/private"| D2(["⛔ 404"])
+  PL -->|"/mig/**, /mig2/** (catch-all)"| PI{{"PGW Istio — final config<br/>🛡 core: deny-unless-permit<br/>🟢 app: ALLOW /mig/public"}}
+  PI -->|"/mig/public ✅"| AM["app-migrated"]
+  PI -->|"/mig/private"| D1(["⛔ 403"])
+  PI -->|"/mig2/private"| D3(["⛔ 403<br/>(app-migrated-2 forgot ALLOW)"])
+
+  classDef istio fill:#dae8fc,stroke:#6c8ebf
+  classDef legacy fill:#e1d5e7,stroke:#9673a6
+  classDef deny fill:#f8cecc,stroke:#b85450
+  class PI istio
+  class PL legacy
+  class D1,D2,D3 deny
+```
+
+Phase 3: core moves the public contract host (Ingress/Route) from PGW Legacy to PGW Istio. Nothing else changes.
+
+```mermaid
+flowchart LR
+  C((Client)) --> PI{{"PGW Istio — unchanged"}}
+  PI -->|"/mig/public ✅"| AM["app-migrated"]
+  PI -->|"/mig/private"| D1(["⛔ 403"])
+
+  classDef istio fill:#dae8fc,stroke:#6c8ebf
+  classDef deny fill:#f8cecc,stroke:#b85450
+  class PI istio
+  class D1 deny
+```
+
+Variant 9b: if the public contract host must point to Istio from phase 1, put an extra Istio entry gateway (no policy, catch-all → PGW Legacy) in front. Apps attach only to `public-gateway`. In phase 3 the public host moves to `public-gateway` and the entry gateway is deleted.
+
+```mermaid
+flowchart LR
+  C((Client)) --> PE{{"PGW Istio entry<br/>(no policy, catch-all)"}}
+  PE --> PL{{"PGW Legacy<br/>+ catch-all → public-gateway"}}
+  PL --> PI{{"PGW Istio public-gateway<br/>final config"}}
+
+  classDef istio fill:#dae8fc,stroke:#6c8ebf
+  classDef legacy fill:#e1d5e7,stroke:#9673a6
+  class PE,PI istio
+  class PL legacy
+```
+
+| Pros | Cons |
+|---|---|
+| PGW Istio is in its final configuration in all phases: deny-by-default, fail-safe, testable | Migrated public traffic passes 2 gateways until phase 3 (9b: 3). Legacy behavior (slash merging, header handling, timeouts, body limits) still applies to it |
+| No new runtime component; phase 3 is a core-only switch of the public host | Legacy routes of an app must be deleted when it migrates (once, as part of its first migration). Otherwise stale routes shadow the catch-all: stale 404 routes block newly public paths, and stale allowed routes bypass Istio policies |
+| Non-migrated traffic takes exactly today's path | Catch-all must keep the original Host (`hostAutoRewrite: false`). PGW Istio must trust X-Forwarded-For from legacy (`numTrustedProxies`) for client-IP based rules |
+| Can be implemented in control-plane: `configuration/common.go` already special-cases public-gateway routes in Istio mode (`WrapRouteCreator`) | Reverses the current wrap design (contract hosts → Istio) for the public gateway, unless 9b is used |
+| | An app that owns `/` on the legacy public gateway conflicts with the catch-all |
+| | Phase 3 switches the public entry point over to Istio. It's core-only, but must be rehearsed |
+
 ---
 
 ## Rejected Ideas
@@ -372,3 +442,5 @@ flowchart LR
 * **Separate hostname for migrated APIs.** Breaks contract DNS names.
 * **Per-app fallback ALLOW with** `notPaths`**.** ALLOW policies are OR-ed, so app A's policy allows app B's paths and the result is "allow everything".
 * **Lua** `TrafficExtension` **marking requests before authz.** Lua runs in `STATS` phase, after authz, and would need the same path list as option 7.
+* **Istio dry-run (`istio.io/dry-run`) to test forbidden routes under option 1.** The shadow result is only meaningful if app ALLOW policies are dry-run too, and removing the annotation in phase 3 is an app change.
+* **Retry on the other gateway after 404/403.** Envoy retries stay on the same route and cluster; internal redirects work only for 3xx.
