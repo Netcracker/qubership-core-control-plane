@@ -184,8 +184,6 @@ spec:
             notPaths: ["/api/v1/mesh-app-pub/public/*", "/api/v1/mesh-app-pub/health"]  # public subset
 ```
 
-
-
 | Pros                                             | Cons                                                                                                                                                                |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Forbidden routes blocked and testable in phase 2 | Fail-open: an app without its DENY is fully exposed                                                                                                                 |
@@ -275,8 +273,6 @@ spec:
             methods: ["GET"]
             paths: ["/api/v1/mesh-app-pub/public/*", "/api/v1/mesh-app-pub/health"]
 ```
-
-
 
 | Pros | Cons |
 |---|---|
@@ -376,9 +372,3 @@ flowchart LR
 * **Separate hostname for migrated APIs.** Breaks contract DNS names.
 * **Per-app fallback ALLOW with** `notPaths`**.** ALLOW policies are OR-ed, so app A's policy allows app B's paths and the result is "allow everything".
 * **Lua** `TrafficExtension` **marking requests before authz.** Lua runs in `STATS` phase, after authz, and would need the same path list as option 7.
-
-## Recommendation
-
-* **Option 5 (waypoint)** if the extra hop for public traffic is acceptable. It's the only controller-free option that's deny-by-default in all phases.
-* Otherwise **option 4** (simple, but fail-open) or **option 6** (no gap, but two migration steps for public routes).
-* **Option 7** if adding a controller becomes acceptable.

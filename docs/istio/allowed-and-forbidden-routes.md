@@ -37,13 +37,3 @@ In Legacy Cloud-Core Service Mesh in declarative configuration there was also fi
 #### Migration to Istio Strategy
 
 In Istio there is a capability to configure AuthorizationPolicy that can both extend and narrow the scope of routes allowed on public gateway OOB.
-
-My plan:
-
-1. Validate AuthorizationPolicy:
-   - [x] deny-unless-permit on public gw;
-   - [x] capability to allow more by project;
-   - [x] capability to deny more by project;
-2. Include AuthorizationPolicy for public in core-mesh-config;
-3. Include AuthorizationPolicy CRs in each core service with public routes;
-4. Sample microservice to test everything
