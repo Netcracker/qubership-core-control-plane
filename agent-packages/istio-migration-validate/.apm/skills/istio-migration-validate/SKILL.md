@@ -1,11 +1,12 @@
 ---
 name: istio-migration-validate
 description: >
-  Validate the output of a Core Mesh to Istio migration: verify every HTTPRoute
-  file is wrapped in the SERVICE_MESH_TYPE=Istio guard (adding missing guards),
-  check that no HTTPRoute renders under Core mode, flag duplicate HTTPRoute
-  rules (same parent + equal match), and flag imperative control-plane API calls
-  in shell scripts and manifests. Use when asked to validate or check a
+  Validate the output of a Core Mesh to Istio migration: verify every HTTPRoute /
+  AuthorizationPolicy file is wrapped in the SERVICE_MESH_TYPE=Istio guard (adding
+  missing guards), check that none of them renders under Core mode, flag
+  duplicate HTTPRoute rules (same parent + equal match), flag DENY rules that
+  block routes generated from another source, and flag imperative control-plane
+  API calls in shell scripts and manifests. Use when asked to validate or check a
   migrated chart, or as a sub-skill of core-mesh-to-istio-migration.
 ---
 
@@ -47,6 +48,7 @@ renderChecks:
   istioMode: pass | fail    # HTTPRoute/Gateway present under SERVICE_MESH_TYPE=Istio
   coreMode: pass | fail     # no HTTPRoute leaks under SERVICE_MESH_TYPE=Core
 duplicateGroups: <N>
+denyOverlaps: <N>             # DENY rules blocking another file's routes (Step 3b)
 controlPlaneCalls: <N>        # imperative control-plane calls found by Step 4
 commandsRun:
   - command: <cmd>
@@ -54,7 +56,7 @@ commandsRun:
 unresolved: []
 needsReview:
   - <one line per finding: leaked file, duplicate group, unguardable file,
-     control-plane call>
+     DENY overlap, control-plane call>
 ```
 
 Consumers must ignore unknown report fields. A consumer that sees a
@@ -69,14 +71,14 @@ Everything else is read-only reporting.
 
 ---
 
-## Step 1 — Verify all HTTPRoutes are wrapped in Istio conditionals
+## Step 1 — Verify all HTTPRoutes and AuthorizationPolicies are wrapped in Istio conditionals
 
 1. List every file under `<chartPath>/templates/` (including generated
    `-istio.yaml` / `annotations-httproutes.yaml` / `source-code-httproutes.yaml`)
-   that contains `kind: HTTPRoute`.
-2. For each file, confirm the HTTPRoute block is inside a single
-   `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` … `{{- end }}`. If a file
-   has multiple HTTPRoute documents, the guard must wrap the whole block with
+   that contains `kind: HTTPRoute` or `kind: AuthorizationPolicy`.
+2. For each file, confirm the HTTPRoute / AuthorizationPolicy block is inside a
+   single `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` … `{{- end }}`. If a
+   file has multiple documents, the guard must wrap the whole block with
    `---` separators kept inside.
 3. If a file is missing the guard → add it (the one safe automatic fix) and
    record the file under `guardsAdded:`. If a guard cannot be added safely
@@ -91,9 +93,9 @@ helm dependency update
 helm template <chartPath> --set SERVICE_MESH_TYPE=Istio \
   | grep -E 'kind: (HTTPRoute|Gateway)'
 
-# Must return nothing — HTTPRoutes must not leak under Core mode
+# Must return nothing — HTTPRoutes / AuthorizationPolicies must not leak under Core mode
 helm template <chartPath> --set SERVICE_MESH_TYPE=Core \
-  | grep 'kind: HTTPRoute'
+  | grep -E 'kind: (HTTPRoute|AuthorizationPolicy)'
 ```
 
 Record each command and exit code under `commandsRun:` and the outcomes under
@@ -101,8 +103,8 @@ Record each command and exit code under `commandsRun:` and the outcomes under
 
 - Istio mode returns no HTTPRoute/Gateway lines → `istioMode: fail`,
   `status: failed`, and a `needsReview:` entry.
-- Core mode returns any HTTPRoute lines → `coreMode: fail`, `status: failed`,
-  and one `needsReview:` entry per offending file path.
+- Core mode returns any HTTPRoute / AuthorizationPolicy lines → `coreMode: fail`,
+  `status: failed`, and one `needsReview:` entry per offending file path.
 
 ## Step 3 — Detect duplicate HTTPRoute rules
 
@@ -135,6 +137,37 @@ same parent and identical match are ambiguous and **must not be auto-removed**
      code)."
 5. **Do not modify any file in this step.** It only reports. Record the group
    count under `duplicateGroups:`.
+
+## Step 3b — Detect DENY rules that block routes from another source
+
+Each generator — `core-mesh-crs-to-istio`, `httproute-from-code` and
+`httproutes-generator-maven-plugin` — computes its `AuthorizationPolicy` DENY
+rules from **its own** routes only. A DENY rule from one source can block an
+allowed route that another source generated (for example a CR forbids
+`/api/v1/svc/{*}/admin`, while a Java controller exposes
+`/api/v1/svc/{*}/admin/stats`). The policy is checked before routing, so that
+route now returns 403.
+
+1. Collect every `AuthorizationPolicy` with `action: DENY` in the files guarded
+   by `SERVICE_MESH_TYPE=Istio`, and for each rule its target (`targetRefs[].name`),
+   `paths`, `notPaths` and `methods`.
+2. For each DENY rule, look at every HTTPRoute rule **in a different file** with a
+   `parentRefs` entry of the same name. Its rule path (`PathPrefix` / `Exact`
+   value) is blocked when:
+   - it lies at or below a `paths` entry — compare segment by segment: `{*}`
+     matches any one segment, `{**}` any rest; the HTTPRoute path must have at
+     least as many segments as the `paths` entry without its trailing `/{**}`;
+   - it is **not** at or below a `notPaths` entry (same comparison);
+   - when the DENY rule has `methods`, the HTTPRoute rule has no `method`, or one
+     of those methods.
+3. For every blocked rule, add **one** `needsReview:` entry: the policy file +
+   name, the denied path, the HTTPRoute file + name + rule path, and the suggested
+   action: "A DENY rule from one source blocks a route generated by another —
+   confirm which is correct; if the route must stay reachable, add its path to the
+   DENY rule's `notPaths` in the generator's source (CR / code / annotations) and
+   regenerate."
+4. **Do not modify any file in this step.** Record the count under
+   `denyOverlaps:`.
 
 ## Step 4 — Flag imperative control-plane calls
 
@@ -198,4 +231,5 @@ these calls are safe to auto-migrate.**
 
 Write the contract report file (see [Contract → Outputs](#outputs)), then print
 a short chat summary: guards added, render-check outcomes, duplicate groups
-found, control-plane calls found, and every `needsReview:` entry.
+found, DENY overlaps found, control-plane calls found, and every `needsReview:`
+entry.

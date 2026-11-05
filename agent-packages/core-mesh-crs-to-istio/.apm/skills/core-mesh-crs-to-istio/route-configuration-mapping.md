@@ -99,10 +99,15 @@ Omit `hostnames` field in HTTPRoute.spec
   version   string      OMIT
   routes    []RouteV3   → flatten all rules into HTTPRoute rules[]
 
+Before emitting, every rule goes through the
+[regex-routes-migration](../regex-routes-migration/SKILL.md) worksheet (see
+[Worksheet row](#worksheet-row)); its `emit` column decides whether and how the
+rule is rendered.
+
 After flattening, sort the resulting `rules[]` by path specificity using the
 shared procedure in
 [`path-specificity-sorting.md`](../path-specificity-sorting/SKILL.md)
-— sort on each rule's match value (`match.prefix` / `match.path` / `match.regExp`).
+— sort on the path value each rule emits (after the cut).
 
 ---
 
@@ -185,7 +190,10 @@ Output:
   JSON key        Go type            Transformation
   ────────────────────────────────────────────────────────────────────────────────────────
   match           RouteMatch         → matches[] (see RouteMatch below)
-  prefixRewrite   string             → URLRewrite filter path.ReplacePrefixMatch (when non-empty)
+  prefixRewrite   string             → URLRewrite filter path.ReplacePrefixMatch (when non-empty);
+                                       the value is the worksheet `R` (for a path without
+                                       variables `R` = prefixRewrite). Exact rules from
+                                       regex-routes-migration Step 4 use ReplaceFullPath
   hostRewrite     string             → URLRewrite filter hostname (when non-empty).
                                        Egress external destinations always set hostname
                                        to the endpoint host even if this field is empty
@@ -196,6 +204,7 @@ Output:
   removeHeaders   []string           → RequestHeaderModifier remove[] (rule-level, merged with VS-level)
   timeout         *int64             → timeouts.request: "<value>ms"  (value is milliseconds)
   allowed         *bool              → when false then refer to `Not allowed rule processing`
+                                       (absent or true → allowed)
   idleTimeout     *int64             OMIT  ⚠ flag for MANUAL REVIEW if non-nil
   statefulSession *StatefulSession   → DestinationRule (see [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md))
   rateLimit       string             OMIT  ⚠ flag for MANUAL REVIEW if non-empty
@@ -205,16 +214,52 @@ Output:
 ---
 
 ### Not allowed rule processing
-When Rule.allowed is false - omit `backendRefs` field for it. This will force istio to return 404 for matched path
+
+A rule with `allowed: false` is a forbidden row (`forbidden: explicit`) in the
+worksheet of every gateway of its CR. What it becomes is decided by
+[regex-routes-migration](../regex-routes-migration/SKILL.md):
+
+| Gateway | Path | Output |
+|---|---|---|
+| `public-gateway-service`, `private-gateway-service` | any | `AuthorizationPolicy` DENY rule (Step 6) — no HTTPRoute rule |
+| any other gateway | no `{variables}` | rule **without** `backendRefs` on `PathPrefix <prefix>` — Istio returns 404 for the matched path (Step 7) |
+| any other gateway | with `{variables}` | no rule; `# ⚠ MANUAL REVIEW` when Istio now routes it (Step 7) |
+
+When the CR attaches to both kinds of gateway, the rule without `backendRefs`
+is rendered once in the shared HTTPRoute; on public/private the DENY rule
+answers first.
+
+### Worksheet row
+
+Every `Rule` becomes one row in the worksheet of each gateway of its CR (Step 4a
+of the main skill). Fill the consumer columns like this:
+
+| Column | Value |
+|---|---|
+| `#` | `R<n>`, numbered in discovery order across the chart (file, document, virtualService, route, rule) |
+| `source` | `<file> <CR metadata.name> vs <virtualService.name> route <i> rule <j>` |
+| `owner` | the HTTPRoute name ([HTTPRoute name resolution](#httproute-name-resolution)): the CR's `metadata.name` when the CR has one virtualService — **not** the virtualService name — else `<CR metadata.name>-<virtualService.name>` |
+| `path` | `match.prefix`, else `match.path` (kind `exact`), else `match.regExp` (kind `regex`) — verbatim, Helm expressions included |
+| `headers` | the converted header matches ([HeaderMatcher](#headermatcher)): `name=value` for an exact value, `name~<regex>` for a regular expression, sorted; `-` when none |
+| `allowed` | `no` when `allowed: false`, otherwise `yes` |
+| `forbidden` | `explicit` when `allowed: false`, otherwise `-` |
+| `behavior` | one id per distinct combination of backend `name:port` (from `destination.endpoint`), `hostRewrite`, and the merged virtualService + rule `addHeaders` / `removeHeaders` |
+| `rewrite` | `prefixRewrite`, or `-` |
+
+A row's timeout (`Rule.timeout`) is not part of its behavior: a merged rule takes
+the largest timeout of its rows.
 
 ### RouteMatch
 
   JSON key  Go type          Transformation
   ───────────────────────────────────────────────────────────────────────────────────────
-  prefix    string           → path.type: PathPrefix,        value: <prefix>
+  prefix    string           → path.type: PathPrefix,        value: <worksheet cut>
+                               (= <prefix> without trailing `/` when it has no `{variables}`;
+                               cut before the first variable otherwise — never a regex)
   path      string           → path.type: Exact,             value: <path>
-  regExp    string           → path.type: RegularExpression, value: <regexp>
-  headers   []HeaderMatcher  → matches[].headers[]
+  regExp    string           → path.type: RegularExpression, value: <regexp>  ⚠ flag for MANUAL REVIEW
+                               (Istio ranks regex below every PathPrefix and has no regex rewrite)
+  headers   []HeaderMatcher  → matches[].headers[]  (`:method` → matches[].method)
 
   Path match type — mutually exclusive, apply first non-empty in this priority:
     1. prefix  → PathPrefix
@@ -227,7 +272,10 @@ When Rule.allowed is false - omit `backendRefs` field for it. This will force is
 
   JSON key        Go type    Transformation
   ────────────────────────────────────────────────────────────────────────────────
-  name            string     → matches[].headers[].name
+  name            string     → matches[].headers[].name. `:method` with exactMatch/value →
+                               matches[].method: <VALUE> instead (Gateway API rejects pseudo-
+                               headers as header names); `:method` with any other specifier →
+                               OMIT ⚠ flag for MANUAL REVIEW
   exactMatch      string     → matches[].headers[].value; omit `type`, since Exact is the
                                Gateway API default and every example here omits it
   value           string     → same as exactMatch (legacy alias)
@@ -313,3 +361,5 @@ so the flag has to be acted on rather than noted.
 | `RouteV3.Rule` | `idleTimeout` / `rateLimit` / `deny` | non-empty / non-nil |
 | `HeaderMatcher` | `invertMatch: true` or `presentMatch: false` | Gateway API has no negated header match; dropping it widens the route |
 | `HeaderMatcher` | `rangeMatch` | numeric range has no Gateway API equivalent |
+| `RouteMatch` | `regExp` | raw regex match: lowest Istio tier, no regex rewrite |
+| `Rule` | `prefix` with `{variables}` | flagged when [regex-routes-migration](../regex-routes-migration/SKILL.md) cannot convert it: rewrite not expressible, conflict answered `manual`, forbidden path routed on a gateway without DENY policies, DENY rule with a partial segment or a non-`:method` header |

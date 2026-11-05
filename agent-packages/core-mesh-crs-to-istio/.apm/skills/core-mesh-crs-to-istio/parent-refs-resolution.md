@@ -37,6 +37,10 @@ spec:
       name: <platform Gateway name, e.g. public-gateway>
 ```
 
+The DENY `AuthorizationPolicy` of
+[regex-routes-migration](../regex-routes-migration/SKILL.md) uses the same names in
+`spec.targetRefs` — only for `public-gateway` and `private-gateway`.
+
   PRIORITY 2 — ingress/egress gateway:
 
     parentRef type: Gateway
