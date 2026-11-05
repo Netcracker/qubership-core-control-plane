@@ -432,15 +432,22 @@ flowchart LR
 | No new runtime component; phase 3 is a core-only switch of the public host | Legacy routes of an app must be deleted when it migrates (once, as part of its first migration). Otherwise stale routes shadow the catch-all: stale 404 routes block newly public paths, and stale allowed routes bypass Istio policies |
 | Non-migrated traffic takes exactly today's path | Catch-all must keep the original Host (`hostAutoRewrite: false`). PGW Istio must trust X-Forwarded-For from legacy (`numTrustedProxies`) for client-IP based rules |
 | Can be implemented in control-plane: `configuration/common.go` already special-cases public-gateway routes in Istio mode (`WrapRouteCreator`) | Reverses the current wrap design (contract hosts → Istio) for the public gateway, unless 9b is used |
-| | An app that owns `/` on the legacy public gateway conflicts with the catch-all |
+| | Something must remove routes from legacy mesh once app is migrated - otherwise cannot test istio routing. |
 | | Phase 3 switches the public entry point over to Istio. It's core-only, but must be rehearsed |
 
 ---
 
-## Rejected Ideas
+## Other Rejected Ideas
 
 * **Separate hostname for migrated APIs.** Breaks contract DNS names.
 * **Per-app fallback ALLOW with** `notPaths`**.** ALLOW policies are OR-ed, so app A's policy allows app B's paths and the result is "allow everything".
 * **Lua** `TrafficExtension` **marking requests before authz.** Lua runs in `STATS` phase, after authz, and would need the same path list as option 7.
 * **Istio dry-run (`istio.io/dry-run`) to test forbidden routes under option 1.** The shadow result is only meaningful if app ALLOW policies are dry-run too, and removing the annotation in phase 3 is an app change.
 * **Retry on the other gateway after 404/403.** Envoy retries stay on the same route and cluster; internal redirects work only for 3xx.
+
+## Rejected Options with Blockers
+* Option 4 - because it requires migrating products and projects 2 times
+* Option 5 - we either keep extra hop forever or it is a second migration for products and projects AuthorizationPolicies (from WP to public-gateway)
+* Option 6 - because it requires migrating products and projects 2 times
+* Option 8 - Violates the constraint, unless the authz service reads apps' standard AuthorizationPolicies: removing it in phase 3 means apps need ALLOW policies.
+* Option 9 - Something must remove routes from legacy mesh once app is migrated - otherwise cannot test istio routing. And it is almost impossible to implement such partial legacy routes deletion.
