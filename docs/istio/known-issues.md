@@ -63,3 +63,7 @@ spec:
         - name: {{ .Values.SERVICE_NAME }}
           port: 8080
 ```
+
+## Allowed and Forbidden Routes
+
+See [allowed-and-forbidden-routes.md](allowed-and-forbidden-routes.md).
