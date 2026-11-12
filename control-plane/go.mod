@@ -22,7 +22,7 @@ require (
 	github.com/hashicorp/memberlist v0.7.0
 	github.com/hashicorp/serf v0.11.0
 	github.com/jackc/pgconn v1.14.3
-	github.com/jackc/pgx/v5 v5.11.0
+	github.com/jackc/pgx/v5 v5.13.0
 	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/mapstructure v1.5.0
@@ -46,7 +46,7 @@ require (
 	github.com/uptrace/bun/dialect/pgdialect v1.3.0
 	github.com/uptrace/bun/driver/pgdriver v1.3.0
 	github.com/urfave/cli/v2 v2.27.7
-	github.com/valyala/fasthttp v1.77.0
+	github.com/valyala/fasthttp v1.78.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261026165753-2ffab32bce7e
 	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
@@ -99,7 +99,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.3.3 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/jackc/puddle/v2 v2.2.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect
@@ -118,7 +118,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect
-	github.com/molecule-man/go-brrr v1.3.0 // indirect
+	github.com/molecule-man/go-brrr v1.3.1 // indirect
 	github.com/morikuni/aec v1.1.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
