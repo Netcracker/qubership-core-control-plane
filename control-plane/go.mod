@@ -33,7 +33,7 @@ require (
 	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.5.6
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.5
 	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2 v2.11.3
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.11.0
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.11.1-0.20261110134416-a2e71af3f20f
 	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.6.5
 	github.com/netcracker/qubership-core-lib-go/v3 v3.15.3
 	github.com/pkg/errors v0.9.1
