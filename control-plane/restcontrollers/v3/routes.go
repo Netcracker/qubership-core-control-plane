@@ -246,6 +246,7 @@ func (c *RoutingConfigController) HandlePutVirtualService(fiberCtx *fiber.Ctx) e
 // @Router /api/v3/routes/{nodeGroup}/{virtualServiceName} [post]
 func (c *RoutingConfigController) HandleCreateVirtualService(fiberCtx *fiber.Ctx) error {
 	ctx := fiberCtx.UserContext()
+	log.ErrorC(ctx, "hello hello hello hello")
 	nodeGroup := restutils.GetFiberParam(fiberCtx, "nodeGroup")
 	if strings.TrimSpace(nodeGroup) == "" {
 		return errorcodes.NewCpError(errorcodes.ValidationRequestError, "Path variable 'nodeGroup' must not be empty.", nil)
