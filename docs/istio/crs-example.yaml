@@ -1,33 +1,4 @@
-# 1. HTTPRoute: forward everything under /api/v1/mesh-app-pub to mesh-app:8080
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: mesh-app-allow-deny-test-routes
-  namespace: core-dev-1
-spec:
-  parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: public-gateway
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: private-gateway
-    - group: ''
-      kind: Service
-      name: internal-gateway-service
-  rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /api/v1/mesh-app-pub
-      backendRefs:
-        - name: mesh-app
-          port: 8080
-          weight: 1
----
-# 2a. Deny-unless-permit (Cloud-Core / core-mesh-config).
-# ALLOW with no rules matches nothing, so every request is rejected unless
-# another ALLOW policy permits it.
+# 1. Core creates deny-unless-permit AuthorizationPolicy for public gateway
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -39,11 +10,34 @@ spec:
       kind: Gateway
       name: public-gateway
   action: ALLOW
-  # no rules => nothing is allowed
+  rules:
+    - to:
+        - operation:
+            paths:
+              - /**
 ---
-# 2b. Microservice OOB opens a subset of routes.
-# Only GET /api/v1/mesh-app-pub/public/* and exactly /api/v1/mesh-app-pub/health
-# become reachable.
+# 2a. HTTPRoute of migrated microservice
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mesh-app-allow-deny-test-routes
+  namespace: core-dev-1
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: public-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1/mesh-app-pub
+      backendRefs:
+        - name: mesh-app
+          port: 8080
+          weight: 1
+---
+# 2b. Microservice brings its AuthorizationPolicy
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:

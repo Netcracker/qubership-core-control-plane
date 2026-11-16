@@ -66,4 +66,5 @@ spec:
 
 ## Allowed and Forbidden Routes
 
+Approach to allowed/forbidden routes on public and private gateways is different in Istio comparing to Legacy Cloud-Core Service Mesh.
 See [allowed-and-forbidden-routes.md](allowed-and-forbidden-routes.md).

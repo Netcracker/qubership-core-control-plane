@@ -36,4 +36,4 @@ In Legacy Cloud-Core Service Mesh in declarative configuration there was also fi
 
 #### Migration to Istio Strategy
 
-In Istio there is a capability to configure AuthorizationPolicy that can both extend and narrow the scope of routes allowed on public gateway OOB.
+In Istio there is a capability to configure AuthorizationPolicy that can both extend and narrow the scope of routes allowed on public gateway by OOB AuthorizationPolicy.
