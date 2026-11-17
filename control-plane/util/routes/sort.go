@@ -9,6 +9,13 @@ import (
 const minimalGroupCaptured = "A" // can be any string with len == 1
 
 func routeMatcherLess(r1, r2 *domain.Route) bool {
+	comparableR1, comparableR2 := comparisonTarget(*r1), comparisonTarget(*r2)
+
+	// deny routes go before all allowed routes; within each group routes are ordered by the rules below
+	if comparableR1.matchesByPermissions() != comparableR2.matchesByPermissions() {
+		return comparableR1.matchesByPermissions()
+	}
+
 	r1HeadersLen := 0
 	if r1.HeaderMatchers != nil {
 		r1HeadersLen = len(r1.HeaderMatchers)
@@ -19,13 +26,8 @@ func routeMatcherLess(r1, r2 *domain.Route) bool {
 	}
 	h := r1HeadersLen - r2HeadersLen
 
-	comparableR1, comparableR2 := comparisonTarget(*r1), comparisonTarget(*r2)
 	r := len(comparableR1.GetComparisonString()) - len(comparableR2.GetComparisonString())
 
-	if comparableR1.matchesByPermissions() {
-		return true
-	}
-	
 	if r == 0 {
 		if r == h {
 			// Matching by prefix is more prioritized over regexp
