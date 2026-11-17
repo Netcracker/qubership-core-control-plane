@@ -1,9 +1,11 @@
 package routes
 
 import (
+	"fmt"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
+	"strings"
 	"testing"
 )
 
@@ -252,6 +254,109 @@ func TestRouteMatcher_EqualPriority_PrefixPrioritizedOverRegexp(t *testing.T) {
 
 	less = routeMatcherLess(r2, r1)
 	assert.False(t, less)
+}
+
+func TestRouteMatcher_DenyRoutes(t *testing.T) {
+	longAllow := &domain.Route{Regexp: "/api/v6/quote/([^/]+)(/.*)?"}
+	shortDeny := &domain.Route{Prefix: "/api/v6/q", Deny: true}
+	longDeny := &domain.Route{Prefix: "/api/v6/quote/internal/operations", Deny: true}
+
+	assert.True(t, routeMatcherLess(shortDeny, longAllow))
+	assert.False(t, routeMatcherLess(longAllow, shortDeny))
+
+	assert.True(t, routeMatcherLess(longDeny, shortDeny))
+	assert.False(t, routeMatcherLess(shortDeny, longDeny))
+
+	assert.False(t, routeMatcherLess(shortDeny, shortDeny))
+}
+
+func TestRouteMatcher_StrictWeakOrderingWithDenyRoutes(t *testing.T) {
+	routes := []*domain.Route{
+		{Prefix: "/api/v1/route/a"},
+		{Prefix: "/api/v1/route/b"},
+		{Regexp: "/api/v1/route/([^/]+)(/.*)?"},
+		{Regexp: "/api/v1/route/([^/]+)(/.*)?", Deny: true},
+		{Prefix: "/api/v1/route/c", Deny: true},
+		{Prefix: "/api/v1/route/c", HeaderMatchers: []*domain.HeaderMatcher{{Name: "x-custom"}}},
+		{Prefix: "/api/v1/route/c", HeaderMatchers: []*domain.HeaderMatcher{{Name: "x-custom"}}, Deny: true},
+		{Prefix: "/api", Deny: true},
+		{Prefix: "/api/v1/route/very/long/path"},
+		{Prefix: "/api/v1/route/very/long/path/deny", Deny: true},
+		{Regexp: "/api/v1/([^/]+)/users/([^/]+)(/.*)?"},
+	}
+	for _, a := range routes {
+		assert.False(t, routeMatcherLess(a, a), "irreflexivity: %+v", a)
+		for _, b := range routes {
+			if routeMatcherLess(a, b) {
+				assert.False(t, routeMatcherLess(b, a), "asymmetry: %+v vs %+v", a, b)
+			}
+			for _, c := range routes {
+				if routeMatcherLess(a, b) && routeMatcherLess(b, c) {
+					assert.True(t, routeMatcherLess(a, c), "transitivity: %+v < %+v < %+v", a, b, c)
+				}
+				if !routeMatcherLess(a, b) && !routeMatcherLess(b, a) && !routeMatcherLess(b, c) && !routeMatcherLess(c, b) {
+					assert.False(t, routeMatcherLess(a, c) || routeMatcherLess(c, a),
+						"transitivity of equivalence: %+v ~ %+v ~ %+v", a, b, c)
+				}
+			}
+		}
+	}
+}
+
+func TestOrderRoutesForEnvoy_DenyRoutesPermutations(t *testing.T) {
+	routes := []*domain.Route{
+		{Regexp: "/test-service/quoteManagement/v6/quote/([^/]+)(/.*)?"},
+		{Prefix: "/test-service/quoteManagement/v6/quote/"},
+		{Prefix: "/test-service/quoteManagement/v6/quote"},
+		{Prefix: "/test-service/quoteManagement/v6"},
+		{Prefix: "/test-service/quoteManagement/v6/hidden", Deny: true},
+		{Prefix: "/test-service/q", Deny: true},
+	}
+	expected := []*domain.Route{routes[4], routes[5], routes[0], routes[1], routes[2], routes[3]}
+
+	for _, permut := range GenerateRoutePermutations(routes) {
+		assert.Equal(t, expected, OrderRoutesForEnvoy(permut))
+	}
+}
+
+func TestOrderRoutesForEnvoy_DenyRoutesLargeSet(t *testing.T) {
+	quoteRegexp := &domain.Route{Regexp: "/test-service/quoteManagement/v6/quote/([^/]+)(/.*)?"}
+	quotePrefix := &domain.Route{Prefix: "/test-service/quoteManagement/v6/quote"}
+	routes := []*domain.Route{quoteRegexp, quotePrefix, {Prefix: "/test-service/quoteManagement/v6/quote/"}}
+	for i := 0; i < 60; i++ {
+		routes = append(routes, &domain.Route{Prefix: fmt.Sprintf("/svc-%d/api/v1/%s", i, strings.Repeat("x", i%25))})
+	}
+	for i := 0; i < 3; i++ {
+		routes = append(routes, &domain.Route{Prefix: fmt.Sprintf("/test-service/internal-%d", i), Deny: true})
+	}
+
+	rnd := rand.New(rand.NewSource(1))
+	for run := 0; run < 200; run++ {
+		permut := make([]*domain.Route, len(routes))
+		copy(permut, routes)
+		rnd.Shuffle(len(permut), func(i, j int) { permut[i], permut[j] = permut[j], permut[i] })
+
+		sorted := OrderRoutesForEnvoy(permut)
+		assert.Len(t, sorted, len(routes))
+		for i := 0; i < 3; i++ {
+			assert.True(t, sorted[i].Deny, "deny routes must go first")
+		}
+		for i := range sorted {
+			for j := i + 1; j < len(sorted); j++ {
+				assert.False(t, routeMatcherLess(sorted[j], sorted[i]), "%+v must not go after %+v", sorted[j], sorted[i])
+			}
+		}
+		assert.Less(t, routeIdx(sorted, quoteRegexp), routeIdx(sorted, quotePrefix))
+	}
+}
+
+func routeIdx(routes []*domain.Route, route *domain.Route) int {
+	for i, r := range routes {
+		if r == route {
+			return i
+		}
+	}
+	return -1
 }
 
 // assertRouteOrder assumes that there are no equal priorities in sortedRoutes param
