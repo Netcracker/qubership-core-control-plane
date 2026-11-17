@@ -7,6 +7,8 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/serviceloader"
 	"github.com/stretchr/testify/assert"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 )
@@ -30,6 +32,7 @@ func TestNewDBProvider(t *testing.T) {
 }
 
 func TestGetBunDB(t *testing.T) {
+	configureUnavailableDbaaS(t)
 	os.Setenv("microservice.namespace", "test")
 	os.Setenv("microservice.name", "control-plane")
 	configloader.Init(configloader.EnvPropertySource())
@@ -42,6 +45,7 @@ func TestGetBunDB(t *testing.T) {
 }
 
 func TestGetConn(t *testing.T) {
+	configureUnavailableDbaaS(t)
 	os.Setenv("microservice.namespace", "test")
 	os.Setenv("microservice.name", "control-plane")
 	configloader.Init(configloader.EnvPropertySource())
@@ -66,4 +70,15 @@ func TestCreateControlPlaneServiceClassifier_UsesConfiguredServiceName(t *testin
 		"microserviceName": "custom-control-plane",
 		"scope":            "service",
 	}, classifier)
+}
+
+// Error-path tests use a local DBaaS endpoint rather than cluster DNS and retries.
+func configureUnavailableDbaaS(t *testing.T) {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "DBaaS unavailable for this test", http.StatusForbidden)
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("dbaas.agent", server.URL)
+	t.Setenv("M2M_AUTH_MODE", "legacy")
 }

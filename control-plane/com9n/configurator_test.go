@@ -40,7 +40,7 @@ func TestConfigurator_SetUpNodesCommunicationIntegrationTest(t *testing.T) {
 
 	//emptyNodeInfo := clustering.NodeInfo{}
 	master1NodeInfo := clustering.NodeInfo{
-		IP:       "0.0.0.0",
+		IP:       "127.0.0.1",
 		SWIMPort: 12345,
 		BusPort:  54321,
 		HttpPort: 8080,

@@ -12,9 +12,11 @@ import (
 	mock_dao "github.com/netcracker/qubership-core-control-plane/control-plane/v2/test/mock/dao"
 	"github.com/netcracker/qubership-core-lib-go/v3/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 )
@@ -55,184 +57,215 @@ func Test_ActiveActiveController_WebsocketIsClosed_OnClosingConnection(t *testin
 	controller_WebsocketIsClosed_OnClosingConnection(t, wsActiveActiveController.HandleActiveActiveWatch, wsActiveActiveController.watchers)
 }
 
+const websocketTestTimeout = 5 * time.Second
+
 func controller_WebsocketIsClosed_OnPreparingDeploymentVersionFails(t *testing.T, handler fiber.Handler, watcherSet *WatcherSet) {
-	app := startTestServer("/versions/watch", handler)
-	defer stopTestServer(app)
-
-	conn := DialWebsocket(t, "/versions/watch", "http://127.0.0.1:10801")
-
-	time.Sleep(10 * time.Second) // wait some background actions on handling request
-
-	assert.Equal(t, 0, len(watcherSet.watchersMap), "Watchers is not cleaned")
-	assert.Equal(t, true, isClosed(conn), "Connection is not closed")
+	url := startTestServer(t, "/versions/watch", handler)
+	conn := DialWebsocket(t, "/versions/watch", url)
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(websocketTestTimeout)))
+	_, _, err := conn.ReadMessage()
+	var closeError *websocket.CloseError
+	require.ErrorAs(t, err, &closeError, "server must close the failed WebSocket, not time out")
+	waitForWatcherCount(t, watcherSet, 0)
 }
 
 func controller_WebsocketIsClosed_OnClosingConnection(t *testing.T, handler fiber.Handler, watcherSet *WatcherSet) {
-	app := startTestServer("/versions/watch", handler)
-	defer stopTestServer(app)
+	url := startTestServer(t, "/versions/watch", handler)
+	conn := DialWebsocket(t, "/versions/watch", url)
+	waitForWatcherCount(t, watcherSet, 1)
 
-	conn := DialWebsocket(t, "/versions/watch", "http://127.0.0.1:10801")
+	// A pong proves the connection is usable without timing out a read goroutine.
+	pong := make(chan struct{}, 1)
+	readDone := make(chan error, 1)
+	conn.SetPongHandler(func(string) error {
+		select {
+		case pong <- struct{}{}:
+		default:
+		}
+		return nil
+	})
+	go func() {
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				readDone <- err
+				return
+			}
+		}
+	}()
+	require.NoError(t, conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(websocketTestTimeout)))
+	select {
+	case <-pong:
+	case err := <-readDone:
+		t.Fatalf("connection closed before pong: %v", err)
+	case <-time.After(websocketTestTimeout):
+		t.Fatal("WebSocket did not respond to ping")
+	}
+	require.NoError(t, conn.Close())
+	select {
+	case <-readDone:
+	case <-time.After(websocketTestTimeout):
+		t.Fatal("WebSocket reader did not stop")
+	}
+	waitForWatcherCount(t, watcherSet, 0)
+}
 
-	time.Sleep(10 * time.Second) // wait some background actions on handling request
+func Test_VersionController_ResetConnections_ClosesActiveWebsocket(t *testing.T) {
+	controller := NewMockVersionController(t, false)
+	url := startTestServer(t, "/versions/watch", controller.HandleVersionsWatch)
+	conn := DialWebsocket(t, "/versions/watch", url)
+	waitForWatcherCount(t, controller.watchers, 1)
 
-	assert.Equal(t, 1, len(watcherSet.watchersMap), "Watchers is cleaned")
-	assert.Equal(t, false, isClosed(conn), "Connection is closed")
+	done := make(chan struct{})
+	go func() {
+		controller.ResetConnections(clustering.NodeInfo{}, clustering.Role(1))
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(websocketTestTimeout):
+		t.Fatal("ResetConnections did not finish")
+	}
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(websocketTestTimeout)))
+	_, _, err := conn.ReadMessage()
+	var closeError *websocket.CloseError
+	require.ErrorAs(t, err, &closeError, "reset must close the active WebSocket")
+	waitForWatcherCount(t, controller.watchers, 0)
+}
 
-	conn.Close()
-
-	time.Sleep(10 * time.Second) // wait some background actions on closing
-
-	assert.Equal(t, 0, len(watcherSet.watchersMap), "Watchers is not cleaned")
-	assert.Equal(t, true, isClosed(conn), "Connection is not closed")
+func waitForWatcherCount(t *testing.T, watchers *WatcherSet, want int) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		watchers.Lock()
+		defer watchers.Unlock()
+		return len(watchers.watchersMap) == want
+	}, websocketTestTimeout, time.Millisecond, "unexpected number of WebSocket watchers")
 }
 
 func Test_VersionController_WebsocketIsClosedAndResetConnectionsIsRun_ResetConnectionsDoesNotStickOnWritingInChannel(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dao := mock_dao.NewMockDao(ctrl)
-
 	dao.EXPECT().WithRTx(gomock.Any()).Return(nil)
 
+	locker := &controlledLocker{requests: make(chan chan struct{}, 3), unlocked: make(chan struct{}, 3), done: make(chan struct{})}
+	t.Cleanup(func() { close(locker.done) })
 	controller := &VersionController{
-		watchers: &WatcherSet{
-			Locker:      &MockLocker{},
-			watchersMap: make(map[*watcher]bool),
-		},
-		data: dao,
+		watchers: &WatcherSet{Locker: locker, watchersMap: make(map[*watcher]bool)},
+		data:     dao,
 	}
+	url := startTestServer(t, "/versions/watch", controller.HandleVersionsWatch)
+	conn := DialWebsocket(t, "/versions/watch", url)
 
-	app := startTestServer("/versions/watch", controller.HandleVersionsWatch)
-	defer stopTestServer(app)
+	// Push waits at the first lock. Let registration finish before closing.
+	first := locker.next(t)
+	first()
+	require.NoError(t, conn.Close())
+	// Remove reaches the second lock only after the watcher has stopped.
+	second := locker.next(t)
 
-	conn := DialWebsocket(t, "/versions/watch", "http://127.0.0.1:10801")
-
-	// establishing connection run into Lock. This is first Lock. We need to release it to gp further
-	controller.watchers.Locker.(*MockLocker).UnlockByNumber(1)
-
-	conn.Close() // closing connection. Close run into Lock as well. This is second Lock. We have to keep it
-
-	waitWatcherStopped(controller) // wait when the watcher is marked as stopped after closing
-
-	done := make(chan error)
-	go func(done chan error) {
-		// run action where we can stick on writing in channel. ResetConnections run into third Lock
+	done := make(chan struct{})
+	go func() {
 		controller.ResetConnections(clustering.NodeInfo{}, clustering.Role(1))
-		done <- nil
-	}(done)
-	time.Sleep(time.Millisecond)
-
-	controller.watchers.Locker.(*MockLocker).UnlockByNumber(3) // release Lock from ResetConnections
-
-	isDone, _ := waitDoneWithTimeout(done, 5*time.Second)
-	assert.True(t, isDone, "Operation has not completed within 5 seconds")
-}
-
-func waitWatcherStopped(controller *VersionController) bool {
-	for len(controller.watchers.watchersMap) == 0 { // wait when watcher appears here
-		time.Sleep(time.Second)
+		close(done)
+	}()
+	// Keep Remove blocked while ResetConnections inspects the stopped watcher.
+	third := locker.next(t)
+	third()
+	select {
+	case <-done:
+	case <-time.After(websocketTestTimeout):
+		t.Fatal("ResetConnections blocked on the stopped watcher's quit channel")
 	}
-	for w := range controller.watchers.watchersMap {
-		for !w.stopped { // wait when watcher is stopped
-			time.Sleep(time.Second)
+	second()
+	for i := 0; i < 3; i++ {
+		select {
+		case <-locker.unlocked:
+		case <-time.After(websocketTestTimeout):
+			t.Fatal("watcher operation did not release its lock")
 		}
-		return true
-	}
-
-	return false
-}
-
-type MockLocker struct {
-	chans []chan struct{}
-}
-
-func NewMyLocker() MockLocker {
-	return MockLocker{chans: []chan struct{}{}}
-}
-
-func (m *MockLocker) Lock() {
-	ch := make(chan struct{})
-	m.chans = append(m.chans, ch)
-	<-ch
-}
-
-func (m *MockLocker) Unlock() {
-
-}
-
-func (m *MockLocker) UnlockByNumber(j int) {
-	for {
-		for i := 0; i < len(m.chans); i++ {
-			if i == j-1 {
-				m.chans[i] <- struct{}{}
-				return
-			}
-		}
-		time.Sleep(time.Second)
 	}
 }
 
-func startTestServer(path string, handler fiber.Handler) *fiber.App {
-	app := fiber.New()
+// Each lock acquisition is handed to the test explicitly, without polling.
+// Remove is deliberately held while ResetConnections acquires the next gate.
+type controlledLocker struct {
+	requests chan chan struct{}
+	unlocked chan struct{}
+	done     chan struct{}
+}
+
+func (m *controlledLocker) Lock() {
+	gate := make(chan struct{})
+	select {
+	case m.requests <- gate:
+	case <-m.done:
+		return
+	}
+	select {
+	case <-gate:
+	case <-m.done:
+	}
+}
+
+func (m *controlledLocker) Unlock() {
+	select {
+	case m.unlocked <- struct{}{}:
+	case <-m.done:
+	}
+}
+
+func (m *controlledLocker) next(t *testing.T) func() {
+	t.Helper()
+	select {
+	case gate := <-m.requests:
+		release := sync.OnceFunc(func() { close(gate) })
+		t.Cleanup(release)
+		return release
+	case <-time.After(websocketTestTimeout):
+		t.Fatal("expected watcher lock acquisition did not occur")
+		return nil
+	}
+}
+
+func startTestServer(t *testing.T, path string, handler fiber.Handler) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Get(path, handler)
-	go app.Listen(":10801")
-	time.Sleep(time.Second)
-	return app
-}
-
-func stopTestServer(app *fiber.App) {
-	app.Shutdown()
-	time.Sleep(time.Second)
+	done := make(chan error, 1)
+	go func() { done <- app.Listener(listener) }()
+	t.Cleanup(func() {
+		require.NoError(t, app.ShutdownWithTimeout(websocketTestTimeout))
+		select {
+		case err := <-done:
+			require.NoError(t, err)
+		case <-time.After(websocketTestTimeout):
+			t.Error("test HTTP server did not stop")
+		}
+	})
+	return "http://" + listener.Addr().String()
 }
 
 func DialWebsocket(t *testing.T, path string, rawUrl string) *websocket.Conn {
+	t.Helper()
 	dialer := &websocket.Dialer{
 		Proxy:            http.ProxyFromEnvironment,
-		HandshakeTimeout: 45 * time.Second,
+		HandshakeTimeout: websocketTestTimeout,
 		TLSClientConfig:  utils.GetTlsConfig(),
 	}
-	ctx := context.Background()
-	cpAddr, _ := url.ParseRequestURI(rawUrl)
-	webSocketURL := cpAddr
+	ctx, cancel := context.WithTimeout(context.Background(), websocketTestTimeout)
+	defer cancel()
+	webSocketURL, err := url.ParseRequestURI(rawUrl)
+	require.NoError(t, err)
 	webSocketURL.Scheme = "ws"
 	webSocketURL.Path = path
 	requestHeaders := http.Header{}
 	requestHeaders.Add("Host", webSocketURL.Host)
 	conn, response, err := dialer.DialContext(ctx, webSocketURL.String(), requestHeaders)
-
-	assert.Equal(t, 101, response.StatusCode)
-	assert.Nil(t, err)
-
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
+	t.Cleanup(func() { _ = conn.Close() })
 	return conn
-}
-
-func isClosed(conn *websocket.Conn) bool {
-	done := make(chan error)
-
-	go func() {
-		_, _, err := conn.ReadMessage()
-		done <- err
-	}()
-
-	isDone, err := waitDoneWithTimeout(done, 3*time.Second)
-	if isDone {
-		if _, ok := err.(*websocket.CloseError); ok {
-			return true
-		}
-		if _, ok := err.(*net.OpError); ok {
-			return true
-		}
-	}
-
-	return false
-}
-
-func waitDoneWithTimeout(done chan error, duration time.Duration) (bool, error) {
-	select {
-	case <-time.After(duration):
-		return false, nil
-	case err := <-done:
-		close(done)
-		return true, err
-	}
 }
 
 func NewMockVersionController(t *testing.T, withError bool) *VersionController {

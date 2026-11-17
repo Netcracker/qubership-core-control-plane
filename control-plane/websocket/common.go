@@ -41,14 +41,19 @@ func validateConnection(ctx context.Context, conn *websocket.Conn, watcher *watc
 		if r := recover(); r != nil {
 			log.ErrorC(ctx, "Validate Connection has been recovered after panic: %v", r)
 		}
-		if !watcher.stopped {
-			watcher.quit <- struct{}{}
+		if !watcher.stopped.Load() {
+			select {
+			case watcher.quit <- struct{}{}:
+			case <-watcher.done:
+			}
 		}
 		_ = conn.Close()
 	}()
 	for {
 		if _, _, err := conn.NextReader(); err != nil {
-			log.ErrorC(ctx, "Error in reading websocket connection: %v", err)
+			if !watcher.stopped.Load() {
+				log.ErrorC(ctx, "Error in reading websocket connection: %v", err)
+			}
 			break
 		}
 	}
@@ -78,16 +83,31 @@ func tuneConnAndReturnCancelFunc(ctx context.Context, conn *websocket.Conn, watc
 		_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseMessage, ""), time.Now().Add(writeWait))
 		return nil
 	})
-	go validateConnection(ctx, conn, watcher)
-	go pingRecipient(ctx, conn)
+	readerDone := make(chan struct{})
+	pingDone := make(chan struct{})
+	go func() {
+		defer close(readerDone)
+		validateConnection(ctx, conn, watcher)
+	}()
+	go func() {
+		defer close(pingDone)
+		pingRecipient(ctx, conn)
+	}()
 	// return func that must be called when websocket handler is over
 	return func() {
 		log.DebugC(ctx, "Returning Websocket close function")
+		watcher.Stop()
 		cancelContext()
+		// fasthttp owns the hijacked connection and may defer Close until the
+		// handler returns. Interrupt its reader before waiting for that goroutine.
+		_ = conn.NetConn().SetReadDeadline(time.Now())
 		err := conn.Close()
 		if err != nil {
 			log.ErrorC(ctx, "Error In closing resource: %v", err)
 		}
+		// fasthttp may reuse the hijacked connection as soon as this returns.
+		<-readerDone
+		<-pingDone
 	}
 }
 
@@ -112,6 +132,8 @@ func UpgradeWsSocket(ctx context.Context, fiberCtx *fiber.Ctx, c Controller) int
 		defer closeConnGracefullyFunc()
 		c.getWatchers().Push(watcher)
 		defer c.getWatchers().Remove(watcher)
+		// Unblock a concurrent reset before waiting for the watcher-set lock.
+		defer watcher.Stop()
 		if err := c.getData().WithRTx(func(dao dao.Repository) error {
 			return c.doOnUpgradeWsSocket(conn, dao)
 		}); err != nil {

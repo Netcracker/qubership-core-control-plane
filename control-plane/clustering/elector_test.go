@@ -3,7 +3,7 @@ package clustering
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"sync"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
@@ -36,8 +36,8 @@ func initElectorTestEnvironment() (TestEnvironment, error) {
 	electorConfig := ElectorConfig{
 		ElectionService:     electionService,
 		LifeCycleManager:    lifeCycleManager,
-		MasterLoopSleepTime: 1 * time.Second,
-		SlaveLoopSleepTime:  1 * time.Second,
+		MasterLoopSleepTime: 10 * time.Millisecond,
+		SlaveLoopSleepTime:  10 * time.Millisecond,
 		SyncClockTimeShift:  1 * time.Second,
 	}
 
@@ -70,231 +70,61 @@ func TestElector_ElectorCreation(t *testing.T) {
 
 func TestElector_TestMasterElection(t *testing.T) {
 	testEnv, err := initElectorTestEnvironment()
-	if !assert.Nil(t, err) {
-		assert.FailNow(t, err.Error())
-	}
-
+	require.NoError(t, err)
 	testEnv.lifeCycleManager.thisNode.Name = "master-node"
 	elector, err := NewElector(*testEnv.electorConfig)
-	if !assert.Nil(t, err) {
-		assert.FailNow(t, err.Error())
-	}
+	require.NoError(t, err)
 
-	masterCalls := make([]NodeInfo, 0)
-	callLock := sync.Mutex{}
-	roleChangedCallback := func(info NodeInfo, role Role) error {
-		callLock.Lock()
-		defer callLock.Unlock()
-		switch role {
-		case Master:
-			masterCalls = append(masterCalls, info)
-		}
-		return nil
-	}
-	testEnv.lifeCycleManager.AddOnRoleChanged(roleChangedCallback)
-
-	err = elector.Start()
-	assert.Nil(t, err)
-
-	timeout := time.Now().Add(2 * time.Minute)
-	for len(masterCalls) == 0 {
-		time.Sleep(1 * time.Second)
-		if time.Now().After(timeout) {
-			break
-		}
-	}
-	elector.Stop()
-
-	assert.NotEmpty(t, masterCalls)
-
-	// wait for election loop
-	for {
-		select {
-		case <-elector.ticker:
-			return
-		default:
-			time.Sleep(1 * time.Second)
-		}
-	}
+	runElectionUntilRole(t, elector, Master)
+	assert.Equal(t, Master, CurrentNodeState.GetRole())
 }
 
 func TestElector_TestSlaveElection(t *testing.T) {
 	testEnv, err := initElectorTestEnvironment()
-	if !assert.Nil(t, err) {
-		assert.FailNow(t, err.Error())
-	}
-
+	require.NoError(t, err)
 	testEnv.lifeCycleManager.thisNode.Name = "master-node"
 	elector, err := NewElector(*testEnv.electorConfig)
-	if !assert.Nil(t, err) {
-		assert.FailNow(t, err.Error())
-	}
+	require.NoError(t, err)
+
 	elector.config.ElectionService.TryWriteAsMaster(&elector.record)
 	testEnv.lifeCycleManager.thisNode.Name = "slave-node"
 	elector.record.Name = "slave-node"
 
-	slaveCalls := make([]NodeInfo, 0)
-	callLock := sync.Mutex{}
-	roleChangedCallback := func(info NodeInfo, role Role) error {
-		callLock.Lock()
-		defer callLock.Unlock()
-		switch role {
-		case Slave:
-			slaveCalls = append(slaveCalls, info)
-		}
-		return nil
-	}
-	testEnv.lifeCycleManager.AddOnRoleChanged(roleChangedCallback)
-
-	err = elector.Start()
-	assert.Nil(t, err)
-
-	timeout := time.Now().Add(2 * time.Minute)
-	for len(slaveCalls) == 0 {
-		time.Sleep(1 * time.Second)
-		if time.Now().After(timeout) {
-			break
-		}
-	}
-	elector.Stop()
-
-	assert.NotEmpty(t, slaveCalls)
-
-	// wait for election loop
-	for {
-		select {
-		case <-elector.ticker:
-			return
-		default:
-			time.Sleep(1 * time.Second)
-		}
-	}
+	runElectionUntilRole(t, elector, Slave)
+	assert.Equal(t, Slave, CurrentNodeState.GetRole())
 }
 
 func TestElector_TestMasterElection_Compound(t *testing.T) {
 	testEnv, err := initElectorTestEnvironment()
-	if !assert.Nil(t, err) {
-		assert.FailNow(t, err.Error())
-	}
-
-	electorConfig := ElectorConfig{
-		testEnv.electorConfig.ElectionService,
-		testEnv.electorConfig.LifeCycleManager,
-		15 * time.Second,
-		testEnv.electorConfig.MasterLoopSleepTime,
-		SyncClockTimeShiftDefault,
-	}
-
+	require.NoError(t, err)
 	testEnv.lifeCycleManager.thisNode.Name = "master-node"
-	elector, err := NewElector(electorConfig)
-	if !assert.Nil(t, err) {
-		assert.FailNow(t, err.Error())
-	}
-
-	masterCalls := make([]NodeInfo, 0)
-	slaveCalls := make([]NodeInfo, 0)
-	callLock := sync.Mutex{}
-	roleChangedCallback := func(info NodeInfo, role Role) error {
-		callLock.Lock()
-		defer callLock.Unlock()
-		switch role {
-		case Master:
-			masterCalls = append(masterCalls, info)
-		case Slave:
-			slaveCalls = append(slaveCalls, info)
+	elector, err := NewElector(*testEnv.electorConfig)
+	require.NoError(t, err)
+	var roles []Role
+	testEnv.lifeCycleManager.AddOnRoleChanged(func(info NodeInfo, role Role) error {
+		roles = append(roles, role)
+		if role == Master {
+			// Change identity in the election goroutine after it becomes master.
+			testEnv.lifeCycleManager.thisNode.Name = "slave-node"
+			elector.record.Name = "slave-node"
 		}
 		return nil
-	}
-	testEnv.lifeCycleManager.AddOnRoleChanged(roleChangedCallback)
-
-	err = elector.Start()
-	assert.Nil(t, err)
-
-	timeout := time.Now().Add(electorConfig.SlaveLoopSleepTime / 2)
-	for len(masterCalls) == 0 {
-		time.Sleep(1 * time.Second)
-		if time.Now().After(timeout) {
-			break
-		}
-	}
-
-	assert.NotEmpty(t, masterCalls)
-	testEnv.lifeCycleManager.thisNode.Name = "slave-node"
-	elector.record.Name = "slave-node"
-
-	timeout = time.Now().Add(electorConfig.SlaveLoopSleepTime / 2)
-	for CurrentNodeState.IsMaster() {
-		time.Sleep(1 * time.Second)
-		if time.Now().After(timeout) {
-			break
-		}
-	}
-
-	elector.Stop()
-
-	assert.NotEmpty(t, slaveCalls)
+	})
+	runElectionUntilRole(t, elector, Slave)
+	assert.Equal(t, []Role{Master, Slave}, roles)
 	assert.False(t, CurrentNodeState.IsMaster())
-
-	// wait for election loop
-	for {
-		select {
-		case <-elector.ticker:
-			return
-		default:
-			time.Sleep(1 * time.Second)
-		}
-	}
 }
 
 func TestElector_TestSlaveElection_NoRecords(t *testing.T) {
 	testEnv, err := initElectorTestEnvironment()
-	if !assert.Nil(t, err) {
-		assert.FailNow(t, err.Error())
-	}
+	require.NoError(t, err)
 	testEnv.electionService.clearTable()
-
 	testEnv.lifeCycleManager.thisNode.Name = "slave-node"
 	elector, err := NewElector(*testEnv.electorConfig)
-	if !assert.Nil(t, err) {
-		assert.FailNow(t, err.Error())
-	}
+	require.NoError(t, err)
 
-	phantomCalls := make([]NodeInfo, 0)
-	callLock := sync.Mutex{}
-	roleChangedCallback := func(info NodeInfo, role Role) error {
-		callLock.Lock()
-		defer callLock.Unlock()
-		switch role {
-		case Phantom:
-			phantomCalls = append(phantomCalls, info)
-		}
-		return nil
-	}
-	testEnv.lifeCycleManager.AddOnRoleChanged(roleChangedCallback)
-
-	err = elector.Start()
-	assert.Nil(t, err)
-
-	timeout := time.Now().Add(2 * time.Minute)
-	for len(phantomCalls) == 0 {
-		time.Sleep(1 * time.Second)
-		if time.Now().After(timeout) {
-			break
-		}
-	}
-	elector.Stop()
-
-	assert.NotEmpty(t, phantomCalls)
-
-	// wait for election loop
-	for {
-		select {
-		case <-elector.ticker:
-			return
-		default:
-			time.Sleep(1 * time.Second)
-		}
-	}
+	runElectionUntilRole(t, elector, Phantom)
+	assert.Equal(t, Phantom, CurrentNodeState.GetRole())
 }
 
 func TestElector_TestMasterProlongation(t *testing.T) {
@@ -315,12 +145,8 @@ func TestElector_TestMasterProlongation(t *testing.T) {
 	masterRecordBefore := &MasterMetadata{}
 	*masterRecordBefore = *masterRecord
 
-	// Stop elector on timeout
-	go func() {
-		time.Sleep(2 * time.Second)
-		elector.Stop()
-	}()
-	// Prolong
+	// The mock signals a successful renewal instead of stopping after a delay.
+	testEnv.electionService.afterShift = elector.Stop
 	elector.startMasterProlongation()
 
 	masterRecordAfter, err := elector.config.ElectionService.GetMaster()
@@ -428,20 +254,24 @@ func TestElector_ForceElection(t *testing.T) {
 	masterRecordBefore := &MasterMetadata{}
 	*masterRecordBefore = *masterRecord
 
-	go elector.ForceElection("internal")
-
-	// wait for election loop
-	for {
-		select {
-		case <-elector.ticker:
-			masterRecordAfter, err := elector.config.ElectionService.GetMaster()
-			assert.Nil(t, err)
-			assert.NotEqual(t, masterRecordBefore.SyncClock, masterRecordAfter.SyncClock)
-			return
-		default:
-			time.Sleep(1 * time.Second)
-		}
+	done := make(chan struct{})
+	go func() {
+		elector.ForceElection("internal")
+		close(done)
+	}()
+	select {
+	case <-elector.ticker:
+	case <-time.After(electionTestTimeout):
+		t.Fatal("forced election did not signal the election loop")
 	}
+	select {
+	case <-done:
+	case <-time.After(electionTestTimeout):
+		t.Fatal("forced election did not finish")
+	}
+	masterRecordAfter, err := elector.config.ElectionService.GetMaster()
+	assert.Nil(t, err)
+	assert.NotEqual(t, masterRecordBefore.SyncClock, masterRecordAfter.SyncClock)
 }
 
 func TestElector_ForceElection_NoRecords(t *testing.T) {
@@ -457,25 +287,24 @@ func TestElector_ForceElection_NoRecords(t *testing.T) {
 
 	elector.ticker = make(chan interface{})
 
-	masterRecord, err := elector.config.ElectionService.GetMaster()
-	assert.Nil(t, err)
-	masterRecordBefore := &MasterMetadata{}
-	*masterRecordBefore = *masterRecord
-
 	testEnv.electionService.clearTable()
-	go elector.ForceElection("internal")
-
-	// wait for election loop
-	for {
-		select {
-		case <-elector.ticker:
-			_, err = elector.config.ElectionService.GetMaster()
-			assert.NotNil(t, err)
-			return
-		default:
-			time.Sleep(1 * time.Second)
-		}
+	done := make(chan struct{})
+	go func() {
+		elector.ForceElection("internal")
+		close(done)
+	}()
+	select {
+	case <-elector.ticker:
+	case <-time.After(electionTestTimeout):
+		t.Fatal("forced election did not signal the election loop")
 	}
+	select {
+	case <-done:
+	case <-time.After(electionTestTimeout):
+		t.Fatal("forced election did not finish")
+	}
+	_, err = elector.config.ElectionService.GetMaster()
+	assert.NotNil(t, err)
 }
 
 type MasterNodeInitializerMock struct {
@@ -487,6 +316,7 @@ func (i MasterNodeInitializerMock) InitMaster() error {
 
 type ElectionServiceMock struct {
 	masterMetadata []*MasterMetadata
+	afterShift     func()
 }
 
 func NewElectionServiceMock() *ElectionServiceMock {
@@ -536,6 +366,9 @@ func (e *ElectionServiceMock) ShiftSyncClock(d time.Duration) error {
 		return fmt.Errorf("no rows in db")
 	}
 	e.masterMetadata[0].SyncClock = time.Now().Add(d)
+	if e.afterShift != nil {
+		e.afterShift()
+	}
 	return nil
 }
 
@@ -580,4 +413,26 @@ func (e *ElectionServiceMock) tryAddInternalRecord() error {
 
 func (e *ElectionServiceMock) clearTable() {
 	e.masterMetadata = make([]*MasterMetadata, 0)
+}
+
+const electionTestTimeout = 5 * time.Second
+
+func runElectionUntilRole(t *testing.T, elector *Elector, want Role) {
+	t.Helper()
+	// Drive the election loop directly: no perpetual ticker goroutine is needed.
+	elector.ticker = make(chan interface{}, 1)
+	elector.ticker <- struct{}{}
+	elector.lifeCycleManager.AddOnRoleChanged(func(_ NodeInfo, role Role) error {
+		if role == want {
+			elector.Stop()
+		}
+		return nil
+	})
+	done := make(chan struct{})
+	go func() { elector.startElectionLoop(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(electionTestTimeout):
+		t.Fatalf("election did not reach role %v", want)
+	}
 }

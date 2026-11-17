@@ -3,13 +3,12 @@ package clustering
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
-	"net"
 	"testing"
 	"time"
 )
@@ -117,14 +116,25 @@ func TestPostgreSqlService_WithTx(t *testing.T) {
 }
 
 func createTestConnection(t *testing.T) bun.Conn {
-	ctx := context.Background()
-	dsn := NewTestPgOptions()
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-
-	db := bun.NewDB(sqldb, pgdialect.New())
-	conn, err := db.Conn(ctx)
-	assert.NotNil(t, err)
+	t.Helper()
+	// Fail connection establishment immediately; a real dial timeout is irrelevant
+	// to the nil-connection error cases exercised by these tests.
+	sqldb := sql.OpenDB(unavailableTestDriver{})
+	bunDB := bun.NewDB(sqldb, pgdialect.New())
+	t.Cleanup(func() { assert.NoError(t, bunDB.Close()) })
+	conn, err := bunDB.Conn(context.Background())
+	assert.ErrorIs(t, err, DbProviderStubError)
 	return conn
+}
+
+type unavailableTestDriver struct{}
+
+func (unavailableTestDriver) Connect(context.Context) (driver.Conn, error) {
+	return nil, DbProviderStubError
+}
+func (d unavailableTestDriver) Driver() driver.Driver { return d }
+func (d unavailableTestDriver) Open(string) (driver.Conn, error) {
+	return d.Connect(context.Background())
 }
 
 var DbProviderStubError = fmt.Errorf("DbProviderStub invoked error")
@@ -147,21 +157,6 @@ func (p *DbProviderStub) NewDB(_ ...func(db db.PgDB, event db.ConnEvent, err err
 
 func (p *DbProviderStub) Listen(_ string, _ func(), _ func(payload string)) (db.PersistentStorageListener, error) {
 	return nil, nil
-}
-
-func NewTestPgOptions() string {
-	// Free port is required to guarantee an error on pg.Conn functions
-	return fmt.Sprintf("postgresql://localhost:%d", findFreePort())
-}
-
-func findFreePort() int {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		panic(err)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	_ = listener.Close()
-	return port
 }
 
 type BlockingDbProviderStub struct {

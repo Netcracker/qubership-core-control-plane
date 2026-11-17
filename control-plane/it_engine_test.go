@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"flag"
 	"fmt"
 	container2 "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -35,7 +36,7 @@ const Postgres = "postgres"
 var (
 	log = logging.GetLogger("it_control_plane")
 
-	// Indicates whether TEST_DOCKER_URL env is set. Each test must check this flag before execution.
+	// Short mode runs unit tests without the Docker integration environment.
 	skipDockerTests = false
 
 	dockerHost string
@@ -65,6 +66,12 @@ func init() {
 }
 
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		skipDockerTests = true
+		os.Exit(m.Run())
+	}
+
 	log.InfoC(ctx, "Starting docker tests")
 
 	defer func() {
@@ -115,7 +122,7 @@ func getHostIp() string {
 
 		//notice! sometimes `hostname -I` can return list of IP adressess.
 		// `hostname -i` can return like this '10.88.0.2 fe80::c8f1:efff:fe68:a723%eth0' or 'fe80::c8f1:efff:fe68:a723%eth0 10.88.0.2'
-		
+
 		output, err := exec.Command("hostname", "-I").Output()
 		if err != nil {
 			log.WarnC(ctx, "'hostname -I' returned output '%s' and error: %v", output, err)
@@ -181,7 +188,7 @@ func resolveDockerHost() {
 	dockerAddr := os.Getenv("DOCKER_HOST")
 	if dockerAddr == "" {
 		log.InfoC(ctx, "Env DOCKER_HOST is empty")
-			dockerAddr = "localhost"
+		dockerAddr = "localhost"
 	}
 
 	log.InfoC(ctx, "Using docker host %s", dockerAddr)

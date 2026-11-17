@@ -74,8 +74,11 @@ func (c *VersionController) handleVersionChange(data interface{}) {
 func (c *VersionController) ResetConnections(_ clustering.NodeInfo, _ clustering.Role) {
 	log.Info("Abort all ws sessions for version watch API due to node role change")
 	c.watchers.Iter(func(w *watcher) {
-		if !w.stopped {
-			w.quit <- struct{}{}
+		if !w.stopped.Load() {
+			select {
+			case w.quit <- struct{}{}:
+			case <-w.done:
+			}
 		}
 	})
 	log.Info("Ws session abort for version watch API is done")

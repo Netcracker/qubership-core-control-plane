@@ -2,22 +2,27 @@ package websocket
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 type watcher struct {
 	source  chan interface{}
 	quit    chan struct{}
-	stopped bool
+	stopped atomic.Bool
+	done    chan struct{}
 }
 
 func (w *watcher) Stop() {
-	w.stopped = true
+	if w.stopped.CompareAndSwap(false, true) {
+		close(w.done)
+	}
 }
 
 func newWatcher() *watcher {
 	return &watcher{
 		source: make(chan interface{}, 10),
 		quit:   make(chan struct{}),
+		done:   make(chan struct{}),
 	}
 }
 
