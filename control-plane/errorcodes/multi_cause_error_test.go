@@ -30,6 +30,7 @@ func TestMultiCauseErrorWithTwoDifferentErrors(t *testing.T) {
 	err := multiCauseError.Handle(ctx)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusInternalServerError, ctx.Response().StatusCode())
+	assert.Equal(t, "application/json", string(ctx.Response().Header.ContentType()), "Content-Type")
 	tmfResponse := readTmfResponse(t, ctx)
 	assert.Equal(t, testCpError.Code, tmfResponse.Code)
 
