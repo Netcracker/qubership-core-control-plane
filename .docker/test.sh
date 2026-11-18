@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p /reports
-cd /src/source/control-plane
+cd control-plane
 go mod download
 # The root package contains gateway integration tests; -short runs the unit suite.
 go test -mod=readonly -short -v -count=1 -timeout=15m \

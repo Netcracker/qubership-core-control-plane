@@ -12,7 +12,7 @@ ARG GOPROXY=https://proxy.golang.org,direct
 ARG GOSUMDB=sum.golang.org
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local GONOPROXY=none \
     GOMAXPROCS=2 GOMEMLIMIT=1GiB GOFLAGS=-p=2
-WORKDIR /src/source
+WORKDIR /src/${SOURCE_DIR}
 COPY ${SOURCE_DIR}/ ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,id=control-plane-go-build,target=/root/.cache/go-build \

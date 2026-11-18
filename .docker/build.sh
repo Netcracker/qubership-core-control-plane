@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p /reports /out
-public_module=/src/source/control-plane
+public_module="$PWD/control-plane"
 cd "$public_module"
 build_module="$public_module"
 if [[ -n "$BOOTSTRAP_DIR" ]]; then
