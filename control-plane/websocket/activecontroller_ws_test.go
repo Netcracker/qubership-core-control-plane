@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/fasthttp/websocket"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	mock_dao "github.com/netcracker/qubership-core-control-plane/control-plane/v2/test/mock/dao"

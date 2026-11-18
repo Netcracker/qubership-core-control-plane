@@ -3,7 +3,7 @@ package v3
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/restcontrollers/dto"
@@ -30,8 +30,8 @@ func NewRateLimitController(rateLimitService *ratelimit.Service) *RateLimitContr
 // @Success 200 {array} domain.RateLimit
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/rate-limits [get]
-func (c *RateLimitController) HandleGetRateLimit(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RateLimitController) HandleGetRateLimit(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Received GET rate limits request")
 	rateLimits, err := c.rateLimitService.GetRateLimits(ctx)
 	if err != nil {
@@ -53,8 +53,8 @@ func (c *RateLimitController) HandleGetRateLimit(fiberCtx *fiber.Ctx) error {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/rate-limits [post]
-func (c *RateLimitController) HandlePostRateLimit(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RateLimitController) HandlePostRateLimit(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Received POST rate limit request with body: \n\t%s", fiberCtx.Body())
 	var rateLimitCreationRequest dto.RateLimit
 	if err := json.Unmarshal(fiberCtx.Body(), &rateLimitCreationRequest); err != nil {
@@ -87,8 +87,8 @@ func (c *RateLimitController) HandlePostRateLimit(fiberCtx *fiber.Ctx) error {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/rate-limits [delete]
-func (c *RateLimitController) HandleDeleteRateLimit(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *RateLimitController) HandleDeleteRateLimit(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Received DELETE rate limit request body: \n\t%s", fiberCtx.Body())
 	var rateLimitCreationRequest dto.RateLimit
 	if err := json.Unmarshal(fiberCtx.Body(), &rateLimitCreationRequest); err != nil {

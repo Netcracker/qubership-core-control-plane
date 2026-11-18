@@ -7,12 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	mock_dao "github.com/netcracker/qubership-core-control-plane/control-plane/v2/test/mock/dao"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,7 +39,7 @@ func TestBlueGreenController_deleteVersionResponses(t *testing.T) {
 			require.NoError(t, err)
 			app.Delete("/versions/:version", NewBlueGreenController(nil, data).HandleDeleteDeploymentVersionWithID)
 
-			resp, err := app.Test(httptest.NewRequest(http.MethodDelete, "/versions/v2", nil), -1)
+			resp, err := app.Test(httptest.NewRequest(http.MethodDelete, "/versions/v2", nil), fiber.TestConfig{Timeout: 0})
 			require.NoError(t, err)
 			defer resp.Body.Close()
 			body, err := io.ReadAll(resp.Body)

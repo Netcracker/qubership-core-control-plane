@@ -59,9 +59,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/gofiber/fiber/v2"
-	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2"
-	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v2/server"
+	"github.com/gofiber/fiber/v3"
+	fiberserver "github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3"
+	"github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3/server"
 	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/consul-propertysource"
 	"github.com/netcracker/qubership-core-lib-go-rest-utils/v2/podsecrets-propertysource"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
@@ -286,7 +286,6 @@ func RunServer() {
 	healthController := health.NewController(healthService)
 
 	fiberConfig := fiber.Config{
-		Network:      fiber.NetworkTCP,
 		IdleTimeout:  30 * time.Second,
 		ErrorHandler: errorcodes.DefaultErrorHandlerWrapper(errorcodes.UnknownErrorCode),
 	}
@@ -405,13 +404,13 @@ func RunServer() {
 	apiV3.Get("/debug/config-validation", v3DebugController.HandleGetConfigValidation)
 
 	// swagger
-	app.Get("/swagger-ui/swagger.json", func(ctx *fiber.Ctx) error {
+	app.Get("/swagger-ui/swagger.json", func(ctx fiber.Ctx) error {
 		ctx.Set("Content-Type", "application/json")
 		return ctx.Status(http.StatusOK).SendString(docs.SwaggerInfo.ReadDoc())
 	})
 	app.Get("/health", healthController.HandleLivenessProbe)
 	app.Get("/ready", healthController.HandleReadinessProbe)
-	app.Get("/memstats", func(c *fiber.Ctx) error {
+	app.Get("/memstats", func(c fiber.Ctx) error {
 		runtime.GC()
 		memstat := runtime.MemStats{}
 		runtime.ReadMemStats(&memstat)
@@ -430,11 +429,11 @@ func RunServer() {
 	registerShutdownHooks()
 	tlsDef.RegisterCertificateMetrics(tlsService)
 
-	server.StartServer(app, "http.server.bind")
+	server.StartServer(app, "http.server.bind", fiber.ListenConfig{ListenerNetwork: fiber.NetworkTCP})
 }
 
-func RedirectToSwagger(ctx *fiber.Ctx) error {
-	return ctx.Redirect("/swagger-ui/index.html")
+func RedirectToSwagger(ctx fiber.Ctx) error {
+	return ctx.Redirect().Status(fiber.StatusFound).To("/swagger-ui/index.html")
 }
 
 func createActiveDCsService(entityService *entity.Service, eventBus *bus.EventBusAggregator) active.ActiveDCsService {
