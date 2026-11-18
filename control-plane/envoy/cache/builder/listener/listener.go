@@ -38,7 +38,7 @@ import (
 )
 
 const accessLogPath = "/dev/stdout"
-const accessLogFormat = "[%START_TIME(%FT%T.%3f)%] [INFO] [request_id=%REQ(X-REQUEST-ID)%] [tenant_id=%REQ(Tenant)%] [thread=-] [class=-] envoyLog \n" +
+const accessLogFormat = "[%START_TIME(%FT%T.%3f)%] [INFO] [request_id=%REQ(X-REQUEST-ID)%] [tenant_id=%REQ(Tenant)%] [x_channel_request_id=%REQ(X-CHANNEL-REQUEST-ID)%] [thread=-] [class=-] envoyLog \n" +
 	"Forward Request: \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" \n" +
 	"Forward To: \"%UPSTREAM_HOST% %UPSTREAM_CLUSTER%\" \n" +
 	"Forward For: \"%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%\"\n" +
