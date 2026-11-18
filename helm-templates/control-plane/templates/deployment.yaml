@@ -2,10 +2,50 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
+  name: '{{ .Values.SERVICE_NAME }}'
+  labels:
     name: '{{ .Values.SERVICE_NAME }}'
-    labels:
+    netcracker.cloud/disaster-recovery.manageable: 'true'
+    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
+    app.kubernetes.io/instance: '{{ cat .Values.SERVICE_NAME "-" .Values.NAMESPACE | nospace | trunc 63 | trimSuffix "-" }}'
+    app.kubernetes.io/version: '{{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}'
+    app.kubernetes.io/component: 'backend'
+    app.kubernetes.io/part-of: 'Cloud-Core'
+    app.kubernetes.io/managed-by: 'saasDeployer'
+    app.kubernetes.io/technology: 'go'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+  annotations:
+    netcracker.cloud/start.stage: '1'
+spec:
+  replicas: {{ .Values.REPLICAS | default 1 }}
+  strategy:
+    {{- if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "recreate" }}
+    type: Recreate
+    {{- else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "best_effort_controlled_rollout" }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 80%
+    {{- else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "ramped_slow_rollout" }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    {{- else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "custom_rollout" }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.DEPLOYMENT_STRATEGY_MAXSURGE | default "25%" }}
+      maxUnavailable: {{ .Values.DEPLOYMENT_STRATEGY_MAXUNAVAILABLE | default "25%" }}
+    {{- else }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    {{- end }}
+  template:
+    metadata:
+      labels:
         name: '{{ .Values.SERVICE_NAME }}'
-        netcracker.cloud/disaster-recovery.manageable: 'true'
         app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
         app.kubernetes.io/instance: '{{ cat .Values.SERVICE_NAME "-" .Values.NAMESPACE | nospace | trunc 63 | trimSuffix "-" }}'
         app.kubernetes.io/version: '{{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}'
@@ -13,318 +53,295 @@ metadata:
         app.kubernetes.io/part-of: 'Cloud-Core'
         app.kubernetes.io/managed-by: 'saasDeployer'
         app.kubernetes.io/technology: 'go'
-        deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
-    annotations:
-        netcracker.cloud/start.stage: '1'
-spec:
-    replicas: {{ .Values.REPLICAS | default 1 }}
-    strategy:
-    {{- if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "recreate" }}
-      type: Recreate
-    {{- else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "best_effort_controlled_rollout" }}
-      type: RollingUpdate
-      rollingUpdate:
-        maxSurge: 0
-        maxUnavailable: 80%
-    {{- else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "ramped_slow_rollout" }}
-      type: RollingUpdate
-      rollingUpdate:
-        maxSurge: 1
-        maxUnavailable: 0
-    {{- else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "custom_rollout" }}
-      type: RollingUpdate
-      rollingUpdate:
-        maxSurge: {{ .Values.DEPLOYMENT_STRATEGY_MAXSURGE | default "25%" }}
-        maxUnavailable: {{ .Values.DEPLOYMENT_STRATEGY_MAXUNAVAILABLE | default "25%" }}
-    {{- else }}
-      type: RollingUpdate
-      rollingUpdate:
-        maxSurge: 25%
-        maxUnavailable: 25%
-    {{- end }}
-    template:
-        metadata:
-            labels:
-                name: '{{ .Values.SERVICE_NAME }}'
-                app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
-                app.kubernetes.io/instance: '{{ cat .Values.SERVICE_NAME "-" .Values.NAMESPACE | nospace | trunc 63 | trimSuffix "-" }}'
-                app.kubernetes.io/version: '{{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}'
-                app.kubernetes.io/component: 'backend'
-                app.kubernetes.io/part-of: 'Cloud-Core'
-                app.kubernetes.io/managed-by: 'saasDeployer'
-                app.kubernetes.io/technology: 'go'
-        spec:
-            serviceAccountName: '{{ .Values.SERVICE_NAME }}'
-            volumes:
-            -   name: projected-tokens
-                projected:
-                    defaultMode: 292
-                    sources:
-                    -   serviceAccountToken:
-                          path: netcracker/token
-                          audience: netcracker
-                          expirationSeconds: 600
-                    -   serviceAccountToken:
-                          path: dbaas/token
-                          audience: dbaas
-                          expirationSeconds: 600
-                    -   serviceAccountToken:
-                          path: maas/token
-                          audience: maas
-                          expirationSeconds: 600
-            -   name: topology
-                configMap:
-                    name: topology
-{{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
-            -   name: sslcerts
-                emptyDir: {}
-            -   name: cacerts
-                emptyDir: {}
+    spec:
+      serviceAccountName: '{{ .Values.SERVICE_NAME }}'
+      volumes:
+        - name: client-credentials
+          secret:
+            secretName: '{{ .Values.SERVICE_NAME }}-client-credentials'
+        - name: '{{ .Values.SSL_SECRET }}'
+          secret:
+            secretName: '{{ .Values.SSL_SECRET }}'
+{{ if .Values.INTERNAL_TLS_ENABLED }}
+        - name: tls
+          secret:
+            secretName: '{{ .Values.SERVICE_NAME }}-tls'
 {{ end }}
-{{- if include "coretpl.dbaasOperatorEnabled" $ }}
-            -   name: '{{ .Values.SERVICE_NAME }}-postgresql-service-default-secret'
-                secret:
-                    secretName: '{{ .Values.SERVICE_NAME }}-postgresql-service-default-credentials'
-{{- end }}
-{{- /* Legacy credentials written by core-bootstrap. Not rendered with the DBaaS Operator:
-       core-bootstrap does not write DB_CREDENTIALS_SECRET there, and the database comes from
-       the mounted operator Secret. */}}
-{{- if not (include "coretpl.dbaasOperatorEnabled" $) }}
-            -   name: pod-secrets
-                projected:
-                    sources:
-                    -   secret:
-                            name: '{{ .Values.DB_CREDENTIALS_SECRET }}'
-                            items:
-                            -   key: host
-                                path: PG_HOST
-                            -   key: port
-                                path: PG_PORT
-                            -   key: database
-                                path: PG_DB
-                            -   key: username
-                                path: PG_USER
-                            -   key: password
-                                path: PG_PASSWD
-                    -   secret:
-                            name: '{{ .Values.DB_CREDENTIALS_SECRET }}'
-                            optional: true
-                            items:
-                            -   key: tls
-                                path: PG_TLS
-{{- end }}
-            containers:
-            -   name: '{{ .Values.SERVICE_NAME }}'
-                image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
-                imagePullPolicy: Always
-                volumeMounts:
-                -   name: projected-tokens
-                    mountPath: /var/run/secrets/tokens
-                    readOnly: true
-                -   name: topology
-                    mountPath: /etc/topology
-                    readOnly: true
-{{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
-                -   name: sslcerts
-                    mountPath: /etc/ssl/certs
-                -   name: cacerts
-                    mountPath: /usr/local/share/ca-certificates
+{{ if .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED }}
+        - name: tmp
+          emptyDir: { }
+        - name: sslcerts
+          emptyDir: { }
+        - name: cacerts
+          emptyDir: { }
 {{ end }}
-{{- if not (include "coretpl.dbaasOperatorEnabled" $) }}
-                -   name: pod-secrets
-                    mountPath: /etc/secrets/pod-secrets
-                    readOnly: true
-{{- end }}
-{{- if include "coretpl.dbaasOperatorEnabled" $ }}
-                -   name: '{{ .Values.SERVICE_NAME }}-postgresql-service-default-secret'
-                    mountPath: /etc/secrets/dbaas-secrets/{{ .Values.SERVICE_NAME }}-postgresql-service-default-credentials
-                    readOnly: true
-{{- end }}
-                args:
-                - /app/control-plane
-                ports:
-                -   name: web
-                    containerPort: 8080
-                    protocol: TCP
-                -   name: tls
-                    containerPort: 8443
-                    protocol: TCP
-                -   name: grpc
-                    containerPort: 15010
-                    protocol: TCP
-                env:
-                -   name: CLOUD_NAMESPACE
-                    valueFrom:
-                        fieldRef:
-                            fieldPath: metadata.namespace
-                -   name: POD_NAME
-                    valueFrom:
-                        fieldRef:
-                            fieldPath: metadata.name
-                -   name: POD_IP
-                    valueFrom:
-                        fieldRef:
-                            fieldPath: status.podIP
-                -   name: MICROSERVICE_NAME
-                    value: '{{ .Values.SERVICE_NAME }}'
-                -   name: MICROSERVICE_NAMESPACE
-                    value: null
-                    valueFrom:
-                      fieldRef:
-                        fieldPath: metadata.namespace
-                -   name: GATEWAY_AUTH_HOST
-                    value: gateway-auth-extension
-                -   name: GATEWAYS_ALLOWED_ORIGIN
-                    value: '{{ .Values.GATEWAYS_ALLOWED_ORIGIN }}'
-                -   name: GATEWAYS_ALLOWED_HEADERS
-                    value: '{{ .Values.GATEWAYS_ALLOWED_HEADERS }}'
-                -   name: GATEWAYS_ACCESS_CONTROL_MAX_AGE
-                    value: '{{ .Values.GATEWAYS_ACCESS_CONTROL_MAX_AGE }}'
-                -   name: MAX_REQUEST_HEADERS_KB
-                    value: '{{ .Values.MAX_REQUEST_HEADERS_KB }}'
-                -   name: ENVOY_PROXY_ROUTES_TIMEOUT
-                    value: '{{ .Values.TIMEOUT }}'
-                -   name: ENVOY_PROXY_COMPRESSION_ENABLED
-                    value: '{{ .Values.GATEWAYS_COMPRESSION_ENABLED }}'
-                -   name: TRACING_ENABLED
-                    value: '{{ .Values.TRACING_ENABLED }}'
-                -   name: TRACING_HOST
-                    value: '{{ .Values.TRACING_HOST }}'
-                -   name: TRACING_SAMPLER_RATELIMITING
-                    value: '{{ .Values.TRACING_SAMPLER_RATELIMITING }}'
-                -   name: TRACING_SAMPLER_PROBABILISTIC
-                    value: '{{ .Values.TRACING_SAMPLER_PROBABILISTIC }}'
-                -   name: ENVOY_PROXY_GOOGLERE2_MAXSIZE
-                    value: '{{ .Values.GOOGLERE2_MAXSIZE }}'
-                -   name: ENVOY_PROXY_GOOGLERE2_WARNSIZE
-                    value: '{{ .Values.GOOGLERE2_WARN_SIZE }}'
-                -   name: GRPC_GO_RETRY
-                    value: '{{ .Values.GRPC_GO_RETRY }}'
-                -   name: SWIM_PORT
-                    value: '{{ .Values.SWIM_PORT }}'
-                -   name: IP_STACK
-                    value: '{{ .Values.IP_STACK }}'
-                -   name: ENVOY_PROXY_CONNECTION_PER_CONNECTION_BUFFER_LIMIT_MEGABYTES
-                    value: '{{ .Values.CONNECTION_BUFFER_SIZE_MEGABYTES }}'
-                -   name: GOGC
-                    value: '{{ .Values.GOGC }}'
-                -   name: CLOUD_PRIVATE_HOST
-                    value: '{{ .Values.CLOUD_PRIVATE_HOST }}'
-                -   name: PUBLIC_GATEWAY_ROUTE_HOST
-                    value: '{{ .Values.PUBLIC_GATEWAY_ROUTE_HOST }}'
-                -   name: PRIVATE_GATEWAY_ROUTE_HOST
-                    value: '{{ .Values.PRIVATE_GATEWAY_ROUTE_HOST }}'
-                -   name: CLOUD_PUBLIC_HOST
-                    value: '{{ .Values.CLOUD_PUBLIC_HOST }}'
-                -   name: BASELINE_PROJ
-                    value: '{{ coalesce .Values.BASELINE_CONTROLLER .Values.BASELINE_ORIGIN .Values.BASELINE_PROJ }}'
-                -   name: COMPOSITE_PLATFORM
-                    value: '{{ not (empty (.Values.BASELINE_ORIGIN)) }}'
-                -   name: EXECUTION_MODE
-                    value: '{{ .Values.EXECUTION_MODE }}'
-                -   name: DISABLE_IP_ROUTE_REGISTRATION
-                    value: '{{ .Values.DISABLE_IP_ROUTE_REGISTRATION }}'
-                -   name: DNS_LOOKUP_FAMILY
-                    value: '{{ .Values.DNS_LOOKUP_FAMILY }}'
-                - name: LOG_LEVEL
-                  value: '{{ .Values.LOG_LEVEL }}'
-                - name: ORIGIN_NAMESPACE
-                  value: "{{ .Values.ORIGIN_NAMESPACE }}"
-                - name: PEER_NAMESPACE
-                  value: "{{ .Values.PEER_NAMESPACE }}"
-                - name: ECDH_CURVES
-                  value: "{{ .Values.ECDH_CURVES }}"
-                - name: CONSUL_ENABLED
-                  value: '{{ .Values.CONSUL_ENABLED }}'
+        - name: projected-tokens
+          projected:
+            defaultMode: 292
+            sources:
+              - serviceAccountToken:
+                  path: netcracker/token
+                  audience: netcracker
+                  expirationSeconds: 600
+              - serviceAccountToken:
+                  path: dbaas/token
+                  audience: dbaas
+                  expirationSeconds: 600
+              - serviceAccountToken:
+                  path: maas/token
+                  audience: maas
+                  expirationSeconds: 600
+        - name: topology
+          configMap:
+            name: topology
+        - name: pod-secrets
+          projected:
+            defaultMode: 288
+            sources:
+              - secret:
+                  name: '{{ .Values.DB_CREDENTIALS_SECRET }}'
+                  items:
+                    - key: host
+                      path: pg_host
+                    - key: port
+                      path: pg_port
+                    - key: database
+                      path: pg_db
+                    - key: username
+                      path: pg_user
+                    - key: password
+                      path: pg_passwd
+              - secret:
+                  name: '{{ .Values.DB_CREDENTIALS_SECRET }}'
+                  optional: true
+                  items:
+                    - key: tls
+                      path: pg_tls
+      containers:
+        - name: '{{ .Values.SERVICE_NAME }}'
+          image: '{{ .Values.IMAGE_REPOSITORY }}:{{ .Values.TAG }}'
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: client-credentials
+              mountPath: '/etc/secret'
+              readOnly: true
+{{ if .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED }}
+            - name: tmp
+              mountPath: /tmp
+{{ end }}
+            - name: '{{ .Values.SSL_SECRET }}'
+              mountPath: /tmp/cert/{{ .Values.SSL_SECRET }}
+              readOnly: true
+{{ if .Values.INTERNAL_TLS_ENABLED }}
+            - name: tls
+              mountPath: '/etc/tls'
+              readOnly: true
+{{ end }}
+{{ if .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED }}
+            - name: sslcerts
+              mountPath: /etc/ssl/certs
+            - name: cacerts
+              mountPath: /usr/local/share/ca-certificates
+{{ end }}
+            - name: projected-tokens
+              mountPath: /var/run/secrets/tokens
+              readOnly: true
+            - name: topology
+              mountPath: /etc/topology
+              readOnly: true
+            - name: pod-secrets
+              mountPath: /etc/secrets/pod-secrets
+              readOnly: true
+          args:
+            - /app/control-plane
+          ports:
+            - name: web
+              containerPort: 8080
+              protocol: TCP
+            - name: tls
+              containerPort: 8443
+              protocol: TCP
+            - name: grpc
+              containerPort: 15010
+              protocol: TCP
+          env:
+            - name: API_DBAAS_ADDRESS
+              value: '{{ .Values.API_DBAAS_ADDRESS }}'
+            - name: M2M_AUTH_MODE
+              value: '{{ .Values.M2M_AUTH_MODE }}'
+            - name: CLOUD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: CERTIFICATE_BUNDLE_{{ .Values.SSL_SECRET }}_MD5SUM
+              value: '{{ .Values.CERTIFICATE_BUNDLE_MD5SUM }}'
+            - name: MICROSERVICE_NAME
+              value: '{{ .Values.SERVICE_NAME }}'
+            - name: MICROSERVICE_NAMESPACE
+              value: null
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: GATEWAY_AUTH_HOST
+              value: gateway-auth-extension
+            - name: GATEWAYS_ALLOWED_ORIGIN
+              value: '{{ .Values.GATEWAYS_ALLOWED_ORIGIN }}'
+            - name: GATEWAYS_ALLOWED_HEADERS
+              value: '{{ .Values.GATEWAYS_ALLOWED_HEADERS }}'
+            - name: GATEWAYS_ACCESS_CONTROL_MAX_AGE
+              value: '{{ .Values.GATEWAYS_ACCESS_CONTROL_MAX_AGE }}'
+            - name: ENVOY_PROXY_ROUTES_TIMEOUT
+              value: '{{ .Values.TIMEOUT }}'
+            - name: ENVOY_PROXY_COMPRESSION_ENABLED
+              value: '{{ .Values.GATEWAYS_COMPRESSION_ENABLED }}'
+            - name: TRACING_ENABLED
+              value: '{{ .Values.TRACING_ENABLED }}'
+            - name: TRACING_HOST
+              value: '{{ .Values.TRACING_HOST }}'
+            - name: TRACING_SAMPLER_RATELIMITING
+              value: '{{ .Values.TRACING_SAMPLER_RATELIMITING }}'
+            - name: TRACING_SAMPLER_PROBABILISTIC
+              value: '{{ .Values.TRACING_SAMPLER_PROBABILISTIC }}'
+            - name: ENVOY_PROXY_GOOGLERE2_MAXSIZE
+              value: '{{ .Values.GOOGLERE2_MAXSIZE }}'
+            - name: ENVOY_PROXY_GOOGLERE2_WARNSIZE
+              value: '{{ .Values.GOOGLERE2_WARN_SIZE }}'
+            - name: GRPC_GO_RETRY
+              value: '{{ .Values.GRPC_GO_RETRY }}'
+            - name: SWIM_PORT
+              value: '{{ .Values.SWIM_PORT }}'
+            - name: IP_STACK
+              value: '{{ .Values.IP_STACK }}'
+            - name: INTERNAL_TLS_ENABLED
+              value: '{{ .Values.INTERNAL_TLS_ENABLED }}'
+{{ if .Values.INTERNAL_TLS_ENABLED }}
+            - name: CERTIFICATE_FILE_PATH
+              value: '/etc/tls'
+{{ end }}
+            - name: ENVOY_PROXY_CONNECTION_PER_CONNECTION_BUFFER_LIMIT_MEGABYTES
+              value: '{{ .Values.CONNECTION_BUFFER_SIZE_MEGABYTES }}'
+            - name: GOGC
+              value: '{{ .Values.GOGC }}'
+            - name: CLOUD_PRIVATE_HOST
+              value: '{{ .Values.CLOUD_PRIVATE_HOST }}'
+            - name: PUBLIC_GATEWAY_ROUTE_HOST
+              value: '{{ .Values.PUBLIC_GATEWAY_ROUTE_HOST }}'
+            - name: PRIVATE_GATEWAY_ROUTE_HOST
+              value: '{{ .Values.PRIVATE_GATEWAY_ROUTE_HOST }}'
+            - name: VAULT_INTEGRATION
+              value: '{{ .Values.VAULT_INTEGRATION }}'
+            - name: VAULT_ADDR
+              value: '{{ .Values.VAULT_ADDR }}'
+            - name: CLOUD_PUBLIC_HOST
+              value: '{{ .Values.CLOUD_PUBLIC_HOST }}'
+            - name: BASELINE_PROJ
+              value: '{{ coalesce .Values.BASELINE_CONTROLLER .Values.BASELINE_ORIGIN .Values.BASELINE_PROJ }}'
+            - name: COMPOSITE_PLATFORM
+              value: '{{ not (empty (.Values.BASELINE_ORIGIN)) }}'
+            - name: EXECUTION_MODE
+              value: '{{ .Values.EXECUTION_MODE }}'
+            - name: DISABLE_IP_ROUTE_REGISTRATION
+              value: '{{ .Values.DISABLE_IP_ROUTE_REGISTRATION }}'
+            - name: DNS_LOOKUP_FAMILY
+              value: '{{ .Values.DNS_LOOKUP_FAMILY }}'
+            - name: LOG_LEVEL
+              value: '{{ .Values.LOG_LEVEL }}'
+            - name: ORIGIN_NAMESPACE
+              value: "{{ .Values.ORIGIN_NAMESPACE }}"
+            - name: PEER_NAMESPACE
+              value: "{{ .Values.PEER_NAMESPACE }}"
+            - name: ECDH_CURVES
+              value: "{{ .Values.ECDH_CURVES }}"
+            - name: CONSUL_ENABLED
+              value: '{{ .Values.CONSUL_ENABLED }}'
                 {{ if .Values.CONSUL_ENABLED }}
-                - name: CONSUL_URL
-                  value: '{{ .Values.CONSUL_URL }}'
+            - name: CONSUL_URL
+              value: '{{ .Values.CONSUL_URL }}'
                 {{ end }}
-                - name: CONSUL_AUTH_MODE
-                  value: '{{ .Values.CONSUL_AUTH_MODE }}'
-                - name: CONSUL_AUTH_METHOD
-                  value: '{{ .Values.CONSUL_AUTH_METHOD }}'
-                - name: CONSUL_AUTH_AUDIENCE
-                  value: '{{ .Values.CONSUL_AUTH_AUDIENCE }}'
-                - name: CONSUL_AUTH_FALLBACK_RECHECK_INTERVAL
-                  value: '{{ .Values.CONSUL_AUTH_FALLBACK_RECHECK_INTERVAL }}'
-                - name: SNI_PROPAGATION_ENABLED
-                  value: '{{ .Values.SNI_PROPAGATION_ENABLED }}'
-                {{- if .Values.EGRESS_RESPONSE_HEADERS_TO_REMOVE }}
-                - name: EGRESS_RESPONSE_HEADERS_TO_REMOVE
-                  value: '{{ .Values.EGRESS_RESPONSE_HEADERS_TO_REMOVE }}'
-                {{- end }}
-                {{- if .Values.EGRESS_REQUEST_HEADERS_TO_REMOVE }}
-                - name: EGRESS_REQUEST_HEADERS_TO_REMOVE
-                  value: '{{ .Values.EGRESS_REQUEST_HEADERS_TO_REMOVE }}'
-                {{- end }}
-                - name: SERVICE_MESH_TYPE
-                  value: '{{ .Values.SERVICE_MESH_TYPE }}'
-                - name: M2M_AUTH_MODE
-                  value: '{{ .Values.M2M_AUTH_MODE }}'
-{{- if include "coretpl.dbaasOperatorEnabled" $ }}
-                # Same condition as the operator Secret volume, so the two cannot disagree. Rendered
-                # only where the operator is present: unset means legacy mode, here and in
-                # core-bootstrap, and leaving it out keeps the pod spec unchanged elsewhere.
-                - name: DBAAS_OPERATOR_ENABLED
-                  value: 'true'
-{{- end }}
-                - name: API_DBAAS_ADDRESS
-                  value: '{{ .Values.API_DBAAS_ADDRESS }}'                
-                resources:
-                    requests:
-                        cpu: '{{ .Values.CPU_REQUEST }}'
-                        memory: '{{ .Values.MEMORY_LIMIT }}'
-                    limits:
-                        cpu: '{{ .Values.CPU_LIMIT }}'
-                        memory: '{{ .Values.MEMORY_LIMIT }}'
-                livenessProbe:
-                    failureThreshold: 4
-                    httpGet:
-                        path: /health
-                        port: web
-                        scheme: HTTP
-                    initialDelaySeconds: 180
-                    timeoutSeconds: 5
-                readinessProbe:
-                    failureThreshold: 4
-                    httpGet:
-                        path: /ready
-                        port: web
-                        scheme: HTTP
-                    initialDelaySeconds: 5
-                    timeoutSeconds: 5
-                securityContext:
+            - name: SNI_PROPAGATION_ENABLED
+              value: '{{ .Values.SNI_PROPAGATION_ENABLED }}'
+            {{- if .Values.EGRESS_RESPONSE_HEADERS_TO_REMOVE }}
+            - name: EGRESS_RESPONSE_HEADERS_TO_REMOVE
+              value: '{{ .Values.EGRESS_RESPONSE_HEADERS_TO_REMOVE }}'
+            {{- end }}
+            {{- if .Values.EGRESS_REQUEST_HEADERS_TO_REMOVE }}
+            - name: EGRESS_REQUEST_HEADERS_TO_REMOVE
+              value: '{{ .Values.EGRESS_REQUEST_HEADERS_TO_REMOVE }}'
+            {{- end }}
+          resources:
+            requests:
+              cpu: '{{ .Values.CPU_REQUEST }}'
+              memory: '{{ .Values.MEMORY_REQUEST }}'
+            limits:
+              cpu: '{{ .Values.CPU_LIMIT }}'
+              memory: '{{ .Values.MEMORY_LIMIT }}'
+          livenessProbe:
+            failureThreshold: {{ ternary 4 .Values.PROBE_LIVENESS_FAILURE_THRESHOLD (lt (int .Values.PROBE_LIVENESS_FAILURE_THRESHOLD) 0) }}
+            httpGet:
+              path: /health
+              port: {{ if .Values.INTERNAL_TLS_ENABLED }} tls {{ else }} web {{ end }}
+              scheme: {{ if .Values.INTERNAL_TLS_ENABLED }} HTTPS {{ else }} HTTP {{ end }}
+            initialDelaySeconds: {{ ternary 12 .Values.PROBE_LIVENESS_INITIAL_DELAY_SECONDS (lt (int .Values.PROBE_LIVENESS_INITIAL_DELAY_SECONDS) 0) }}
+            periodSeconds: {{ ternary 10 .Values.PROBE_LIVENESS_PERIOD_SECONDS (lt (int .Values.PROBE_LIVENESS_PERIOD_SECONDS) 0) }}
+            timeoutSeconds: {{ ternary 5 .Values.PROBE_LIVENESS_TIMEOUT_SECONDS (lt (int .Values.PROBE_LIVENESS_TIMEOUT_SECONDS) 0) }}
+          readinessProbe:
+            failureThreshold: {{ ternary 10 .Values.PROBE_READINESS_FAILURE_THRESHOLD (lt (int .Values.PROBE_READINESS_FAILURE_THRESHOLD) 0) }}
+            httpGet:
+              path: /ready
+              port: {{ if .Values.INTERNAL_TLS_ENABLED }} tls {{ else }} web {{ end }}
+              scheme: {{ if .Values.INTERNAL_TLS_ENABLED }} HTTPS {{ else }} HTTP {{ end }}
+            initialDelaySeconds: {{ ternary 2 .Values.PROBE_READINESS_INITIAL_DELAY_SECONDS (lt (int .Values.PROBE_READINESS_INITIAL_DELAY_SECONDS) 0) }}
+            periodSeconds: {{ ternary 3 .Values.PROBE_READINESS_PERIOD_SECONDS (lt (int .Values.PROBE_READINESS_PERIOD_SECONDS) 0) }}
+            successThreshold: {{ ternary 1 .Values.PROBE_READINESS_SUCCESS_THRESHOLD (lt (int .Values.PROBE_READINESS_SUCCESS_THRESHOLD) 0) }}
+            timeoutSeconds: {{ ternary 5 .Values.PROBE_READINESS_TIMEOUT_SECONDS (lt (int .Values.PROBE_READINESS_TIMEOUT_SECONDS) 0) }}
+          startupProbe:
+            failureThreshold: {{ ternary 40 .Values.PROBE_STARTUP_FAILURE_THRESHOLD (lt (int .Values.PROBE_STARTUP_FAILURE_THRESHOLD) 0) }}
+            httpGet:
+              path: /ready
+              port: {{ if .Values.INTERNAL_TLS_ENABLED }} tls {{ else }} web {{ end }}
+              scheme: {{ if .Values.INTERNAL_TLS_ENABLED }} HTTPS {{ else }} HTTP {{ end }}
+            initialDelaySeconds: {{ ternary 4 .Values.PROBE_STARTUP_INITIAL_DELAY_SECONDS (lt (int .Values.PROBE_STARTUP_INITIAL_DELAY_SECONDS) 0) }}
+            periodSeconds: {{ ternary 1 .Values.PROBE_STARTUP_PERIOD_SECONDS (lt (int .Values.PROBE_STARTUP_PERIOD_SECONDS) 0) }}
+            timeoutSeconds: {{ ternary 5 .Values.PROBE_STARTUP_TIMEOUT_SECONDS (lt (int .Values.PROBE_STARTUP_TIMEOUT_SECONDS) 0) }}
+          securityContext:
                 {{ if eq .Values.PAAS_PLATFORM "KUBERNETES" }}
-                    runAsUser: 10001
-                    runAsGroup: 10001
+            runAsUser: 10001
+            runAsGroup: 10001
                 {{ end }}
-                    readOnlyRootFilesystem: {{ and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
-                    runAsNonRoot: true
-                    seccompProfile:
-                        type: RuntimeDefault
-                    allowPrivilegeEscalation: false
-                    capabilities:
-                        drop:
-                          - ALL
-            topologySpreadConstraints:
+            readOnlyRootFilesystem: {{ .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED }}
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      topologySpreadConstraints:
 {{- if .Values.CLOUD_TOPOLOGIES }}
 {{- range $v := .Values.CLOUD_TOPOLOGIES }}
-              - topologyKey: {{ $v.topologyKey }}
-                maxSkew: {{ $v.maxSkew | default 1 }}
-                whenUnsatisfiable: {{ $v.whenUnsatisfiable | default "ScheduleAnyway" }}
-                labelSelector:
-                  matchLabels:
-                    name: "{{ $.Values.SERVICE_NAME }}"
+        - topologyKey: {{ $v.topologyKey }}
+          maxSkew: {{ $v.maxSkew | default 1 }}
+          whenUnsatisfiable: {{ $v.whenUnsatisfiable | default "ScheduleAnyway" }}
+          labelSelector:
+            matchLabels:
+              name: "{{ $.Values.SERVICE_NAME }}"
 {{- end }}
 {{- else }}
-              - maxSkew: 1
-                topologyKey: "{{ .Values.CLOUD_TOPOLOGY_KEY }}"
-                whenUnsatisfiable: ScheduleAnyway
-                labelSelector:
-                  matchLabels:
-                    name: "{{ .Values.SERVICE_NAME }}"
+        - maxSkew: 1
+          topologyKey: "{{ .Values.CLOUD_TOPOLOGY_KEY }}"
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              name: "{{ .Values.SERVICE_NAME }}"
 {{- end }}
-    selector:
-        matchLabels:
-            name: '{{ .Values.SERVICE_NAME }}'
+  selector:
+    matchLabels:
+      name: '{{ .Values.SERVICE_NAME }}'

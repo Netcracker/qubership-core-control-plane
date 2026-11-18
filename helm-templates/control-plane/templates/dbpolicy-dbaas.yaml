@@ -1,0 +1,37 @@
+apiVersion: core.netcracker.com/v1
+kind: DBaaS
+subKind: DbPolicy
+metadata:
+  name: {{ .Values.SERVICE_NAME }}
+  namespace: {{ .Values.NAMESPACE }}
+  labels:
+    app.kubernetes.io/name: "{{ .Values.SERVICE_NAME }}"
+    app.kubernetes.io/part-of: "{{ .Values.APPLICATION_NAME }}"
+    app.kubernetes.io/processed-by-operator: core-operator
+    deployer.cleanup/allow: "true"
+    deployment.netcracker.com/sessionId: "{{ .Values.DEPLOYMENT_SESSION_ID }}"
+spec:
+  disableGlobalPermissions: true
+---
+apiVersion: core.netcracker.com/v1
+kind: DBaaS
+subKind: DatabaseDeclaration
+metadata:
+  name: {{ .Values.SERVICE_NAME }}-db-declaration
+  namespace: {{ .Values.NAMESPACE }}
+  labels:
+    app.kubernetes.io/name: "{{ .Values.SERVICE_NAME }}"
+    app.kubernetes.io/part-of: "{{ .Values.APPLICATION_NAME }}"
+    app.kubernetes.io/processed-by-operator: core-operator
+    deployer.cleanup/allow: "true"
+    deployment.netcracker.com/sessionId: "{{ .Values.DEPLOYMENT_SESSION_ID }}"
+spec:
+  classifierConfig:
+    classifier:
+      microserviceName: control-plane
+      scope: service
+  type: postgresql
+  versioningConfig:
+    approach: clone
+  initialInstantiation:
+    approach: new

@@ -12,5 +12,19 @@ metadata:
     deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 spec:
   name: envoy-dashboard.json
-  json: {{ .Files.Get  "dashboards/envoy.json" | toJson }}
+  gzipJson: {{ .Files.Get "dashboards/envoy.json.gz" | b64enc | quote }}
+---
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: go-process-dashboard
+  labels:
+    app: grafana
+    app.kubernetes.io/part-of: 'Cloud-Core'
+    app.kubernetes.io/managed-by: 'saasDeployer'
+    app.kubernetes.io/processed-by-operator: 'grafana-operator'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+spec:
+  name: go-process-dashboard.json
+  gzipJson: {{ .Files.Get "dashboards/go-process.json.gz" | b64enc | quote }}
 {{ end }}
