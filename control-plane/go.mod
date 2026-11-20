@@ -11,8 +11,6 @@ require (
 	github.com/fasthttp/websocket v1.5.12
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-errors/errors v1.5.1
-	github.com/gofiber/fiber/v3 v3.7.0
-	github.com/gofiber/utils/v2 v2.6.4
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
@@ -23,35 +21,40 @@ require (
 	github.com/hashicorp/memberlist v0.7.0
 	github.com/hashicorp/serf v0.11.0
 	github.com/jackc/pgconn v1.14.3
-	github.com/jackc/pgx/v5 v5.11.0
+	github.com/jackc/pgx/v5 v5.13.0
 	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mustafaturan/bus/v3 v3.0.3
 	github.com/mustafaturan/monoton/v3 v3.0.0
-	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.12.5
-	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.8.4
-	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.5.7
-	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.7.6
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3 v3.0.0-20261117090351-2e20d8539382
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.11.1
-	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.6.6
-	github.com/netcracker/qubership-core-lib-go/v3 v3.15.4
+	github.com/netcracker/qubership-core-lib-go-actuator-common/v2 v2.13.0
+	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.9.0
+	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.6.0
+	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.8.0
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.12.0
+	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.7.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.16.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.25.0
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
 	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/swag v1.16.6
-	github.com/tidwall/gjson v1.20.0
+	github.com/tidwall/gjson v1.20.5
 	github.com/uptrace/bun v1.3.0
 	github.com/uptrace/bun/dialect/pgdialect v1.3.0
 	github.com/uptrace/bun/driver/pgdriver v1.3.0
 	github.com/urfave/cli/v2 v2.27.7
-	github.com/valyala/fasthttp v1.78.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261026165753-2ffab32bce7e
+	github.com/valyala/fasthttp v1.79.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261118221215-c8830f628b3f
 	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 	sigs.k8s.io/yaml v1.6.0
+)
+
+require (
+	github.com/gofiber/schema v1.9.3 // indirect
+	github.com/philhofer/fwd v1.2.1 // indirect
+	github.com/tinylib/msgp v1.6.5 // indirect
 )
 
 require (
@@ -79,9 +82,10 @@ require (
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/spec v0.20.4 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
-	github.com/go-pkgz/expirable-cache/v3 v3.1.1 // indirect
+	github.com/go-pkgz/expirable-cache/v3 v3.2.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/gofiber/schema v1.9.3 // indirect
+	github.com/gofiber/fiber/v3 v3.7.0
+	github.com/gofiber/utils/v2 v2.6.4
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/hashicorp/consul/api v1.35.0 // indirect
@@ -100,10 +104,10 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.3.3 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/jackc/puddle/v2 v2.2.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/klauspost/compress v1.20.3 // indirect
+	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/knadh/koanf/maps v0.1.3 // indirect
 	github.com/knadh/koanf/parsers/yaml v1.1.1 // indirect
 	github.com/knadh/koanf/providers/env/v2 v2.0.2 // indirect
@@ -121,11 +125,11 @@ require (
 	github.com/molecule-man/go-brrr v1.3.1 // indirect
 	github.com/morikuni/aec v1.1.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3 v3.0.0-20261117090351-2e20d8539382
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
-	github.com/philhofer/fwd v1.2.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/common v0.72.0 // indirect
@@ -134,8 +138,7 @@ require (
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
-	github.com/tidwall/pretty v1.2.0 // indirect
-	github.com/tinylib/msgp v1.6.5 // indirect
+	github.com/tidwall/pretty v1.3.0 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/vibrantbyte/go-antpath v1.1.1 // indirect
