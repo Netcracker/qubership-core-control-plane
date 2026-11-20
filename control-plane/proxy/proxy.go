@@ -34,6 +34,9 @@ func NewService(address string, conditionToServe func(c fiber.Ctx) bool, conditi
 
 func (srv *Service) ProxyHandler() fiber.Handler {
 	return func(ctx fiber.Ctx) error {
+		if refusedWhileReading(ctx) {
+			return ctx.Next()
+		}
 		if srv.conditionToServe(ctx) {
 			logger.Debugf("Serving request with method %s on %s", ctx.Method(), ctx.Path())
 			return ctx.Next()
@@ -96,6 +99,9 @@ func getWebSocketUpgradeHeaderRequest(req *fasthttp.Request) string {
 
 func ProxyRequestsToMaster() fiber.Handler {
 	return func(ctx fiber.Ctx) error {
+		if refusedWhileReading(ctx) {
+			return ctx.Next()
+		}
 
 		switch clustering.CurrentNodeState.GetRole() {
 		case clustering.Master:
@@ -122,6 +128,14 @@ func ProxyRequestsToMaster() fiber.Handler {
 		}
 		return nil
 	}
+}
+
+// refusedWhileReading reports whether the server refused the request while reading it: a body over BodyLimit,
+// headers over ReadBufferSize, or a malformed Content-Length. Fiber v3 sets the error status and then runs the Use and
+// group middleware for such a request, but no route handler, so a status of 400 or above on entry marks it. Its body
+// was never read, so a proxied copy would reach the master as a request the client did not make.
+func refusedWhileReading(ctx fiber.Ctx) bool {
+	return ctx.Response().StatusCode() >= fiber.StatusBadRequest
 }
 
 func urlPathBelongsToApi(path string) bool {
