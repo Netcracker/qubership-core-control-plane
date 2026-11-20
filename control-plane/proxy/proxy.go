@@ -2,7 +2,7 @@ package proxy
 
 import (
 	"bytes"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/clustering"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/errorcodes"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/util"
@@ -23,17 +23,20 @@ func init() {
 
 type Service struct {
 	address          string
-	conditionToServe func(c *fiber.Ctx) bool
-	conditionToProxy func(c *fiber.Ctx) bool
-	fallbackFunc     func(c *fiber.Ctx) error
+	conditionToServe func(c fiber.Ctx) bool
+	conditionToProxy func(c fiber.Ctx) bool
+	fallbackFunc     func(c fiber.Ctx) error
 }
 
-func NewService(address string, conditionToServe func(c *fiber.Ctx) bool, conditionToProxy func(c *fiber.Ctx) bool, fallbackFunc func(c *fiber.Ctx) error) *Service {
+func NewService(address string, conditionToServe func(c fiber.Ctx) bool, conditionToProxy func(c fiber.Ctx) bool, fallbackFunc func(c fiber.Ctx) error) *Service {
 	return &Service{address: address, conditionToServe: conditionToServe, conditionToProxy: conditionToProxy, fallbackFunc: fallbackFunc}
 }
 
 func (srv *Service) ProxyHandler() fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
+		if refusedWhileReading(ctx) {
+			return ctx.Next()
+		}
 		if srv.conditionToServe(ctx) {
 			logger.Debugf("Serving request with method %s on %s", ctx.Method(), ctx.Path())
 			return ctx.Next()
@@ -48,8 +51,8 @@ func (srv *Service) ProxyHandler() fiber.Handler {
 	}
 }
 
-func proxyRequest(addressToRedirect string, fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func proxyRequest(addressToRedirect string, fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	logger.InfoC(ctx, "Redirect incoming request %s to upstream node %s", fiberCtx.Path(), addressToRedirect)
 	req := fiberCtx.Request()
 	resp := fiberCtx.Response()
@@ -95,7 +98,10 @@ func getWebSocketUpgradeHeaderRequest(req *fasthttp.Request) string {
 }
 
 func ProxyRequestsToMaster() fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
+		if refusedWhileReading(ctx) {
+			return ctx.Next()
+		}
 
 		switch clustering.CurrentNodeState.GetRole() {
 		case clustering.Master:
@@ -122,6 +128,14 @@ func ProxyRequestsToMaster() fiber.Handler {
 		}
 		return nil
 	}
+}
+
+// refusedWhileReading reports whether the server refused the request while reading it: a body over BodyLimit,
+// headers over ReadBufferSize, or a malformed Content-Length. Fiber v3 sets the error status and then runs the Use and
+// group middleware for such a request, but no route handler, so a status of 400 or above on entry marks it. Its body
+// was never read, so a proxied copy would reach the master as a request the client did not make.
+func refusedWhileReading(ctx fiber.Ctx) bool {
+	return ctx.Response().StatusCode() >= fiber.StatusBadRequest
 }
 
 func urlPathBelongsToApi(path string) bool {

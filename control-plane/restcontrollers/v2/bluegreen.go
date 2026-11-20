@@ -2,8 +2,8 @@ package v2
 
 import (
 	"fmt"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/utils/v2"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dr"
@@ -42,7 +42,7 @@ func NewBlueGreenController(blueGreenService *bluegreen.Service, dao dao.Dao) *B
 // @Success 200 {array} domain.DeploymentVersion
 // @Failure 500 {object} map[string]string
 // @Router /api/v2/control-plane/versions [get]
-func (v2 *BlueGreenController) HandleGetDeploymentVersions(fiberCtx *fiber.Ctx) error {
+func (v2 *BlueGreenController) HandleGetDeploymentVersions(fiberCtx fiber.Ctx) error {
 	deploymentVersions, err := v2.dao.FindAllDeploymentVersions()
 	if err != nil {
 		return restutils.RespondWithError(fiberCtx, http.StatusInternalServerError, err.Error())
@@ -64,8 +64,8 @@ func (v2 *BlueGreenController) HandleGetDeploymentVersions(fiberCtx *fiber.Ctx) 
 // @Failure 403 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Router /api/v2/control-plane/versions/{version} [delete]
-func (v2 *BlueGreenController) HandleDeleteDeploymentVersionWithID(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (v2 *BlueGreenController) HandleDeleteDeploymentVersionWithID(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	version := utils.CopyString(fiberCtx.Params("version"))
 	if version == "" {
 		logger.ErrorC(ctx, "Empty version path param")
@@ -78,7 +78,7 @@ func (v2 *BlueGreenController) HandleDeleteDeploymentVersionWithID(fiberCtx *fib
 	}
 	if deploymentVersion == nil {
 		logger.ErrorC(ctx, "deployment version %s not found", version)
-		fiberCtx.Context().NotFound()
+		fiberCtx.RequestCtx().NotFound()
 		return nil
 	}
 	if deploymentVersion.Stage == domain.ActiveStage {
@@ -109,8 +109,8 @@ func (v2 *BlueGreenController) HandleDeleteDeploymentVersionWithID(fiberCtx *fib
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v2/control-plane/promote/{version} [post]
-func (v2 *BlueGreenController) HandlePostPromoteVersion(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (v2 *BlueGreenController) HandlePostPromoteVersion(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	version := utils.CopyString(fiberCtx.Params("version"))
 	if version == "" {
 		logger.ErrorC(ctx, "Empty version path param")
@@ -119,7 +119,7 @@ func (v2 *BlueGreenController) HandlePostPromoteVersion(fiberCtx *fiber.Ctx) err
 	logger.InfoC(ctx, "Request to Promote version '%s'", version)
 	var archiveSize int
 	var err error
-	archiveSizeString := string(fiberCtx.Context().FormValue("archiveSize"))
+	archiveSizeString := string(fiberCtx.RequestCtx().FormValue("archiveSize"))
 	if archiveSizeString == "" {
 		archiveSize = 1
 	} else {
@@ -138,7 +138,7 @@ func (v2 *BlueGreenController) HandlePostPromoteVersion(fiberCtx *fiber.Ctx) err
 	}
 	if deploymentVersion == nil {
 		logger.ErrorC(ctx, "Deployment is version %s not found", version)
-		fiberCtx.Context().NotFound()
+		fiberCtx.RequestCtx().NotFound()
 		return nil
 	}
 	if deploymentVersion.Stage != domain.CandidateStage {
@@ -169,8 +169,8 @@ func (v2 *BlueGreenController) HandlePostPromoteVersion(fiberCtx *fiber.Ctx) err
 // @Failure 409 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v2/control-plane/rollback [post]
-func (v2 *BlueGreenController) HandlePostRollbackVersion(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (v2 *BlueGreenController) HandlePostRollbackVersion(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	logger.InfoC(ctx, "Request to Rollback versions state")
 	if dr.GetMode() == dr.Standby {
 		return restutils.RespondWithJson(fiberCtx, http.StatusAccepted, []*domain.DeploymentVersion{})
