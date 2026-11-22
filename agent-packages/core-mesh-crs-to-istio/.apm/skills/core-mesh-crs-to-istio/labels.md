@@ -11,7 +11,8 @@ When the source CR has `metadata.labels`:
    (`HTTPRoute`, `Gateway`, `DestinationRule`, `TrafficExtension`, `Service`,
    `ServiceEntry`, `Secret`).
 2. Replace any label **value** that equals `core-operator` with `istiod`
-   (typical key: `app.kubernetes.io/managed-by`).
+   (typical key: `app.kubernetes.io/processed-by-operator`; leave `app.kubernetes.io/managed-by`
+   untouched).
 3. Preserve Helm expressions verbatim (`{{ .Values.* }}`).
 
 If several source CRs contribute different label maps to the same generated

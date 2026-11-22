@@ -27,8 +27,8 @@ pick up a new version.
 ## What you get
 
 - The [`SKILL.md`](.apm/skills/core-mesh-to-istio-migration/SKILL.md) — the full
-  migration procedure (Step 1 mesh-CR conversion through Step 2.8 public-gateway
-  access control), the mandatory `.mesh-migration/MIGRATION_LOG.md` format, the error policy, and
+  migration procedure (Step 1 mesh-CR conversion through Step 2.8 control-plane-call
+  flagging, with public-gateway access control at Step 2.5), the mandatory `.mesh-migration/MIGRATION_LOG.md` format, the error policy, and
   idempotent reruns.
 - An instruction that fires when you ask to run an Istio migration on a service
   or Helm chart, steering the agent to the skill.
@@ -43,6 +43,6 @@ helm-templates/my-service".
 It runs every step in order, delegates to the five atomic skills,
 validates the result, and writes a Done / Skipped / Needs-review log to
 `.mesh-migration/MIGRATION_LOG.md` — review every **Needs review** entry before raising a PR.
-Public-gateway access control (Step 2.8) defaults to a hand-authoring
+Public-gateway access control (Step 2.5) defaults to a hand-authoring
 recommendation; it only generates an `AuthorizationPolicy` draft if you
 explicitly ask it to.

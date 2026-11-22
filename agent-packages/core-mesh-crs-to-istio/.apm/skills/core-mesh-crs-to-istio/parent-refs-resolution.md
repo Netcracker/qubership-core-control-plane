@@ -48,6 +48,15 @@ spec:
     `gateways: ["public-gateway-service"]` and one that lists all three produce the identical
     parentRefs output.
 
+    If `spec.gateways` **also** lists non-border gateways (egress, ingress, mesh), keep them: emit
+    the border triple **plus** the parentRefs those names resolve to under PRIORITY 1-3, without
+    duplicate entries.
+
+    Legacy charts often carry one RouteConfiguration per border gateway with the same paths. After
+    widening they would produce identical rules on the same parents. Within one output file, keep
+    such a rule once (same parents, match, filters and backend); across files, leave them — the
+    validation skill reports them as duplicates for a human to resolve.
+
   PRIORITY 1 — Platform gateway table (non-border):
 
     parentRef type: Gateway

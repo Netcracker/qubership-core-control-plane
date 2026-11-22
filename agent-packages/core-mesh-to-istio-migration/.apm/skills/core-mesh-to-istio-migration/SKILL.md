@@ -4,584 +4,287 @@ description: >
   Orchestrate the full Cloud-Core Mesh to Istio migration end-to-end — convert
   declarative mesh CRs to Gateway API, migrate route-registration libraries, wire
   SERVICE_MESH_TYPE, add the Java HTTPRoute generator, generate HTTPRoutes from
-  Go/Java code, validate Istio guards / duplicate rules / access control /
-  imperative control-plane calls, recommend (and, on request, draft) the
-  public-gateway AuthorizationPolicy, and maintain .mesh-migration/MIGRATION_LOG.md.
+  Go/Java code, recommend (and, on request, draft) the public-gateway
+  AuthorizationPolicy, validate Istio guards / duplicate rules / access control /
+  imperative control-plane calls, and maintain .mesh-migration/MIGRATION_LOG.md.
   Use when asked to migrate a service from Core Mesh to Istio (Ambient Mesh) or run
   the migration guide end-to-end.
 ---
 
 # Core Mesh → Istio — Full Migration Orchestrator
 
-This skill runs the complete migration described in the guide.
-It is an **orchestrator**: the heavy lifting lives in five atomic sub-skills, and this
-skill coordinates them, resolves user questions, and keeps an auditable log.
+This skill is an **orchestrator**: the work lives in five atomic sub-skills; this skill
+coordinates them, asks the user only what cannot be discovered, and keeps an auditable log.
+The user may know nothing about Istio or Core Mesh — explain every question in one plain sentence.
 
 ## Invocation
 
-Run this skill against the chart or service directory to migrate. Examples:
+Run against the chart or service directory to migrate (`helm-templates/my-service`, `.`). The user
+may name a **start step** ("start from Step 2.4", "rerun the validation") to resume; the default is a
+full run from Step 1.
 
-- `mesh-test-service-go`
-- `helm-templates/my-service`
-- `.`
+## Sub-skills
 
-The user may also name a **start step** ("start from Step 2.4", "rerun the
-validation") to resume a migration instead of running from scratch. Default is
-a full run from Step 1. See the report lifecycle below for how a resumed run
-treats earlier steps' reports.
+| Sub-skill | Steps | Purpose |
+|---|---|---|
+| [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md) | 1 | Convert Helm mesh CRs to Gateway API / Istio resources |
+| [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md) | 2.1–2.3 | Mesh-aware libraries, `SERVICE_MESH_TYPE`, Maven plugin |
+| [`httproute-from-code`](../httproute-from-code/SKILL.md) | 2.4 | HTTPRoutes from Go/Java route-registration code |
+| [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) | 2.5 | Recommend (draft only on explicit request) the public-gateway AuthorizationPolicy |
+| [`istio-migration-validate`](../istio-migration-validate/SKILL.md) | 2.6–2.8 | Guards, render checks, duplicates, access-control lint, control-plane calls |
 
-
-## Sub-skills invoked
-
-| Sub-skill                                                                           | Used in step | Purpose                                                        |
-| ----------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------- |
-| [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert existing Helm mesh CRs to Gateway API + Istio resources |
-| [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md)                                | Steps 2.1–2.3 | Mesh-aware libraries, SERVICE_MESH_TYPE env, Maven plugin      |
-| [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
-| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.7 | Istio guards, render checks, duplicate rules, access-control lint, imperative control-plane calls |
-| [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md)           | Step 2.8     | Recommend (and, only on explicit user insistence, draft) the public-gateway AuthorizationPolicy |
-
-**How to invoke a sub-skill:** communicate only through the sub-skill's
-`## Contract` — resolved inputs in, report file out. Always pass
-`interactive: false`: sub-skills must never address the user directly; their
-questions come back as `unresolved:` report entries. When the harness provides
-a sub-agent / Task tool, run the sub-skill in a sub-agent with its own context
-and consume its report file afterwards. Otherwise read its `SKILL.md` in full
-and execute its steps inline as an embedded procedure. Either way, take results
-from the report file, not from the sub-skill's transcript.
+**How to invoke a sub-skill:** pass resolved inputs and always `interactive: false`; sub-skills never
+talk to the user — their questions come back as `unresolved:` report entries. If the harness has a
+sub-agent/Task tool, run the sub-skill in a sub-agent; otherwise read its `SKILL.md` in full and
+execute it inline. Either way take results from its **report file**, not its transcript.
 
 ## Sub-skill reports
 
-Sub-skills write machine-readable reports to `.mesh-migration/reports/<skill>.yaml`.
-Lifecycle:
+Reports live in `.mesh-migration/reports/<skill>.yaml`.
 
-- **Ensure `.mesh-migration/` is gitignored before the first executed step** —
-  check the target repo's `.gitignore` for a `.mesh-migration/` entry and
-  append it (with a short comment) if missing. Reports are working files and
-  must never be committed. Log the edit under **Done**.
-- **Full run (no start step): delete `.mesh-migration/reports/` and any
-  existing `.mesh-migration/MIGRATION_LOG.md` before Step 1** — a fresh run
-  must never read a previous run's answers or append to its log.
-- **Resumed run (start step given): keep existing reports.** Steps before the
-  start step are not re-executed — their results come from the reports on disk.
-  Before executing anything, list every report that will be reused (`skill`,
-  `generatedAt`, `status`) and tell the user: "Resuming from <step>; reusing
-  these previous results — rerun from Step 1 instead if they are stale." Then:
-  - a report **required by a later step is missing or `status: failed`**
-    (e.g. Step 2.3 / 2.4 need `backendRef` and `labels` from the Step 1
-    report) → ask the user to either start from the earlier step or provide
-    the missing values as inputs; do not proceed silently.
-  - a reused report has `status: partial` → treat its `unresolved:` entries
-    exactly as if the sub-skill had just run (batch questions, deliver
-    `resolutions`).
-  - mark the skipped steps' rows in the per-step status table as
-    `reused (report of <generatedAt>)`.
-- **Never skip a sub-skill invocation to save work.** Idempotency belongs to
-  the sub-skills, which detect their own already-present output; skipping at
-  the orchestrator level leaves no report on disk, and every downstream step
-  reads reports. The only steps that legitimately run without invoking are the
-  ones before a resumed run's start step, which reuse the reports already
-  there.
-- After each sub-skill finishes, read its report. Ignore unknown fields. If
-  `reportSchema` is missing or newer than the value documented in that skill's
-  Contract, stop and add a **Needs review** entry (contract mismatch) instead of
-  guessing field meanings.
-- `status: partial` means the `unresolved:` list blocks part of the output.
-  Relay each entry's `question` (and `options`) to the user verbatim, in **one**
-  batched round. Deliver the answers as a `resolutions` map keyed by the
-  entries' `id` — by **continuing the same sub-agent** when the harness
-  supports it (context intact, no rework), otherwise by **re-invoking** the
-  sub-skill with `resolutions` as an input (its idempotency checks make the
-  second pass cheap).
-- **After delivering `resolutions`, re-read the report and confirm
-  `status: complete` before continuing to the next step.** If it is still
-  `partial`, the answers did not resolve everything: repeat the question round
-  for the remaining `unresolved:` entries. Do this at most twice; if the third
-  read is still `partial`, stop, log each surviving entry under **Needs
-  review**, and ask the user whether to continue with the incomplete output or
-  abort. Never treat a `partial` report as done.
+- **Before the first step**, ensure the repo `.gitignore` contains `.mesh-migration/` (append it with
+  a short comment if missing; log under **Done**). Reports and the log are never committed.
+- **Full run:** delete `.mesh-migration/reports/` and any old `MIGRATION_LOG.md` first.
+- **Resumed run:** keep existing reports. Before executing, list each reused report (`skill`,
+  `generatedAt`, `status`) and say: "Resuming from <step>; reusing these previous results — rerun
+  from Step 1 instead if they are stale." If a report needed later (e.g. Step 1's `backendRef` and
+  `labels` for Steps 2.3/2.4) is missing or `failed`, ask the user to start earlier or provide the
+  values. Mark skipped steps `reused (report of <generatedAt>)` in the status table.
+- **Always invoke every sub-skill of the steps you run**, even if its output already exists: the
+  sub-skills are idempotent and the report they write is what later steps read.
+- After each sub-skill, read its report; ignore unknown fields. If `reportSchema` is missing or newer
+  than that skill's Contract documents, stop and add a **Needs review** entry (contract mismatch).
+- `status: partial` → relay every `unresolved:` entry's `question` (and `options`) to the user in
+  **one** batch, deliver answers as a `resolutions` map keyed by entry `id` (continue the same
+  sub-agent, or re-invoke with `resolutions`), then re-read the report and confirm
+  `status: complete`. Repeat at most twice; if still `partial`, log each leftover entry under
+  **Needs review** and ask the user whether to continue or abort.
 
 ---
 
-## Inputs the agent must resolve up front
+## Step 0 — Discover inputs (ask only what you cannot find)
 
-Before starting any step, confirm or ask the user for:
+Look in the repo yourself first:
 
-1. **Chart path** — path to the Helm chart to migrate (e.g. `helm-templates/my-service`).
-2. **Source code path** — path to Go/Java route registration code (often `./` or `src/`).
-3. **Service language(s)** — Go, Java, or both. Affects Step 2 substeps.
-4. **Build system** — Maven (Java) or `go.mod` (Go). Needed for Step 2.
-5. **Start step** — optional; defaults to Step 1 (full run). When given, earlier
-   steps are skipped and their reports reused (see the report lifecycle).
+1. **Chart path** — directory with `Chart.yaml` (usually `helm-templates/<name>` or `charts/<name>`).
+2. **Language and build** — `pom.xml` → Java (Spring if `spring-boot-*`, Quarkus if `quarkus-*`);
+   `go.mod` → Go; both possible. `build.gradle*` → Java/Gradle (the Maven plugin steps are skipped
+   and logged under **Needs review**).
+3. **Source path** — the directory holding `pom.xml`/`go.mod` (often `.`).
 
-If any is missing, ask before proceeding. Do not guess the chart path.
+Print a 4-line summary (chart, source path, language, build) and ask the user to confirm or correct
+it. Ask a real question only when something is missing or ambiguous (several charts, no `Chart.yaml`).
+Never guess the chart path.
 
-### Service root (`repoRoot`) — do NOT ask up front
+**`repoRoot`** for `istio-migration-validate` = the directory that owns both the chart and its
+scripts; prefer the source path when it is the service root. Never widen to a multi-service
+monorepo root.
 
-Pass `repoRoot` to [`istio-migration-validate`](../istio-migration-validate/SKILL.md)
-as the **service root** that owns the chart and its scripts — the directory that
-contains (or is the parent of) both the chart path and the source-code path when
-they share a tree. Prefer the source-code path when it is already the service
-root (e.g. `.`). Never widen to a multi-service monorepo git root that includes
-sibling services; that floods Step 2.7 with unrelated hits.
+### Backend reference (`backendRefName` / `backendRefPort`) — do not ask up front
 
-### Backend reference (`backendRefName` / `backendRefPort`) — do NOT ask up front
+1. Step 1 detects them from the existing `RouteConfiguration` destinations (report field `backendRef`).
+2. If both are detected: log them under **Done** and reuse them in Steps 2.3 and 2.4 without asking.
+3. Otherwise, at the point they are first needed (Step 2.3 for Java, else 2.4), propose the defaults
+   `{{ .Values.SERVICE_NAME }}` and `8080` and ask for confirmation. Before asking, look at the
+   chart's own Service template — if it names a different Service, propose that name instead.
 
-The `backendRefs[].name` and `backendRefs[].port` applied to generated HTTPRoutes
-are **migration-wide** values, but they are **not** collected at orchestrator
-start. Resolve them as follows:
+Use the same values for the Maven plugin (`<backendRefVal>`, `<servicePort>`) and `httproute-from-code`.
 
-1. **Step 1** invokes [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md),
-   which detects the service's own backend `name`/`port` from the existing mesh
-   `RouteConfiguration` destinations (one migrated service contains only routes
-   for itself) and reports them in its report file's `backendRef` field.
-2. **If Step 1 resolved both values** → capture them, record them in
-   `.mesh-migration/MIGRATION_LOG.md` (under **Done**), and reuse them in
-   **Step 2.3** and **Step 2.4** without prompting.
-3. **If Step 1 could not resolve them** (no declarative mesh CRs, ambiguous /
-   conflicting destinations, or Step 1 was skipped) → ask the user **explicitly**
-   at the point they are first needed (Step 2.3 for Java, Step 2.4 otherwise),
-   proposing the defaults `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` and `8080`.
-   Do not ask earlier than necessary.
+### Route labels (`routeLabels`)
 
-Once resolved (detected or user-provided), the same values MUST be:
-- passed to the Maven plugin config in **Step 2.3** (`<backendRefVal>` and
-  `<servicePort>` respectively), and
-- propagated to the [`httproute-from-code`](../httproute-from-code/SKILL.md)
-  sub-skill in **Step 2.4** so the generated `backendRefs` match.
-
-### Route labels (`routeLabels`) — prefer Step 1 detection
-
-The `metadata.labels` map used by generated HTTPRoutes must be consistent between:
-
-- declarative CR migration output from
-  [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md) **Step 1**,
-- Maven-plugin-generated routes in **Step 2.3**, and
-- [`httproute-from-code`](../httproute-from-code/SKILL.md) output in **Step 2.4**.
-
-Resolve labels as follows:
-
-1. Capture `labels.values` from Step 1's report file
-   (`.mesh-migration/reports/core-mesh-crs-to-istio.yaml`) — the map itself,
-   not the whole `labels` object.
-2. If `labels.values` is non-null, treat that map as migration-wide `routeLabels`.
-3. If `labels.unresolvedReason` is set, ask the user for a label map only when
-   first needed (Step 2.3 for Java or Step 2.4 otherwise), and record it in the log.
-4. Never silently invent label values.
+Use Step 1's report `labels.values` map (not the whole `labels` object) as migration-wide
+`routeLabels` for Steps 2.3 and 2.4. If `labels.unresolvedReason` is set, do not invent values:
+propose the standard set — `app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}`,
+`app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}`,
+`app.kubernetes.io/managed-by: {{ .Values.MANAGED_BY }}`,
+`deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID }}`,
+`deployer.cleanup/allow: "true"`, `app.kubernetes.io/processed-by-operator: istiod` — and ask the
+user to accept it or give another map, when first needed.
 
 ---
 
-## Error policy — read before executing any step
+## Error policy
 
-If a step or sub-skill reports an unrecoverable error (non-zero exit code from a
-required build command, a sub-skill `ERROR:` section, a file that cannot be
-written), apply the following procedure **immediately**:
+On an unrecoverable error (non-zero exit of a required command, a sub-skill `status: failed`, a file
+that cannot be written):
 
-1. Stop the current step. Do not proceed to the next step.
-2. Log the error under **Needs review** with the full error summary, the file or
-   command that failed, and a suggested remediation.
-3. Print a chat message:
-   > ⛔ Step `<N>` failed: `<one-line error>`. Logged under Needs review.
-   > Reply **continue** to skip this step and proceed, or **abort** to stop the migration.
-4. Wait for the user's reply before taking any further action.
+1. Stop the current step; do not start the next one.
+2. Log it under **Needs review** (error, failing file/command, suggested fix).
+3. Tell the user: "⛔ Step `<N>` failed: `<one-line error>`. Reply **continue** to skip this step or
+   **abort** to stop." Wait for the reply.
 
-Optional steps (e.g. `mvn -q clean compile` when Maven is not in the environment)
-may be skipped without user confirmation; log them under **Skipped** with the
-reason.
-
----
+Optional steps (e.g. `mvn` not installed) are logged under **Skipped** without asking.
 
 ## Migration log — MANDATORY
 
-The skill **must** create and continuously update a migration log next to the
-sub-skill reports:
-
-```
-.mesh-migration/MIGRATION_LOG.md
-```
-
-The log is the single source of truth for what the automation did. It is updated
-**after every step** — never wait until the end. If the log file cannot be
-written for any reason, stop immediately and report the failure to the user.
-Like the reports, the log is a working file inside the gitignored
-`.mesh-migration/` folder; a full run starts a fresh log, a resumed run appends
-to the existing one.
-
-### Log structure
+Maintain `.mesh-migration/MIGRATION_LOG.md`, updated **after every step**. If it cannot be written,
+stop and report. A full run starts a fresh log; a resumed run appends.
 
 ````markdown
 # Core Mesh → Istio Migration Log
-
-Started: <ISO-8601 timestamp>
-Chart:   <chart path>
-Code:    <code path>
-Language: <Go | Java | Go+Java>
-
----
+Started: <ISO-8601>   Chart: <path>   Code: <path>   Language: <Go | Java | Go+Java>
 
 ## Done
-**Items fully applied by automation. One bullet per concrete change.**
-
+**Items fully applied by automation, one bullet per concrete change.**
 ## Skipped
 **Items intentionally not applied, with reason.**
-
 ## Needs review
-**Items the user MUST verify before merging. Each entry MUST include:**
-**- File / location**
-**- Why it needs human review**
-**- Suggested action**
-
+**Items the user MUST verify before merging. Each entry: file/location, why, suggested action.**
 ## Per-step status
-
-| Step | Title                                       | Status      | Notes |
-|------|---------------------------------------------|-------------|-------|
-| 1    | Migrate mesh CRs → HTTPRoute CRs            | pending     |       |
-| 1.1  | Log manually handle flagged features        | pending     |       |
-| 2.1  | Switch to mesh-aware route libraries        | pending     |       |
-| 2.2  | Set SERVICE_MESH_TYPE env var               | pending     |       |
-| 2.3  | Add Maven plugin (Java only)                | pending     |       |
-| 2.4  | Generate HTTPRoute CRs from code            | pending     |       |
-| 2.5  | Verify HTTPRoutes are Istio-guarded         | pending     |       |
-| 2.6  | Detect duplicate HTTPRoute rules            | pending     |       |
-| 2.7  | Flag imperative control-plane calls         | pending     |       |
-| 2.8  | Public-gateway access (AuthorizationPolicy) | pending     |       |
-
+| Step | Title | Status | Notes |
+|------|-------|--------|-------|
+| 1    | Migrate mesh CRs → HTTPRoute CRs            | pending | |
+| 2.1  | Switch to mesh-aware route libraries        | pending | |
+| 2.2  | Set SERVICE_MESH_TYPE env var               | pending | |
+| 2.3  | Add Maven plugin (Java only)                | pending | |
+| 2.4  | Generate HTTPRoute CRs from code            | pending | |
+| 2.5  | Public-gateway AuthorizationPolicy          | pending | |
+| 2.6  | Istio guards and render checks              | pending | |
+| 2.7  | Duplicate rules and access-control lint     | pending | |
+| 2.8  | Imperative control-plane calls              | pending | |
 ## Commands run
-
 | Step | Command | Exit code | Notes |
 |------|---------|-----------|-------|
 ````
 
-> **Note:** The log uses bold text (not HTML comments) for section descriptions
-> so they are preserved across all Markdown renderers and are re-parseable by
-> the agent on idempotent reruns.
+Rules: append concrete paths, names, counts and every command with its exit code; classify every
+non-trivial action as Done / Skipped / Needs review; never overwrite the log or delete a Needs-review
+entry until the user confirms it is resolved; after each step print a one-line chat summary
+(`Updated MIGRATION_LOG.md — 3 done, 1 needs review`).
 
-### Logging rules
-
-- **Do:** append concrete file paths, resource names, counts, and commands you ran.
-- **Do:** classify every non-trivial action as **Done**, **Skipped**, or **Needs review**.
-- **Do:** record every command and its exit code in the **Commands run** table.
-- **Do:** echo a short chat summary of the log update after each step
-  (`Updated MIGRATION_LOG.md — 3 done, 1 needs review`).
-- **Don't:** overwrite the log — always append.
-- **Don't:** delete a `Needs review` entry until the user confirms it is resolved.
-
-### What belongs in each bucket
-
-**Structural blockers / flagged conversions** — Copy every `needsReview:` line and every `# ⚠ MANUAL REVIEW` hit from
-sub-skill reports into **Needs review**.
-
-**Unknown values** — values the agent cannot safely infer and must not guess
-(orchestrator / wiring concerns, not CR field mapping):
-
-| Item | Example location |
-|------|-----------------|
-| Unresolved gateway references (`unresolved:` from Step 1) | HTTPRoute `parentRefs` |
-| Missing microservice name (placeholder `<microservice-name>` in output) | Generated HTTPRoute / `source-code-httproutes.yaml` |
-| Ambiguous Java route-registration artifact (webclient vs resttemplate) | `pom.xml` |
-| Unknown library versions | `pom.xml` / `go.mod` |
-
-**Done** examples: files wrapped in Core/Istio guards, generated `-istio.yaml`
-files, HTTPRoutes emitted from code, Maven plugin added, env var wired, library
-versions bumped, `values.yaml` / `values.schema.json` updated, commands that
-exited 0.
-
-**Skipped** examples: Maven plugin for a Go-only service, library swap for a
-language not present, a step the user explicitly said to defer, optional build
-commands not available in the environment.
+Copy every sub-skill `needsReview:` line and every `# ⚠ MANUAL REVIEW` hit into **Needs review**
+**once** (do not log the same finding from both the report and the YAML comment). Values you cannot
+infer (unresolved gateway, `<microservice-name>` placeholder, ambiguous Java artifact, unknown
+library version) also go to **Needs review** — never guess them.
 
 ---
 
-## Execution plan (Step 1 + Step 2 substeps)
+## Execution plan
 
-Run steps in order, beginning at the user-selected start step (Step 1 by
-default). On a resumed run, apply the reused-report notification from the
-[report lifecycle](#sub-skill-reports) before executing anything. After each
-step: update the log, record the per-step status row, and print a one-line chat
-status.
+Run steps in order from the start step. After each: update the log and status row, print one line.
 
-### Step 1 — Migrate existing mesh CRs to Gateway API CRs
+### Step 1 — Migrate declarative mesh CRs
 
-**Idempotency:** always invoke the sub-skill — do not skip it because the chart
-already contains `kind: HTTPRoute` guarded by
-`{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}`. The sub-skill detects existing
-output itself (its wrapping and generation steps are idempotent), reports
-already-present files under **Done**, and — crucially — writes the current
-report that Steps 2.3 and 2.4 read for `backendRef` and `labels.values`.
+1. Invoke [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md) with `chartPath`,
+   `interactive: false`. It guards the originals for Core, generates Istio `-istio.yaml` siblings
+   (HTTPRoute, Gateway, DestinationRule, ServiceEntry, TrafficExtension, …), and updates
+   `values.yaml` / `values.schema.json`.
+2. `status: partial` → ask the user all `unresolved:` questions in one batch. For a gateway question
+   explain: "*ingress* = an entry point that receives traffic from outside; *mesh* = internal
+   service-to-service traffic. If unsure, answer mesh." Deliver `resolutions`, re-read the report.
+3. Copy `filesModified` / `filesGenerated`, resource counts and `needsReview` into the log. A
+   `# ⚠ MANUAL REVIEW` flag is never safe to auto-fix: leave the comment in the file.
+4. Capture `backendRef` and `labels.values` as described in Step 0.
 
-1. Invoke the sub-skill [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)
-   with inputs: `chartPath: <chart path>`, `interactive: false`.
-2. That skill will, in a single pass: wrap originals in `SERVICE_MESH_TYPE=Core`
-   guards, generate `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`,
-   convert `Gateway(ingress/egress)` → Istio Gateway, convert
-   `RouteConfiguration` → HTTPRoute (including any rule-level `statefulSession`
-   → `DestinationRule`), convert egress `TlsDef` + `https://` destinations →
-   `ServiceEntry` + cert `Secret` + TLS-origination `DestinationRule`, convert
-   `FacadeService` → `Service`, omit mesh-type
-   `Gateway` (generates east-west HTTPRoutes instead, where parent is of kind
-   Service, processed by waypoint proxy), convert standalone `StatefulSession` /
-   `LoadBalance` →
-   `DestinationRule` (one per host — conflicting policies are flagged
-   `⚠ MANUAL REVIEW` inside the skill), convert `HttpFilters` +
-   `RouteConfiguration` Lua scripts → `TrafficExtension` (requires Istio
-   ≥ 1.30), and update `values.yaml` / `values.schema.json`.
-3. Read `.mesh-migration/reports/core-mesh-crs-to-istio.yaml`. **If
-   `status: partial`**, collect every entry under `unresolved:` and ask the user
-   all questions in **one batch** (for each unresolved gateway: ingress or
-   mesh?). Deliver the answers as a `resolutions` map keyed by entry `id` —
-   continue the same sub-agent when possible, otherwise re-invoke the sub-skill
-   with `resolutions` — and re-read the report. Log each decision under
-   **Needs review** → move to **Done** once applied.
-4. Copy the report's `filesModified` / `filesGenerated`, resource counts, and
-   `needsReview` items into the log.
-5. **Capture the detected backend reference** from the report's `backendRef`
-   field. If both `name` and `port` are set, record them in the log (under
-   **Done**) as the migration-wide backend reference to reuse in Step 2.3 /
-   Step 2.4. If `unresolvedReason` is set, note that they must be asked from the
-   user when first needed (see
-   [Backend reference](#backend-reference-backendrefname--backendrefport--do-not-ask-up-front)).
-6. **Capture the detected labels** from the report's `labels.values` map (not
-   the enclosing `labels` object). If non-null, store that map as
-   migration-wide `routeLabels` for Step 2.3 / Step 2.4. If
-   `labels.unresolvedReason` is set, add a **Needs review** entry and ask
-   the user only when labels are first needed.
+### Steps 2.1–2.3 — Build and deployment wiring
 
-Log update:
-- **Done:** every file in `Files modified` and `Files generated`; the detected
-  `backendRefName` / `backendRefPort` and `routeLabels` (if resolved).
-- **Needs review:** every item from the sub-skill's "Items needing manual review".
+Applies to services that use route-registration libraries or annotations. Invoke
+[`mesh-build-wiring`](../mesh-build-wiring/SKILL.md) with `codePath`, `chartPath`, `language`,
+`interactive: false` and, for Java, `backendRefName` / `backendRefPort` / `routeLabels`. It switches
+libraries to mesh-aware versions, wires `SERVICE_MESH_TYPE`, and adds the matching Maven plugin
+(`httproutes-generator-spring-maven-plugin` for Spring, `httproutes-generator-maven-plugin` for
+Quarkus, both `1.2.1`). Handle `partial` (e.g. `java-registration-artifact`, `maven-plugin-packages`)
+via `resolutions`; copy `done:` / `skipped:` / `commandsRun:` / `needsReview:` into the log and the
+2.1–2.3 rows. `failed` → Error policy.
 
+### Step 2.4 — HTTPRoutes from route-registration code
 
+Invoke [`httproute-from-code`](../httproute-from-code/SKILL.md) with the source path, `chartPath`,
+`backendRefName`, `backendRefPort`, `routeLabels`, `interactive: false`. Finding **zero**
+code-registered routes is normal (annotation-only Java services); log it under **Skipped**.
 
-### Step 1.1 — Log manually handle flagged features
+- `status: partial` with `microservice-name` → ask the user for the service name and deliver it via
+  `resolutions`. If they cannot answer, rename the output to `source-code-httproutes.yaml.incomplete`,
+  put `# INCOMPLETE: replace <microservice-name> before committing` at its top, and add a
+  **Needs review** entry. Never leave the placeholder in a live template.
+- Make no inferences beyond what the sub-skill did.
+- Do **not** run `git add` / `git commit`. Remind the user: generated files must be committed, and
+  `httproute-from-code` (and the Maven build for Java) must be rerun whenever route code changes.
+- Copy `filesGenerated`, `routesGenerated`, `needsReview` into the log.
 
-For each `# ⚠ MANUAL REVIEW` comment the sub-skill emitted, add a
-**Needs review** entry. **None of these are safe to auto-fix** — they all
-require human judgement or a design change. Leave the flag comment in place in
-the file; do not remove it.
-
-### Step 2 — Migrate non-declarative routes
-
-Run the following substeps for services that use route-registration libraries or
-route-registration annotations. Keep all generated HTTPRoute files committed in
-the branch and remind the user to rerun the generation whenever route annotations
-or registration code change.
-
-### Steps 2.1–2.3 — Wire build and deployment (delegate to `mesh-build-wiring`)
-
-**Idempotency:** the sub-skill performs its own per-item idempotency checks and
-records "already compliant / already present" items under `done:`.
-
-1. Invoke the sub-skill [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md)
-   with: `codePath`, `chartPath`, `language`, `interactive: false`, and — for
-   Java — the resolved
-   `backendRefName` / `backendRefPort` / `routeLabels` (detected by Step 1, or
-   asked from the user here if still unresolved — propose the defaults
-   `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080`).
-2. That skill will: switch route-registration libraries to mesh-aware versions
-   (Spring / Quarkus / Go), ensure `SERVICE_MESH_TYPE` in Helm values / schema
-   (may already be present from Step 1 — idempotent) and wire it into
-   Deployment `env:`, and add the Maven plugin matching the detected framework
-   for Java services — `httproutes-generator-spring-maven-plugin` (Spring) or
-   `httproutes-generator-maven-plugin` (Quarkus), both at `>= 1.2.1` —
-   (building and committing its output when Maven is available).
-3. Read `.mesh-migration/reports/mesh-build-wiring.yaml`. **If
-   `status: partial`**, batch its `unresolved:` questions to the user in one
-   round (e.g. `java-registration-artifact`: webclient or resttemplate?),
-   deliver the answers via `resolutions` (continue the sub-agent or re-invoke),
-   and re-read the report. Then copy `done:` / `skipped:` / `commandsRun:` /
-   `needsReview:` items into the log and the per-step status rows for 2.1, 2.2,
-   and 2.3. `status: failed` → apply the
-   [Error policy](#error-policy--read-before-executing-any-step).
-
-### Step 2.4 — Generate HTTPRoute CRs from route registration code
-
-**Idempotency:** always invoke the sub-skill, even when
-`source-code-httproutes.yaml` already exists — generation is deterministic, so
-an unchanged source tree reproduces the same file, and the run produces the
-report this step's follow-up items read.
-
-1. Invoke sub-skill [`httproute-from-code`](../httproute-from-code/SKILL.md) with
-   `interactive: false`, the source-code path, **and** the resolved `backendRefName` / `backendRefPort`
-   (detected by Step 1, or asked from the user if still unresolved — propose the
-   defaults `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` / `8080`). The sub-skill uses
-   these for every generated `backendRefs[].name` / `backendRefs[].port` so the
-   code-generated routes match the Maven-plugin output from Step 2.3.
-   Also pass migration-wide `routeLabels` (detected in Step 1 or provided by user)
-   so every generated HTTPRoute uses the same labels as declarative and plugin
-   generated routes.
-2. That skill scans Go (`*.go`) and Java (`*.java`) files, extracts
-   `routeregistration.Route` / `RouteEntry` definitions, reduces them to
-   `PathPrefix` roots, groups Public/Private/Internal (and border-gateway-named
-   routes) into a single gateway-group CR parented to `public-gateway`,
-   `private-gateway` and `internal-gateway-service`, and emits any Mesh/Facade
-   CRs needed, all to
-   `helm-templates/<service name>/templates/source-code-httproutes.yaml`.
-   Legacy `Forbidden`/`allowed: false` routes are never emitted — they are
-   recorded in the report's `accessControl` block, consumed by
-   [Step 2.8](#step-28--public-gateway-access-authorizationpolicy).
-3. Read `.mesh-migration/reports/httproute-from-code.yaml`. **If
-   `status: partial` with an `unresolved:` entry `microservice-name`** (the
-   output contains the literal `<microservice-name>` placeholder):
-   - Ask the user for the service name and deliver it via `resolutions`
-     (continue the sub-agent or re-invoke), then re-read the report.
-   - If the user cannot provide one, do **not** leave the literal placeholder
-     in place — it will break `helm template` silently. Rename the output file
-     to `source-code-httproutes.yaml.incomplete`, add a prominent comment at
-     the top (`# INCOMPLETE: replace <microservice-name> before committing`),
-     and add a **Needs review** entry: "Microservice name could not be
-     resolved — file renamed to `.incomplete`; set the correct name and rename
-     before merging."
-4. Do not make any inference for `source-code-httproutes.yaml` - besides what `httproute-from-code` skill does. 
-5. **Commit all generated files** to the branch. Remind the user:
-   > The generated `source-code-httproutes.yaml` must stay committed. Any time
-   > route registration code changes, rerun the `httproute-from-code` skill and
-   > commit the updated output before raising a PR.
-6. Read `.mesh-migration/reports/httproute-from-code.yaml` and copy its
-   `filesGenerated`, `routesGenerated`, and `needsReview` items into the log.
-7. For every `needsReview` entry in the report (skipped rows, `ERROR:`
-   sections), add a **Needs review** log entry.
-
-### Steps 2.5–2.7 — Validate the result (delegate to `istio-migration-validate`)
-
-1. Invoke the sub-skill
-   [`istio-migration-validate`](../istio-migration-validate/SKILL.md) with
-   inputs: `chartPath: <chart path>`, `repoRoot: <service root>` (see
-   [Service root](#service-root-reporoot--do-not-ask-up-front)),
-   `interactive: false`.
-2. That skill will: verify every HTTPRoute file carries the Istio guard (adding
-   missing guards — the one safe automatic fix), run the two `helm template`
-   render checks (Istio mode produces HTTPRoutes/Gateways; Core mode leaks
-   none), flag duplicate HTTPRoute rules (same parent + equal match), lint for
-   leftover no-backend/`RegularExpression` rules and report whether a
-   public-gateway `AuthorizationPolicy` exists, and flag imperative
-   control-plane API calls in shell scripts and manifests — all without
-   modifying anything else.
-3. Read `.mesh-migration/reports/istio-migration-validate.yaml`; copy `guardsAdded:`
-   (log under **Done**), `commandsRun:`, `accessControlLint:` (log the counts
-   under **Done**; a `publicGatewayPolicies: 0` finding feeds
-   [Step 2.8](#step-28--public-gateway-access-authorizationpolicy)),
-   `controlPlaneCalls:` (log the count
-   under **Done**), and `needsReview:` items into the log and the per-step
-   status rows for 2.5, 2.6, and 2.7. `status: failed` → apply the
-   [Error policy](#error-policy--read-before-executing-any-step).
-
-### Step 2.8 — Public-gateway access (AuthorizationPolicy)
+### Step 2.5 — Public-gateway access (AuthorizationPolicy)
 
 Per [docs/istio/allowed-and-forbidden-routes.md](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md),
-every route is now reachable from the public gateway unless excluded by an
-`AuthorizationPolicy`, and Cloud-Core's own policy there is deny-unless-permit — so a
-service is unreachable from the public gateway until it ships one. **The recommended path is for
-the service owner to write this policy by hand.** This step never generates one without being
-told to.
+every route is now registered on the public gateway too, where Cloud-Core's policy is
+deny-unless-permit: a service is unreachable from outside until it ships its own `ALLOW` policy.
+**Recommended: the service owner writes it by hand.** Never generate one unless told to.
 
-1. Aggregate the `accessControl` blocks from the Step 1
-   (`core-mesh-crs-to-istio`) and Step 2.4 (`httproute-from-code`) reports — `legacyPublic`,
-   `forbidden`, `deny` — and the `accessControlLint.publicGatewayPolicies` count from Step
-   2.5–2.7.
-2. Invoke the sub-skill
-   [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) with
-   `chartPath`, `codePath`, the aggregated `accessControl`, migration-wide `routeLabels`,
-   `generate: false`, `interactive: false`. It only recommends and collects candidates at this
-   point — it writes no file.
-3. Read `.mesh-migration/reports/public-gateway-authz-policy.yaml`. Relay its recommendation and
-   candidate lists (`candidates.legacyPublic` / `forbidden` / `deny` / `javaAnnotated`) to the
-   user, together with the hand-authoring template it printed, and ask **once**:
-   > It is recommended that you write the public-gateway `AuthorizationPolicy` yourself using the
-   > candidates above. Do you want me to generate a draft anyway?
-4. **If the user insists** on a generated draft, re-invoke the sub-skill with the same inputs plus
-   `generate: true`, re-read the report, and log the generated file path under **Done**. **If the
-   user declines** (the default, expected answer), log under **Needs review**: "Service owner to
-   write the public-gateway `AuthorizationPolicy` by hand — candidates collected in
-   `.mesh-migration/reports/public-gateway-authz-policy.yaml`."
-5. If the report's `existingPolicy` is non-null (a hand-written policy already exists), log that
-   path under **Done** instead and skip the question — nothing to generate or recommend further.
-6. `status: failed` → apply the [Error policy](#error-policy--read-before-executing-any-step).
+1. Merge the `accessControl` blocks of the Step 1 and Step 2.4 reports.
+2. Invoke [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) with `chartPath`,
+   `codePath`, the merged `accessControl`, `routeLabels`, `generate: false`, `interactive: false`.
+3. Read its report. If `existingPolicy` is set: log the path under **Done**, relay the candidates for
+   comparison, and skip the question.
+4. Otherwise relay the recommendation and candidate lists to the user in plain words — including
+   "if this service has no public endpoints you need no policy" — and ask **once**: "I recommend you
+   write the public-gateway AuthorizationPolicy yourself. Do you want me to generate a draft anyway?"
+5. Branch on the user's reply:
+   - **Insists on a draft** → re-invoke with `generate: true`, re-read the report, log the file
+     under **Done** and "draft — review every path" under **Needs review**.
+   - **Confirms no public endpoints** → log under **Skipped** ("internal-only service — no
+     public-gateway AuthorizationPolicy needed").
+   - **Declines / will write by hand (expected)** → log under **Needs review**: "Service owner to
+     write the public-gateway AuthorizationPolicy by hand, candidates:" followed by the candidate
+     paths copied into the log itself (not just a pointer to the report file).
+6. `status: failed` → Error policy.
+
+### Steps 2.6–2.8 — Validate (after any draft policy exists)
+
+Invoke [`istio-migration-validate`](../istio-migration-validate/SKILL.md) with `chartPath`,
+`repoRoot`, `interactive: false`. It adds missing Istio guards (its one automatic fix), runs the
+`helm template` checks for both mesh types, flags duplicate HTTPRoute rules, lints for leftover
+no-backend / `RegularExpression` rules and policy presence, and flags imperative control-plane calls.
+
+Copy `guardsAdded` (Done), `commandsRun`, `accessControlLint`, `controlPlaneCalls` and
+`needsReview` into the log and rows 2.6 (guards, render), 2.7 (duplicates, lint), 2.8 (control-plane
+calls). Do not log "no public-gateway AuthorizationPolicy found" again if Step 2.5 already logged it.
+`status: failed` → Error policy.
 
 ---
 
-## Final checklist and hand-off
+## Final report
 
-Before declaring the migration complete, produce a **Final report** that mirrors
-the "Final Checklist" in the migration guide. Mark `[x]` only when the step has
-at least one **Done** entry and zero unresolved **Needs review** entries:
+Mirror the migration guide checklist. Mark `[x]` when there is at least one **Done** entry and no
+open **Needs review** entry for it; `[-] N/A (<reason>)` when legitimately not applicable (e.g.
+no Maven plugin for Go, no sticky-session CRs); `[ ]` only means "action required".
 
 ```markdown
 ## Final report
+- [ ] Existing mesh CRs converted to HTTPRoute CRs (incl. StatefulSession/LoadBalance → DestinationRule)
+- [ ] Flagged features from Step 1 resolved
+- [ ] Mesh-aware libraries replace old route-posting libraries
+- [ ] SERVICE_MESH_TYPE wired in Helm values / Deployment (default Core)
+- [ ] Maven plugin added and local build passes (Java only)
+- [ ] HTTPRoute CRs generated from route registration code
+- [ ] Public-gateway AuthorizationPolicy written by hand (or confirmed unnecessary)
+- [ ] All Istio resources wrapped in the Istio conditional; none render under Core
+- [ ] No duplicate HTTPRoute rules; access-control lint clean
+- [ ] Imperative control-plane API calls flagged for review
 
-- [x/ ] Existing mesh CRs converted to HTTPRoute CRs
-- [x/ ] StatefulSession / LoadBalance CRs converted to DestinationRule CRs
-- [x/ ] Flagged features from Step 1.1 resolved
-- [x/ ] Mesh-aware libraries replace old route-posting libraries
-- [x/ ] SERVICE_MESH_TYPE set in Helm values / Deployment
-- [x/ ] Maven plugin added and local build passes (Java only)
-- [x/ ] HTTPRoute CRs generated from route registration code
-- [x/ ] All HTTPRoute CRs wrapped in the Istio conditional
-- [x/ ] HTTPRoutes scanned for duplicate rules (same parent + equal match)
-- [x/ ] Access-control lint run (no-backend/regex leftovers, public-gateway AuthorizationPolicy presence)
-- [x/ ] Imperative control-plane API calls flagged for review
-- [x/ ] Public-gateway AuthorizationPolicy provided (hand-written recommended; drafted only on request)
-
-Open items (require user review):
-- <list all remaining "Needs review" entries from .mesh-migration/MIGRATION_LOG.md>
+Open items: <every remaining Needs review entry>
 ```
 
-Close with a plain-language summary telling the user:
+Close with a plain-language summary: what was applied automatically (Done count), what was skipped
+and why, every remaining **Needs review** entry, and these local checks to run before pushing
+(`grep` finding nothing under Core is the passing result):
 
-1. **What was applied automatically** (reference the Done section count).
-2. **What was skipped and why** (reference the Skipped section).
-3. **What requires careful human review before merging** — enumerate every
-   remaining **Needs review** entry from `.mesh-migration/MIGRATION_LOG.md`
-   (sourced from sub-skill `needsReview:` / `# ⚠ MANUAL REVIEW` / `unresolved:`
-   items).
-4. The recommended validation commands the user should run locally before pushing:
-
-   ```bash
-   # Must return at least one HTTPRoute or Gateway line
-   helm template <chart> --set SERVICE_MESH_TYPE=Istio \
-     | grep -E 'kind: (HTTPRoute|Gateway)'
-
-   # Must return nothing — HTTPRoutes must not leak under Core mode
-   helm template <chart> --set SERVICE_MESH_TYPE=Core \
-     | grep 'kind: HTTPRoute'
-   ```
+```bash
+helm template <chart> --set SERVICE_MESH_TYPE=Istio | grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/'
+helm template <chart> --set SERVICE_MESH_TYPE=Core  | grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/'
+```
 
 ---
 
 ## Operating rules
 
-- **Never skip the log.** If the log file cannot be written, stop and report.
-- **Never invent values.** Versions, package names, ports, microservice names —
-  if unknown, add a **Needs review** entry instead of guessing.
-- **Never guess an unresolved item.** When a sub-skill report says
-  `status: partial`, batch its `unresolved:` questions to the user in one round
-  and re-invoke with the answers — do not infer gateway types or names yourself.
-- **Never run destructive commands.** Do not push, tag, or delete branches. Do
-  not modify git config.
-- **Be explicit in chat.** After each step, print a one-line summary plus the
-  updated per-step status row.
-- **Idempotent reruns.** Rerunning a step must not duplicate or corrupt its
-  output. For delegated steps the sub-skill owns that check and logs
-  already-present items under **Done** — always invoke it anyway, so its report
-  is on disk for the steps that read it.
-- **Follow the Error policy.** On any unrecoverable failure, stop the step, log
-  it, and ask the user whether to continue or abort before taking further action.
-- **Never generate an `AuthorizationPolicy` without explicit user insistence.** Step 2.8
-  always recommends manual authoring first; only invoke
-  [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) with `generate: true`
-  after the user has explicitly said to generate a draft anyway.
-
----
+- Never skip the log; never invent values (versions, ports, names) or unresolved answers.
+- Never run destructive or git-writing commands: no commit, push, tag, branch deletion, git config.
+- Be explicit in chat: one-line summary plus the status row after each step.
+- Reruns must not duplicate or corrupt output; sub-skills own the idempotency checks.
+- Follow the Error policy on any unrecoverable failure.
+- Never generate an `AuthorizationPolicy` without the user explicitly insisting (Step 2.5).
 
 ## Non-goals
 
-This skill only modifies:
-Helm templates, `values.yaml`, `values.schema.json`, `pom.xml`, `go.mod`, the
-consumer `.gitignore` (the `.mesh-migration/` entry), and files under
-`.mesh-migration/` (reports and `MIGRATION_LOG.md`).
-
-It does not raise pull requests, push branches, rewrite application logic, or
-modify git configuration. It does not generate a public-gateway
-`AuthorizationPolicy` unless the user explicitly insists (see Step 2.8) — the
-recommended, default outcome is a hand-authoring recommendation plus collected
-candidates, not a generated file.
+Modifies only Helm templates, `values.yaml`, `values.schema.json`, `pom.xml`, `go.mod`, the consumer
+`.gitignore` (the `.mesh-migration/` line) and files under `.mesh-migration/`. Does not raise PRs,
+push, rewrite application logic or change git configuration.

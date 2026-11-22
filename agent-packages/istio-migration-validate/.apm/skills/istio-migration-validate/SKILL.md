@@ -1,13 +1,13 @@
 ---
 name: istio-migration-validate
 description: >
-  Validate the output of a Core Mesh to Istio migration: verify every HTTPRoute
-  file is wrapped in the SERVICE_MESH_TYPE=Istio guard (adding missing guards),
-  check that no HTTPRoute renders under Core mode, flag duplicate HTTPRoute
-  rules (same parent + equal match), lint for leftover no-backend/regex rules
-  and missing public-gateway AuthorizationPolicy, and flag imperative
-  control-plane API calls in shell scripts and manifests. Use when asked to
-  validate or check a migrated chart, or as a sub-skill of
+  Validate the output of a Core Mesh to Istio migration: verify every Istio /
+  Gateway API resource file is wrapped in the SERVICE_MESH_TYPE=Istio guard
+  (adding missing guards), check that no Istio resource renders under Core mode,
+  flag duplicate HTTPRoute rules (same parent + equal match), lint for leftover
+  no-backend/regex rules and missing public-gateway AuthorizationPolicy, and
+  flag imperative control-plane API calls in shell scripts and manifests. Use
+  when asked to validate or check a migrated chart, or as a sub-skill of
   core-mesh-to-istio-migration.
 ---
 
@@ -46,8 +46,8 @@ status: complete            # complete | partial | failed (a render check failed
 generatedAt: <ISO-8601>
 guardsAdded: [<files that were missing the Istio guard and got it>]
 renderChecks:
-  istioMode: pass | fail    # HTTPRoute/Gateway present under SERVICE_MESH_TYPE=Istio
-  coreMode: pass | fail     # no HTTPRoute leaks under SERVICE_MESH_TYPE=Core
+  istioMode: pass | fail | skipped   # Istio resources present under SERVICE_MESH_TYPE=Istio
+  coreMode: pass | fail | skipped    # no Istio resources leak under SERVICE_MESH_TYPE=Core
 duplicateGroups: <N>
 accessControlLint:            # Step 3b — read-only, additive
   noBackendRules: <N>          # rules with no backendRefs (leftover forbidden-route emulation)
@@ -75,14 +75,18 @@ Everything else is read-only reporting.
 
 ---
 
-## Step 1 — Verify all HTTPRoutes are wrapped in Istio conditionals
+## Step 1 — Verify all Istio / Gateway API resources are wrapped in Istio conditionals
 
 1. List every file under `<chartPath>/templates/` (including generated
-   `-istio.yaml` / `annotations-httproutes.yaml` / `source-code-httproutes.yaml`)
-   that contains `kind: HTTPRoute`.
-2. For each file, confirm the HTTPRoute block is inside a single
+   `-istio.yaml` / `annotations-httproutes.yaml` / `source-code-httproutes.yaml` /
+   `public-gateway-authorization-policy.yaml`) that contains an Istio or Gateway API resource,
+   i.e. an `apiVersion:` starting with `gateway.networking.k8s.io/`, `networking.istio.io/`,
+   `security.istio.io/` or `extensions.istio.io/` (HTTPRoute, Gateway, DestinationRule,
+   ServiceEntry, AuthorizationPolicy, TrafficExtension). Do **not** match on `kind: Gateway` alone:
+   legacy Core Mesh Gateways use `nc.core.mesh/*` and belong under the Core guard.
+2. For each file, confirm those resources are inside a single
    `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` … `{{- end }}`. If a file
-   has multiple HTTPRoute documents, the guard must wrap the whole block with
+   has multiple such documents, the guard must wrap the whole block with
    `---` separators kept inside.
 3. If a file is missing the guard → add it (the one safe automatic fix) and
    record the file under `guardsAdded:`. If a guard cannot be added safely
@@ -90,25 +94,32 @@ Everything else is read-only reporting.
 
 ## Step 2 — Render checks
 
+If `helm` is not installed: record under `commandsRun:` as skipped, set both `renderChecks` to
+`skipped`, add a `needsReview:` entry "helm not available — run the two render checks by hand"
+and continue with the next step (not a failure).
+
+Render to a file first so a template error is never mistaken for an empty result:
+
 ```bash
-helm dependency update
+helm dependency update <chartPath>
+helm template <chartPath> --set SERVICE_MESH_TYPE=Istio > /tmp/istio-render.yaml   # must exit 0
+helm template <chartPath> --set SERVICE_MESH_TYPE=Core  > /tmp/core-render.yaml    # must exit 0
 
-# Must return at least one HTTPRoute or Gateway line
-helm template <chartPath> --set SERVICE_MESH_TYPE=Istio \
-  | grep -E 'kind: (HTTPRoute|Gateway)'
+# Istio mode: must find at least one match (grep exit 0)
+grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' /tmp/istio-render.yaml
 
-# Must return nothing — HTTPRoutes must not leak under Core mode
-helm template <chartPath> --set SERVICE_MESH_TYPE=Core \
-  | grep 'kind: HTTPRoute'
+# Core mode: must find NONE. grep exit code 1 (no match) is the PASSING result.
+grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' /tmp/core-render.yaml
 ```
 
 Record each command and exit code under `commandsRun:` and the outcomes under
 `renderChecks:`.
 
-- Istio mode returns no HTTPRoute/Gateway lines → `istioMode: fail`,
-  `status: failed`, and a `needsReview:` entry.
-- Core mode returns any HTTPRoute lines → `coreMode: fail`, `status: failed`,
-  and one `needsReview:` entry per offending file path.
+- A `helm template` command exits non-zero (chart needs extra values, broken template) →
+  `status: failed`, quote its error under `needsReview:`; do not evaluate that mode's grep.
+- Istio mode: no match → `istioMode: fail`, `status: failed`, and a `needsReview:` entry.
+- Core mode: any match → `coreMode: fail`, `status: failed`, and one `needsReview:` entry per
+  offending resource (kind + name; locate its source file under `<chartPath>/templates/`).
 
 ## Step 3 — Detect duplicate HTTPRoute rules
 
@@ -136,9 +147,10 @@ same parent and identical match are ambiguous and **must not be auto-removed**
    - every file + HTTPRoute `metadata.name` (and rule index) that contributes a
      copy,
    - suggested action: "Two routes resolve to the same parent and match —
-     confirm which source is authoritative and remove the redundant rule (often
-     a route present both in a `RouteConfiguration` CR and in registration
-     code)."
+     confirm which source is authoritative and remove the redundant rule. Typical
+     causes: a route present both in a `RouteConfiguration` CR and in registration
+     code, or separate public/private/internal `RouteConfiguration` CRs that were all
+     widened to the same three gateways."
 5. **Do not modify any file in this step.** It only reports. Record the group
    count under `duplicateGroups:`.
 
@@ -167,8 +179,9 @@ it never edits or generates anything.
    chart whose `spec.targetRefs` includes `{kind: Gateway, name: public-gateway}`. Record the
    count under `accessControlLint.publicGatewayPolicies:`.
    - **`0`** → add a `needsReview:` entry: "No public-gateway `AuthorizationPolicy` found —
-     recommended: write one by hand (see `public-gateway-authz-policy`); until it exists, every
-     route is blocked on `public-gateway` by Cloud-Core's deny-unless-permit policy."
+     if this service must be reachable from outside the cluster, write one by hand (see
+     `public-gateway-authz-policy`); until then every route is blocked on `public-gateway` by
+     Cloud-Core's deny-unless-permit policy. Services with no public endpoints need none."
    - **`1` or more** → no finding; this step does not evaluate whether the policy's paths are
      correct, only that one exists.
 4. **Do not modify any file in this step.** It only reports.
@@ -196,6 +209,7 @@ these calls are safe to auto-migrate.**
 
    ```bash
    grep -rniE 'control-plane|controlplane|/api/v[0-9]+/(routes|control-plane)' \
+     --exclude-dir=.mesh-migration --exclude-dir=.git --exclude-dir=target \
      --include='*.sh' --include='*.bash' --include='*.yaml' --include='*.yml' <repoRoot>
    ```
 
@@ -204,7 +218,7 @@ these calls are safe to auto-migrate.**
    `/api/v3/routes/...`, registration/blue-green endpoints) as a hit. When
    in doubt, flag it — false positives cost a human a glance, a missed call
    silently breaks routing after cutover. Record the grep command and its
-   exit code under `commandsRun:` (same audit trail as the Step 2 helm checks).
+   exit code under `commandsRun:`; exit code `1` simply means "no hits" and is not an error.
 2. For **every** hit, add **one** `needsReview:` entry containing:
    - the file (and line) of the call,
    - the control-plane endpoint and HTTP method invoked,

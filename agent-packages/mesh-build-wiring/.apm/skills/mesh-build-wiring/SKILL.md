@@ -31,7 +31,7 @@ never ask the user: every blocking question becomes an `unresolved:` entry.
 Skip only the work that depends on the answer, **continue with every other
 step**, and set `status: partial` when writing the final report. With
 `interactive: true`, ask blocking questions in chat — including missing
-required inputs (propose the defaults `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`
+required inputs (propose the defaults `{{ .Values.SERVICE_NAME }}`
 / `8080` for the backend reference).
 
 ### Outputs
@@ -77,7 +77,14 @@ available. Writes the report file. Nothing else.
 
 Apply only to languages actually present in the repo.
 
+**Versions:** when adding or bumping, set exactly the minimum version stated below (never invent or
+guess a newer one — you may have no registry access); leave an already higher version as is.
+
 ### Java
+
+If the build uses Gradle (`build.gradle` / `build.gradle.kts`) and no `pom.xml`, do not edit it: add a
+`needsReview:` entry "Gradle build detected — apply the same dependency minimums by hand; the Maven
+plugins do not apply" and skip the rest of Java handling (Step 2 still runs).
 
 **Idempotency check:** for each dependency below, check whether the current
 version already satisfies the minimum. If yes, record under `done:` ("already
@@ -97,8 +104,9 @@ compliant") and skip that dependency.
   - If the project uses `dependencyManagement`, prefer an existing or upgraded
     `com.netcracker.cloud:cloud-core-quarkus-bom-publish` at version `>= 9.1.0`
     instead of adding duplicate explicit dependency versions.
-- If the choice between webclient and resttemplate variants is ambiguous, do
-  not guess: check the `resolutions` input for id
+- Choosing webclient vs resttemplate: keep the variant already in `pom.xml`; otherwise grep the
+  sources for `WebClient` vs `RestTemplate` imports and pick the one that is used. If the choice is
+  still ambiguous, do not guess: check the `resolutions` input for id
   `java-registration-artifact`; if absent, with `interactive: true` ask the
   user, otherwise add an `unresolved:` entry (id `java-registration-artifact`,
   options `[route-registration-webclient, route-registration-resttemplate]`)
@@ -192,26 +200,31 @@ than adding a second plugin. If the right artifact is present below `1.2.1`, bum
 - **If no `pom.xml`** → record under `skipped:` ("No pom.xml found — Go-only
   service") and finish.
 - **If the Java service does not use route-registration annotations** → record
-  under `skipped:` with the reason and finish.
+  under `skipped:` with the reason and finish. "Route-registration annotation" means exactly an
+  import from `com.netcracker.cloud` of `Route`, `Gateway` or `GatewayRequestMapping`
+  (grep `src/main/java` for `@Route`, `@Gateway`, `@GatewayRequestMapping`). Plain Spring
+  `@RequestMapping` / `@GetMapping` do **not** count.
 - **If `pom.xml` exists and annotations are used**, follow these five sub-steps:
   1. **Add the plugin matching the detected framework** to `pom.xml` with the following
      configuration:
      - `<groupId>com.netcracker.cloud.plugins</groupId>`
      - `<artifactId>httproutes-generator-spring-maven-plugin</artifactId>` (Spring) or
        `<artifactId>httproutes-generator-maven-plugin</artifactId>` (Quarkus).
-     - `<version>` must use the latest available release, but never lower than
-       `1.2.1` (`>= 1.2.1`).
+     - `<version>` exactly `1.2.1` (keep a higher version if one is already there).
      - `<goal>generate-routes</goal>`
-     - `<packages>` resolved from `src/main/java/...`. If ambiguous, set
-       `com.example` and add a `needsReview:` entry.
+     - `<packages>` = the common base package of the classes under `src/main/java` that contain the
+       annotations found above. If there is no single common base package, check `resolutions` for
+       id `maven-plugin-packages`; if absent, with `interactive: true` ask the user, otherwise add
+       an `unresolved:` entry (id `maven-plugin-packages`, question "Which Java packages contain
+       your route annotations?"), skip this step only, and set `status: partial` — never write a
+       placeholder like `com.example`.
      - `<servicePort>` set to the `backendRefPort` input.
      - `<outputFile>` pointing inside the chart templates directory, defaulting
        to `<chartPath>/templates/annotations-httproutes.yaml`.
      - `<backendRefVal>` **always set explicitly** to the `backendRefName` input, e.g.
-       `<backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>`. The plugin's own
-       default changed from `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` to
-       `{{ .Values.SERVICE_NAME }}` in 1.2.0 — do not rely on the default, set the value so it
-       matches the migration-wide `backendRefName` regardless of plugin version.
+       `<backendRefVal>{{ .Values.SERVICE_NAME }}</backendRefVal>` (the default when nothing was
+       detected). Do not rely on the plugin's own default (it changed in 1.2.0) — set the value so
+       it matches the migration-wide `backendRefName`.
      - `<labels>` set to the `routeLabels` input, in Maven plugin label format:
        `<labels><label><key>my/special-key</key><value>value1</value></label></labels>`.
        Do not invent values.
@@ -239,11 +252,11 @@ than adding a second plugin. If the right artifact is present below `1.2.1`, bum
      - the framework guard (wrong plugin for the detected framework — see the README).
 
      Then → `status: failed` per the contract.
-  4. **Commit the generated `<outputFile>`** to the branch. Remind the user:
-     > The plugin generates the output file at compile time. Every time route
-     > annotations change, run `mvn clean compile` locally and commit the updated
-     > output file before raising a PR.
-  5. Record the selected plugin artifact, version, and committed file path under `done:`.
+  4. **Leave the generated `<outputFile>` in the working tree — do not run `git add` or
+     `git commit`.** Remind the user:
+     > The generated file must be committed. Every time route annotations change, run
+     > `mvn clean process-classes` locally and commit the updated output file before raising a PR.
+  5. Record the selected plugin artifact, version, and generated file path under `done:`.
 
 The plugin output is at most two HTTPRoute CRs per service: one gateway-group route
 (`{{ .Values.SERVICE_NAME }}-java-annotations`, parented to the three border gateways by default)

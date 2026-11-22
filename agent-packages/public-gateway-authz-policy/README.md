@@ -36,3 +36,4 @@ By default (no explicit insistence from the user) this skill **only
 recommends** — it prints the manual-authoring template and the collected
 candidates, and does not write any file. It writes a draft
 `AuthorizationPolicy` to the chart only when told to generate one anyway.
+Services with no public endpoints need no policy at all.

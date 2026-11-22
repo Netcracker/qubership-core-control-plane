@@ -112,7 +112,7 @@ Use the skill [`core-mesh-crs-to-istio`](../../../agent-packages/core-mesh-crs-t
     - Generate new `-istio.yaml` files alongside each original (e.g. `gateway.yaml` → `gateway-istio.yaml`) wrapped in `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}`
     - Convert `Gateway` (ingress/egress type) → Istio `Gateway` + `HTTPRoute`
     - Convert `RouteConfiguration` → `HTTPRoute` with correct `parentRefs` (Gateway or Service depending on gateway type)
-    - Omit `FacadeService` and `Gateway` (mesh type) from Istio output — their routes become east-west `HTTPRoute` resources with Service `parentRefs`
+    - Convert `FacadeService` → Kubernetes `Service` and omit `Gateway` (mesh type) from Istio output — their routes become east-west `HTTPRoute` resources with Service `parentRefs`
     - Add `SERVICE_MESH_TYPE: Core` to `values.yaml` and update `values.schema.json`
     - Detect and report migration-wide backend reference (`backendRefName` / `backendRefPort`)
     - Infer and report output labels applied to generated Gateways/HTTPRoutes
@@ -403,7 +403,7 @@ and `internal-gateway-service` by default — override via chart value
 needs a rewrite or a longer-than-default timeout, one facade route
 (`{{ .Values.SERVICE_NAME }}-java-annotations-facade`). It never generates a per-type
 `-public`/`-private`/`-internal` HTTPRoute, never generates `RegularExpression` matches, and never
-generates an `AuthorizationPolicy` — see [Step 2.8](#step-28--public-gateway-access-control).
+generates an `AuthorizationPolicy` — see [Step 2.5](#step-25--public-gateway-access-control).
 
 After adding the plugin, run a local build to confirm it passes:
 
@@ -450,7 +450,54 @@ If `routeLabels` is not passed, the skill applies the default label set:
 
 ---
 
-## Step 2.5 — Verify All Routes Are Wrapped in Istio Conditionals
+## Step 2.5 — Public Gateway Access Control
+
+Per [allowed-and-forbidden-routes.md](../allowed-and-forbidden-routes.md), every route is now
+registered on `public-gateway`, `private-gateway` and `internal-gateway-service` regardless of
+its legacy type, and legacy `allowed: false` / `deny: true` rules are never emitted. A route that
+used to be unreachable from the public gateway (PRIVATE, INTERNAL, `allowed: false`, `deny: true`)
+is therefore registered there too and must be excluded by an `AuthorizationPolicy`.
+
+Cloud-Core ships a deny-unless-permit `AuthorizationPolicy` for `public-gateway` (`action: ALLOW`
+with no `rules`), so nothing of your service is reachable from the public gateway until it brings
+its own `ALLOW` policy. **Write it by hand** — only you know which endpoints are meant to be public.
+**If your service has no public endpoints, you do not need any policy.**
+
+The skill
+[`public-gateway-authz-policy`](../../../agent-packages/public-gateway-authz-policy/.apm/skills/public-gateway-authz-policy/SKILL.md)
+collects candidate paths (legacy public routes, and every `allowed: false` / `deny: true` path
+recorded by Steps 1 and 2.4) and prints a template. It writes no file unless you explicitly ask for a
+draft (`<chart>/templates/public-gateway-authorization-policy.yaml`, to be reviewed before merging).
+
+Example hand-written policy (see [crs-example.yaml](../crs-example.yaml) for a fuller walkthrough).
+Paths are exact unless they end in `*`, so list `/x` and `/x/*`. To block a path that another
+policy allows (the legacy `deny: true`), use a separate `action: DENY` policy:
+
+```yaml
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: '{{ .Values.SERVICE_NAME }}-public-gateway-allow'
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: public-gateway
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            paths:
+              - /api/v1/my-service/public
+              - /api/v1/my-service/public/*
+              - /api/v1/my-service/health
+{{- end }}
+```
+
+---
+
+## Step 2.6 — Verify All Routes Are Wrapped in Istio Conditionals
 
 Every HTTPRoute CR in your Helm templates must be wrapped in a conditional guard so it only renders when Istio is the active mesh. This prevents Gateway API resources from being applied to clusters running Core mesh.
 
@@ -462,7 +509,6 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: my-service-source-code-routes
-  namespace: {{ .Values.NAMESPACE }}
 spec:
   ...
 ---
@@ -476,16 +522,16 @@ metadata:
 
 ### Validation
 
-To verify, do a Helm dry-run with Istio disabled and confirm no HTTPRoute objects are rendered:
+To verify, do a Helm dry-run with Istio disabled and confirm no Istio / Gateway API objects are rendered:
 
 ```bash
-helm template . --set SERVICE_MESH_TYPE=Core | grep 'kind: HTTPRoute'
+helm template . --set SERVICE_MESH_TYPE=Core | grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/'
 # Expected: no output
 ```
 
 ---
 
-## Step 2.6 — Detect Duplicate HTTPRoute Rules
+## Step 2.7 — Detect Duplicate HTTPRoute Rules
 
 Once all HTTPRoutes exist — both those converted from declarative mesh CRs
 (Step 1) and those generated from route registration code (Step 2.4 / the Maven
@@ -513,13 +559,13 @@ duplicates and need no action.
 
 ---
 
-## Step 2.7 — Flag Imperative Control-Plane Calls
+## Step 2.8 — Flag Imperative Control-Plane Calls
 
 Routes and other mesh config can also be pushed to the Cloud-Core Control-Plane
 **imperatively** — for example a `curl`/`wget` against the control-plane REST API
 from a shell script, a Helm hook, a Kubernetes `Job`, an init-container, or a
 lifecycle command. Those calls bypass declarative CRs, the route-registration
-libraries, and the `SERVICE_MESH_TYPE` guard, so Steps 1–2.6 never convert them.
+libraries, and the `SERVICE_MESH_TYPE` guard, so Steps 1–2.7 never convert them.
 Under Istio the control-plane no longer routes this traffic, so each call needs a
 human decision: drop it, or replace it with an equivalent HTTPRoute.
 
@@ -559,52 +605,6 @@ Gate forms:
 
 ---
 
-## Step 2.8 — Public Gateway Access Control
-
-Per [allowed-and-forbidden-routes.md](../allowed-and-forbidden-routes.md), every route is now
-registered on `public-gateway`, `private-gateway` and `internal-gateway-service` regardless of
-its legacy type, and legacy `allowed: false` / `deny: true` rules are never emitted — there is no
-Istio equivalent of a per-gateway forced-404. This means a route that used to be unreachable from
-the public gateway (PRIVATE, INTERNAL, or legacy `allowed: false` / `deny: true`) is now reachable
-there **unless excluded**.
-
-Cloud-Core ships a deny-unless-permit `AuthorizationPolicy` for `public-gateway` (`action: ALLOW`
-with no `rules`), so nothing is actually reachable from the public gateway until your service
-brings its own `ALLOW` policy. **It is recommended that you write this policy by hand** — only
-you know which of your service's endpoints are genuinely meant to be public.
-
-Use the skill
-[`public-gateway-authz-policy`](../../../agent-packages/public-gateway-authz-policy/.apm/skills/public-gateway-authz-policy/SKILL.md)
-to collect the candidate paths (legacy public routes, and every `allowed: false` / `deny: true`
-path recorded by Steps 1 and 2.4) and print a hand-authoring template. By default it does **not**
-write any file — it only recommends and lists candidates. If you explicitly ask it to, it will
-generate a draft `AuthorizationPolicy` at
-`<chart>/templates/public-gateway-authorization-policy.yaml`, which still needs your review before
-merging.
-
-Example hand-written policy (see [crs-example.yaml](../crs-example.yaml) for a fuller walkthrough):
-
-```yaml
-apiVersion: security.istio.io/v1
-kind: AuthorizationPolicy
-metadata:
-  name: '{{ .Values.SERVICE_NAME }}-public-gateway-allow'
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: public-gateway
-  action: ALLOW
-  rules:
-    - to:
-        - operation:
-            paths:
-              - /api/v1/my-service/public/*
-              - /api/v1/my-service/health
-```
-
----
-
 ## Final Checklist
 
 Before raising a PR, verify all of the following:
@@ -612,10 +612,10 @@ Before raising a PR, verify all of the following:
 - [ ] [`core-mesh-crs-to-istio`](../../../agent-packages/core-mesh-crs-to-istio/.apm/skills/core-mesh-crs-to-istio/SKILL.md) skill run: existing mesh CRs converted to HTTPRoute CRs
 - [ ] Flagged features from Step 1.1 manually resolved
 - [ ] New mesh-aware libraries replace old route-posting libraries
-- [ ] `SERVICE_MESH_TYPE=Istio` set in Helm values / Deployment
+- [ ] `SERVICE_MESH_TYPE` wired in Helm values / Deployment (default `Core`; environments set `Istio`)
 - [ ] Maven plugin added and local build passes (Java only)
 - [ ] [`httproute-from-code`](../../../agent-packages/httproute-from-code/.apm/skills/httproute-from-code/SKILL.md) skill run: route registration code converted to HTTPRoute CRs
+- [ ] Public-gateway `AuthorizationPolicy` written by hand (a generated draft is reviewed before merging), or confirmed unnecessary
 - [ ] All HTTPRoute CRs wrapped in a `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` block
 - [ ] HTTPRoutes scanned for duplicate rules (same parent + equal match); duplicates resolved or flagged for review
 - [ ] Imperative control-plane API calls in scripts and manifests flagged for review (or removed / gated for Core)
-- [ ] Public-gateway `AuthorizationPolicy` provided for this service (hand-written recommended; a generated draft is reviewed before merging either way)

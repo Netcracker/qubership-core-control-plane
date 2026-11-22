@@ -10,11 +10,7 @@ spec:
       kind: Gateway
       name: public-gateway
   action: ALLOW
-  rules:
-    - to:
-        - operation:
-            paths:
-              - /**
+  # no rules => nothing is allowed
 ---
 # 2a. HTTPRoute of migrated microservice
 apiVersion: gateway.networking.k8s.io/v1
