@@ -4,15 +4,17 @@ description: >
   Orchestrate the full Cloud-Core Mesh to Istio migration end-to-end — convert
   declarative mesh CRs to Gateway API, migrate route-registration libraries, wire
   SERVICE_MESH_TYPE, add the Java HTTPRoute generator, generate HTTPRoutes from
-  Go/Java code, validate Istio guards / duplicate rules / imperative control-plane
-  calls, and maintain .mesh-migration/MIGRATION_LOG.md. Use when asked to migrate a
-  service from Core Mesh to Istio (Ambient Mesh) or run the migration guide end-to-end.
+  Go/Java code, validate Istio guards / duplicate rules / access control /
+  imperative control-plane calls, recommend (and, on request, draft) the
+  public-gateway AuthorizationPolicy, and maintain .mesh-migration/MIGRATION_LOG.md.
+  Use when asked to migrate a service from Core Mesh to Istio (Ambient Mesh) or run
+  the migration guide end-to-end.
 ---
 
 # Core Mesh → Istio — Full Migration Orchestrator
 
 This skill runs the complete migration described in the guide.
-It is an **orchestrator**: the heavy lifting lives in four atomic sub-skills, and this
+It is an **orchestrator**: the heavy lifting lives in five atomic sub-skills, and this
 skill coordinates them, resolves user questions, and keeps an auditable log.
 
 ## Invocation
@@ -36,7 +38,8 @@ treats earlier steps' reports.
 | [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert existing Helm mesh CRs to Gateway API + Istio resources |
 | [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md)                                | Steps 2.1–2.3 | Mesh-aware libraries, SERVICE_MESH_TYPE env, Maven plugin      |
 | [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
-| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.7 | Istio guards, render checks, duplicate rules, imperative control-plane calls |
+| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.7 | Istio guards, render checks, duplicate rules, access-control lint, imperative control-plane calls |
+| [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md)           | Step 2.8     | Recommend (and, only on explicit user insistence, draft) the public-gateway AuthorizationPolicy |
 
 **How to invoke a sub-skill:** communicate only through the sub-skill's
 `## Contract` — resolved inputs in, report file out. Always pass
@@ -241,6 +244,7 @@ Language: <Go | Java | Go+Java>
 | 2.5  | Verify HTTPRoutes are Istio-guarded         | pending     |       |
 | 2.6  | Detect duplicate HTTPRoute rules            | pending     |       |
 | 2.7  | Flag imperative control-plane calls         | pending     |       |
+| 2.8  | Public-gateway access (AuthorizationPolicy) | pending     |       |
 
 ## Commands run
 
@@ -377,8 +381,10 @@ records "already compliant / already present" items under `done:`.
 2. That skill will: switch route-registration libraries to mesh-aware versions
    (Spring / Quarkus / Go), ensure `SERVICE_MESH_TYPE` in Helm values / schema
    (may already be present from Step 1 — idempotent) and wire it into
-   Deployment `env:`, and add the `httproutes-generator-maven-plugin` for Java
-   services (building and committing its output when Maven is available).
+   Deployment `env:`, and add the Maven plugin matching the detected framework
+   for Java services — `httproutes-generator-spring-maven-plugin` (Spring) or
+   `httproutes-generator-maven-plugin` (Quarkus), both at `>= 1.2.1` —
+   (building and committing its output when Maven is available).
 3. Read `.mesh-migration/reports/mesh-build-wiring.yaml`. **If
    `status: partial`**, batch its `unresolved:` questions to the user in one
    round (e.g. `java-registration-artifact`: webclient or resttemplate?),
@@ -405,9 +411,15 @@ report this step's follow-up items read.
    so every generated HTTPRoute uses the same labels as declarative and plugin
    generated routes.
 2. That skill scans Go (`*.go`) and Java (`*.java`) files, extracts
-   `routeregistration.Route` / `RouteEntry` definitions, groups by `RouteType`,
-   and emits one HTTPRoute CR per type to
+   `routeregistration.Route` / `RouteEntry` definitions, reduces them to
+   `PathPrefix` roots, groups Public/Private/Internal (and border-gateway-named
+   routes) into a single gateway-group CR parented to `public-gateway`,
+   `private-gateway` and `internal-gateway-service`, and emits any Mesh/Facade
+   CRs needed, all to
    `helm-templates/<service name>/templates/source-code-httproutes.yaml`.
+   Legacy `Forbidden`/`allowed: false` routes are never emitted — they are
+   recorded in the report's `accessControl` block, consumed by
+   [Step 2.8](#step-28--public-gateway-access-authorizationpolicy).
 3. Read `.mesh-migration/reports/httproute-from-code.yaml`. **If
    `status: partial` with an `unresolved:` entry `microservice-name`** (the
    output contains the literal `<microservice-name>` placeholder):
@@ -440,14 +452,51 @@ report this step's follow-up items read.
 2. That skill will: verify every HTTPRoute file carries the Istio guard (adding
    missing guards — the one safe automatic fix), run the two `helm template`
    render checks (Istio mode produces HTTPRoutes/Gateways; Core mode leaks
-   none), flag duplicate HTTPRoute rules (same parent + equal match), and flag
-   imperative control-plane API calls in shell scripts and manifests — all
-   without modifying anything else.
+   none), flag duplicate HTTPRoute rules (same parent + equal match), lint for
+   leftover no-backend/`RegularExpression` rules and report whether a
+   public-gateway `AuthorizationPolicy` exists, and flag imperative
+   control-plane API calls in shell scripts and manifests — all without
+   modifying anything else.
 3. Read `.mesh-migration/reports/istio-migration-validate.yaml`; copy `guardsAdded:`
-   (log under **Done**), `commandsRun:`, `controlPlaneCalls:` (log the count
+   (log under **Done**), `commandsRun:`, `accessControlLint:` (log the counts
+   under **Done**; a `publicGatewayPolicies: 0` finding feeds
+   [Step 2.8](#step-28--public-gateway-access-authorizationpolicy)),
+   `controlPlaneCalls:` (log the count
    under **Done**), and `needsReview:` items into the log and the per-step
    status rows for 2.5, 2.6, and 2.7. `status: failed` → apply the
    [Error policy](#error-policy--read-before-executing-any-step).
+
+### Step 2.8 — Public-gateway access (AuthorizationPolicy)
+
+Per [docs/istio/allowed-and-forbidden-routes.md](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md),
+every route is now reachable from the public gateway unless excluded by an
+`AuthorizationPolicy`, and Cloud-Core's own policy there is deny-unless-permit — so a
+service is unreachable from the public gateway until it ships one. **The recommended path is for
+the service owner to write this policy by hand.** This step never generates one without being
+told to.
+
+1. Aggregate the `accessControl` blocks from the Step 1
+   (`core-mesh-crs-to-istio`) and Step 2.4 (`httproute-from-code`) reports — `legacyPublic`,
+   `forbidden`, `deny` — and the `accessControlLint.publicGatewayPolicies` count from Step
+   2.5–2.7.
+2. Invoke the sub-skill
+   [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) with
+   `chartPath`, `codePath`, the aggregated `accessControl`, migration-wide `routeLabels`,
+   `generate: false`, `interactive: false`. It only recommends and collects candidates at this
+   point — it writes no file.
+3. Read `.mesh-migration/reports/public-gateway-authz-policy.yaml`. Relay its recommendation and
+   candidate lists (`candidates.legacyPublic` / `forbidden` / `deny` / `javaAnnotated`) to the
+   user, together with the hand-authoring template it printed, and ask **once**:
+   > It is recommended that you write the public-gateway `AuthorizationPolicy` yourself using the
+   > candidates above. Do you want me to generate a draft anyway?
+4. **If the user insists** on a generated draft, re-invoke the sub-skill with the same inputs plus
+   `generate: true`, re-read the report, and log the generated file path under **Done**. **If the
+   user declines** (the default, expected answer), log under **Needs review**: "Service owner to
+   write the public-gateway `AuthorizationPolicy` by hand — candidates collected in
+   `.mesh-migration/reports/public-gateway-authz-policy.yaml`."
+5. If the report's `existingPolicy` is non-null (a hand-written policy already exists), log that
+   path under **Done** instead and skip the question — nothing to generate or recommend further.
+6. `status: failed` → apply the [Error policy](#error-policy--read-before-executing-any-step).
 
 ---
 
@@ -469,7 +518,9 @@ at least one **Done** entry and zero unresolved **Needs review** entries:
 - [x/ ] HTTPRoute CRs generated from route registration code
 - [x/ ] All HTTPRoute CRs wrapped in the Istio conditional
 - [x/ ] HTTPRoutes scanned for duplicate rules (same parent + equal match)
+- [x/ ] Access-control lint run (no-backend/regex leftovers, public-gateway AuthorizationPolicy presence)
 - [x/ ] Imperative control-plane API calls flagged for review
+- [x/ ] Public-gateway AuthorizationPolicy provided (hand-written recommended; drafted only on request)
 
 Open items (require user review):
 - <list all remaining "Needs review" entries from .mesh-migration/MIGRATION_LOG.md>
@@ -515,6 +566,10 @@ Close with a plain-language summary telling the user:
   is on disk for the steps that read it.
 - **Follow the Error policy.** On any unrecoverable failure, stop the step, log
   it, and ask the user whether to continue or abort before taking further action.
+- **Never generate an `AuthorizationPolicy` without explicit user insistence.** Step 2.8
+  always recommends manual authoring first; only invoke
+  [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) with `generate: true`
+  after the user has explicitly said to generate a draft anyway.
 
 ---
 
@@ -526,4 +581,7 @@ consumer `.gitignore` (the `.mesh-migration/` entry), and files under
 `.mesh-migration/` (reports and `MIGRATION_LOG.md`).
 
 It does not raise pull requests, push branches, rewrite application logic, or
-modify git configuration.
+modify git configuration. It does not generate a public-gateway
+`AuthorizationPolicy` unless the user explicitly insists (see Step 2.8) — the
+recommended, default outcome is a hand-authoring recommendation plus collected
+candidates, not a generated file.

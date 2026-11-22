@@ -10,6 +10,12 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: public-gateway
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: private-gateway
+  - group: ''
+    kind: Service
+    name: internal-gateway-service
   rules:
   # ⚠ MANUAL REVIEW: x-debug used invertMatch, which Gateway API cannot express.
   # The header match is dropped, so this rule now matches requests the original

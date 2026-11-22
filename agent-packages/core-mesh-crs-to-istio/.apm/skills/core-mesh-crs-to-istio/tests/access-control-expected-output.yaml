@@ -1,0 +1,76 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+# billing-public-routes: public-gateway-service widened to all three border gateways (PRIORITY 0).
+# allowed:false and deny:true rules are never emitted — no Istio equivalent. See
+# .mesh-migration/reports/core-mesh-crs-to-istio.yaml → accessControl for the omitted paths.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: billing-public-routes
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: public-gateway
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: private-gateway
+  - group: ''
+    kind: Service
+    name: internal-gateway-service
+  rules:
+  # regExp "/api/v1/billing/accounts/[a-f0-9-]+" reduced to a specific PathPrefix root —
+  # no MANUAL REVIEW needed, the root still names an API resource.
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing/accounts
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing-service
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing/invoices
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing-service
+      port: 8080
+      weight: 1
+  # ⚠ MANUAL REVIEW: regExp "/api/v1/.*" reduces to the too-general root /api/v1 — it names no
+  # API resource or service and would shadow every other route on these gateways. Not emitted;
+  # express it as an Exact/PathPrefix match by hand.
+---
+# billing-private-routes: private-gateway-service also widened to all three border gateways —
+# PRIORITY 0 applies regardless of which single border name the CR listed.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: billing-private-routes
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: public-gateway
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: private-gateway
+  - group: ''
+    kind: Service
+    name: internal-gateway-service
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing/ledger
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing-service
+      port: 8080
+      weight: 1
+{{- end }}

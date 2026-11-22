@@ -90,6 +90,18 @@ backendRef:
 labels:
   values: <map or null>
   unresolvedReason: <string or null>
+accessControl:                     # omit entirely when all three lists are empty
+  legacyPublic:                    # routes that used to be reachable from the public gateway
+    - from: <match value>
+      cr: <RouteConfiguration/Mesh CR name>
+  forbidden:                       # allowed:false rules — never emitted, see route-configuration-mapping.md
+    - from: <match value>
+      cr: <CR name>
+      methods: [<HTTP methods>]    # present only when a :method header matcher was attached
+  deny:                            # deny:true rules — never emitted, see route-configuration-mapping.md
+    - from: <match value>
+      cr: <CR name>
+      methods: [<HTTP methods>]    # present only when a :method header matcher was attached
 unresolved:                 # empty when status is complete
   - id: gateway/<gateway-name>
     question: "Gateway '<gateway-name>' is referenced in routes but not defined in this chart — ingress or mesh?"
@@ -151,6 +163,11 @@ leave it to the user.
 `HttpFilters` entries for `wasmFilters` / `extAuthzFilter` alone (no `luaFilters`)
 are out of scope.
 
+This skill never generates an `AuthorizationPolicy`. Legacy `allowed: false` / `deny: true`
+rules are recorded in the `accessControl` report block (see [Step 5a](#step-5a--capture-access-control-entries))
+for [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) to use on request —
+writing the public-gateway policy by hand is the recommended path.
+
 ---
 
 ## Step-by-Step Transformation Procedure
@@ -198,11 +215,16 @@ review instead.
 
     1. **Well-known platform gateway name** — takes highest priority regardless of any local CR:
         * `"egress-gateway"` → **egress** type
-        * `"public-gateway-service"` → **ingress** type
-        * `"private-gateway-service"` → **ingress** type
-        * `"internal-gateway-service"` → **mesh** type (parentRef = Service, no `port`;
-          Lua and other extensions target the mesh Gateway from discovery,
-          `waypoint` on Cloud Core)
+        * `"public-gateway-service"` / `"private-gateway-service"` / `"internal-gateway-service"`
+          → **border** type. All three resolve to the identical fixed parentRefs triple
+          (`public-gateway`, `private-gateway`, `internal-gateway-service`) — see
+          [parent-refs-resolution.md](parent-refs-resolution.md) PRIORITY 0. Matching any one of
+          the three widens the whole CR to all three; there is no narrower "ingress-only"
+          resolution anymore (Istio does not reproduce the legacy per-gateway PUBLIC/PRIVATE/
+          INTERNAL visibility — see
+          [docs/istio/allowed-and-forbidden-routes.md](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md)).
+          `internal-gateway-service` carries no `port`; Lua and other extensions still target the
+          mesh Gateway from discovery, `waypoint` on Cloud Core, unaffected by this widening.
     2. **Gateway CR in the scanned chart/folder** — used only if the name is not well-known:
         - `spec.gatewayType: ingress` or `egress` → ingress/egress Gateway
         - `spec.gatewayType: mesh` or absent → mesh (parentRef = Service)
@@ -287,7 +309,8 @@ Process CR kinds in this order, following the mapping reference for each:
 
 1. `Gateway` CRs → [gateway-mapping.md](gateway-mapping.md)
 2. `FacadeService` CRs → [facade-service-mapping.md](facade-service-mapping.md)
-3. List in chat all resolved gateways: mesh gateways and ingress/egress gateways.
+3. List in chat all resolved gateways: border gateways (widened per PRIORITY 0), mesh gateways,
+   and ingress/egress gateways.
 4. `RouteConfiguration` CRs → [route-configuration-mapping.md](route-configuration-mapping.md);
    rule-level `statefulSession` → [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md)
    (DestinationRule in the same output file, after the HTTPRoute, `---` separated).
@@ -296,7 +319,9 @@ Process CR kinds in this order, following the mapping reference for each:
    in the same output file, after the HTTPRoute).
 5. Sort each HTTPRoute's `rules[]` by path specificity per the shared procedure in
    [path-specificity-sorting](../path-specificity-sorting/SKILL.md)
-   (sort on each rule's `match.prefix` / `match.path` / `match.regExp` value)
+   (sort on each rule's `match.prefix` / `match.path` value, or the reduced `PathPrefix` value for
+   a former `match.regExp` — see `regExp reduction` in
+   [route-configuration-mapping.md](route-configuration-mapping.md))
 6. Standalone `StatefulSession` → [stateful-session-mapping.md](stateful-session-mapping.md)
 7. `LoadBalance` → [load-balance-mapping.md](load-balance-mapping.md)
 8. `HttpFilters` + `RouteConfiguration` rules with `luaFilter` →
@@ -334,6 +359,22 @@ migrated chart contains only routes for its own service**.
 
 Report the result in the Output Summary. Do not ask the user here — resolution
 is the orchestrator's job.
+
+### Step 5a — Capture access-control entries
+
+While processing `RouteConfiguration` CRs (Step 4.4), collect the data that feeds the service's
+public-gateway `AuthorizationPolicy` recommendation (see
+[`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md)):
+
+1. **`accessControl.legacyPublic[]`** — every rule that is **emitted** (not forbidden, not
+   `deny`) from a CR whose `spec.gateways` includes `public-gateway-service` (i.e. a rule that
+   used to be reachable from the public gateway and stays reachable there under the PRIORITY 0
+   widening). Record its match value and source CR name.
+2. **`accessControl.forbidden[]`** and **`accessControl.deny[]`** — populated by `Forbidden rule
+   processing (allowed: false)` and `Deny rule processing (deny: true)` in
+   [route-configuration-mapping.md](route-configuration-mapping.md) as each rule is processed; do
+   not re-derive them here, just make sure every entry produced there lands in the report.
+3. Omit the whole `accessControl` block from the report when all three lists are empty.
 
 ### Step 6 — Capture labels applied to generated resources
 
@@ -480,6 +521,16 @@ Detected output labels (for Maven plugin / code-generated HTTPRoutes):
   # if unresolved, state why: helper indirection not resolvable
   #                           | conflicting label definitions
 
+Access control (only when accessControl is non-empty — see Step 5a):
+  Legacy-public routes now registered on public-gateway, private-gateway and internal-gateway-service:
+    - <from> (<CR name>)
+  Forbidden routes (never emitted — no Istio equivalent):
+    - <from> (<CR name>)
+  Deny routes (never emitted — no Istio equivalent):
+    - <from> (<CR name>)
+  No AuthorizationPolicy is generated by this skill — see public-gateway-authz-policy for the
+  recommended manual-authoring workflow (generation only on explicit request).
+
 Items needing manual review:
   <list every ⚠ MANUAL REVIEW hit — one line per hit>
 ```
@@ -494,6 +545,7 @@ field-by-field rules, and full examples:
 - [facade-service-mapping.md](facade-service-mapping.md) — FacadeService → Service
 - [gateway-mapping.md](gateway-mapping.md) — Gateway → Istio Gateway
 - [route-configuration-mapping.md](route-configuration-mapping.md) — RouteConfiguration → HTTPRoute
+- [parent-refs-resolution.md](parent-refs-resolution.md) — `spec.gateways` → `HTTPRoute.spec.parentRefs` priority procedure (border gateway widening, ingress/egress, mesh)
 - [tls-def-mapping.md](tls-def-mapping.md) — egress TlsDef + https destinations → Secret, ServiceEntry, DestinationRule
 - [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md) — Rule-level StatefulSession → DestinationRule
 - [stateful-session-mapping.md](stateful-session-mapping.md) — Standalone StatefulSession → DestinationRule
@@ -501,3 +553,4 @@ field-by-field rules, and full examples:
 - [lua-filter-mapping.md](lua-filter-mapping.md) — HttpFilters + RouteConfiguration → TrafficExtension
 - [labels.md](labels.md) — Common label resolution
 - [path-specificity-sorting](../path-specificity-sorting/SKILL.md) — Sort HTTPRoute `rules[]` by path specificity (shared with `httproute-from-code`)
+- [public-gateway-authz-policy](../public-gateway-authz-policy/SKILL.md) — recommended manual authoring (and on-request draft generation) of the public-gateway `AuthorizationPolicy`, fed by this skill's `accessControl` report block

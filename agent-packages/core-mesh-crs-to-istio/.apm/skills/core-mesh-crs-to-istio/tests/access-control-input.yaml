@@ -1,0 +1,72 @@
+---
+apiVersion: nc.core.mesh/v3
+kind: RouteConfiguration
+metadata:
+  name: billing-public-routes
+spec:
+  gateways: ["public-gateway-service"]
+  virtualServices:
+    - name: public-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: v1
+        routes:
+          - destination:
+              cluster: billing-service
+              endpoint: http://billing-service:8080
+            rules:
+              # Plain allowed rule — stays a normal HTTPRoute rule, and is recorded in
+              # accessControl.legacyPublic[] because its CR is on public-gateway-service.
+              - match:
+                  prefix: /api/v1/billing/invoices
+                allowed: true
+              # Forbidden rule with no method restriction — omitted entirely,
+              # recorded in accessControl.forbidden[] with no `methods`.
+              - match:
+                  prefix: /api/v1/billing/admin
+                allowed: false
+              # Forbidden rule restricted to DELETE only (legacy per-method 404) —
+              # omitted entirely, recorded in accessControl.forbidden[] with methods: [DELETE].
+              - match:
+                  prefix: /api/v1/billing/invoices/bulk
+                  headerMatchers:
+                    - name: ":method"
+                      exactMatch: DELETE
+                allowed: false
+              # Deny rule overriding an OOB-allowed path — omitted entirely,
+              # recorded in accessControl.deny[], flagged MANUAL REVIEW.
+              - match:
+                  prefix: /api/v1/billing/internal-only
+                deny: true
+              # regExp with a specific, resource-named root — reduced to PathPrefix,
+              # no MANUAL REVIEW.
+              - match:
+                  regExp: "/api/v1/billing/accounts/[a-f0-9-]+"
+                allowed: true
+              # regExp that reduces to the too-general root /api/v1 — not emitted,
+              # flagged MANUAL REVIEW.
+              - match:
+                  regExp: "/api/v1/.*"
+                allowed: true
+---
+apiVersion: nc.core.mesh/v3
+kind: RouteConfiguration
+metadata:
+  name: billing-private-routes
+spec:
+  gateways: ["private-gateway-service"]
+  virtualServices:
+    - name: private-gateway-service
+      hosts: ["*"]
+      routeConfiguration:
+        version: v1
+        routes:
+          - destination:
+              cluster: billing-service
+              endpoint: http://billing-service:8080
+            rules:
+              # Private-only CR — widened to all three border gateways under PRIORITY 0.
+              # Not public-gateway-service, so NOT recorded in accessControl.legacyPublic[].
+              - match:
+                  prefix: /api/v1/billing/ledger
+                allowed: true

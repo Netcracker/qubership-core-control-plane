@@ -4,9 +4,11 @@ description: >
   Validate the output of a Core Mesh to Istio migration: verify every HTTPRoute
   file is wrapped in the SERVICE_MESH_TYPE=Istio guard (adding missing guards),
   check that no HTTPRoute renders under Core mode, flag duplicate HTTPRoute
-  rules (same parent + equal match), and flag imperative control-plane API calls
-  in shell scripts and manifests. Use when asked to validate or check a
-  migrated chart, or as a sub-skill of core-mesh-to-istio-migration.
+  rules (same parent + equal match), lint for leftover no-backend/regex rules
+  and missing public-gateway AuthorizationPolicy, and flag imperative
+  control-plane API calls in shell scripts and manifests. Use when asked to
+  validate or check a migrated chart, or as a sub-skill of
+  core-mesh-to-istio-migration.
 ---
 
 # Istio migration validation
@@ -47,6 +49,10 @@ renderChecks:
   istioMode: pass | fail    # HTTPRoute/Gateway present under SERVICE_MESH_TYPE=Istio
   coreMode: pass | fail     # no HTTPRoute leaks under SERVICE_MESH_TYPE=Core
 duplicateGroups: <N>
+accessControlLint:            # Step 3b — read-only, additive
+  noBackendRules: <N>          # rules with no backendRefs (leftover forbidden-route emulation)
+  regexMatches: <N>            # matches[].path.type: RegularExpression still present
+  publicGatewayPolicies: <N>   # AuthorizationPolicies targeting Gateway public-gateway
 controlPlaneCalls: <N>        # imperative control-plane calls found by Step 4
 commandsRun:
   - command: <cmd>
@@ -136,6 +142,37 @@ same parent and identical match are ambiguous and **must not be auto-removed**
 5. **Do not modify any file in this step.** It only reports. Record the group
    count under `duplicateGroups:`.
 
+## Step 3b — Access-control lint
+
+Per [docs/istio/allowed-and-forbidden-routes.md](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md),
+Istio has no forbidden-route (404-without-backend) rule and no per-gateway deny — access control
+for the public gateway is an `AuthorizationPolicy`, normally written by hand (see
+[`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md)). This step only reports;
+it never edits or generates anything.
+
+1. **No-backend rules.** Across every HTTPRoute file guarded by `SERVICE_MESH_TYPE=Istio`, count
+   rules with no `backendRefs` at all. A rule with no backend has no Istio equivalent of the
+   legacy forced-404 route and usually means an older, unmigrated conversion slipped through.
+   Record the count under `accessControlLint.noBackendRules:`; for each one found, add a
+   `needsReview:` entry naming the file and rule.
+2. **Leftover regex matches.** Count `matches[].path.type: RegularExpression` occurrences across
+   the same files — generated and migrated routes should all be `PathPrefix`/`Exact` now (see
+   `regExp reduction` in
+   [`core-mesh-crs-to-istio/route-configuration-mapping.md`](../core-mesh-crs-to-istio/route-configuration-mapping.md)
+   and `Step 6a` in [`httproute-from-code/SKILL.md`](../httproute-from-code/SKILL.md)). Record the
+   count under `accessControlLint.regexMatches:`; for each one, add a `needsReview:` entry naming
+   the file and rule (a header-matcher `RegularExpression` is not in scope here — only path
+   matches).
+3. **Public-gateway AuthorizationPolicy presence.** Count `AuthorizationPolicy` resources in the
+   chart whose `spec.targetRefs` includes `{kind: Gateway, name: public-gateway}`. Record the
+   count under `accessControlLint.publicGatewayPolicies:`.
+   - **`0`** → add a `needsReview:` entry: "No public-gateway `AuthorizationPolicy` found —
+     recommended: write one by hand (see `public-gateway-authz-policy`); until it exists, every
+     route is blocked on `public-gateway` by Cloud-Core's deny-unless-permit policy."
+   - **`1` or more** → no finding; this step does not evaluate whether the policy's paths are
+     correct, only that one exists.
+4. **Do not modify any file in this step.** It only reports.
+
 ## Step 4 — Flag imperative control-plane calls
 
 Routes and other mesh config can also be pushed to the Cloud-Core
@@ -198,4 +235,6 @@ these calls are safe to auto-migrate.**
 
 Write the contract report file (see [Contract → Outputs](#outputs)), then print
 a short chat summary: guards added, render-check outcomes, duplicate groups
-found, control-plane calls found, and every `needsReview:` entry.
+found, access-control lint results (no-backend rules, leftover regex matches,
+public-gateway `AuthorizationPolicy` count), control-plane calls found, and
+every `needsReview:` entry.

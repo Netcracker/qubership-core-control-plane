@@ -14,15 +14,48 @@ Target field:
 
 Mapping:
 
-  PRIORITY 1 — Platform gateway table:
+  PRIORITY 0 — Border gateway group:
+
+    parentRef type: Gateway + Gateway + Service (fixed triple, not one-to-one)
+    mapping: one-to-many — a single matching source name expands to all three
+    condition: `spec.gateways` contains ANY of `public-gateway-service`,
+        `private-gateway-service`, `internal-gateway-service`
+    reason: per https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md, the legacy per-gateway visibility
+        (PUBLIC reachable from public+private+internal, PRIVATE from private+internal, INTERNAL
+        from internal only) is not reproduced on Istio. Every route that used to be registered on
+        any one border gateway is now registered on all three.
+    parentRefs emitted (always exactly these three, regardless of which border name(s) matched):
+
+```yaml
+spec:
+    parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: public-gateway
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: private-gateway
+    - group: ''
+      kind: Service
+      name: internal-gateway-service
+```
+
+    `internal-gateway-service` never carries a `port` and never uses `virtualService.hosts[]` for
+    naming — it is always the fixed Service name above.
+
+    This priority takes effect for the **whole** RouteConfiguration/virtualService once any one
+    border name appears in `spec.gateways`; it is not narrowed per-rule. A CR that lists
+    `gateways: ["public-gateway-service"]` and one that lists all three produce the identical
+    parentRefs output.
+
+  PRIORITY 1 — Platform gateway table (non-border):
 
     parentRef type: Gateway
     mapping: one-to-one 
-    condition: gateway is in list of platform Gateways
+    condition: gateway is in list of platform Gateways, and is NOT one of the three border names
+        handled by PRIORITY 0
     parentRef name resolution:
         source name              parentRef name
-        public-gateway-service  → public-gateway
-        private-gateway-service → private-gateway
         egress-gateway          → egress-gateway
 
         kind: Gateway
@@ -34,7 +67,7 @@ spec:
     parentRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: <platform Gateway name, e.g. public-gateway>
+      name: egress-gateway
 ```
 
   PRIORITY 2 — ingress/egress gateway:
@@ -58,15 +91,15 @@ spec:
       name: <ingress/egress Gateway name>
 ```
 
-  PRIORITY 3 — Internal gateway or mesh Gateway:
+  PRIORITY 3 — Mesh Gateway (discovered, not a border name):
 
     parentRef type: Service
     mapping: one-to-many (one parentRef per host entry)
-    condition: gateway = `internal-gateway-service` OR gateway is in list of discovered mesh Gateways
+    condition: gateway is in list of discovered mesh Gateways and is NOT `internal-gateway-service`
+        (that name is always handled by PRIORITY 0, never reaches this priority)
     parentRef name resolution:
         normalized host from virtualService.hosts[]
-    port: never set. On Cloud Core the internal fallback route of core-mesh-config has no port, and
-        the waypoint lets it shadow every route to the same Service whose parentRef sets one.
+    port: never set.
 
 Example:
 ```yaml

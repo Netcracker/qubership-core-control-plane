@@ -102,7 +102,8 @@ Omit `hostnames` field in HTTPRoute.spec
 After flattening, sort the resulting `rules[]` by path specificity using the
 shared procedure in
 [`path-specificity-sorting.md`](../path-specificity-sorting/SKILL.md)
-— sort on each rule's match value (`match.prefix` / `match.path` / `match.regExp`).
+— sort on each rule's match value after `regExp` root reduction (`match.prefix` / `match.path` /
+the reduced `PathPrefix` value for a former `match.regExp`).
 
 ---
 
@@ -195,17 +196,48 @@ Output:
                    not order these two, so this is for diffability against a regenerated file)
   removeHeaders   []string           → RequestHeaderModifier remove[] (rule-level, merged with VS-level)
   timeout         *int64             → timeouts.request: "<value>ms"  (value is milliseconds)
-  allowed         *bool              → when false then refer to `Not allowed rule processing`
+  allowed         *bool              → when false then refer to `Forbidden rule processing (allowed: false)`
   idleTimeout     *int64             OMIT  ⚠ flag for MANUAL REVIEW if non-nil
   statefulSession *StatefulSession   → DestinationRule (see [stateful-session-rule-mapping.md](stateful-session-rule-mapping.md))
   rateLimit       string             OMIT  ⚠ flag for MANUAL REVIEW if non-empty
-  deny            *bool              OMIT  ⚠ flag for MANUAL REVIEW if non-nil
+  deny            *bool              → when non-nil (true) refer to `Deny rule processing (deny: true)`
   luaFilter       string             OMIT from HTTPRoute → TrafficExtension in the same pass, see [lua-filter-mapping.md](lua-filter-mapping.md)
 
 ---
 
-### Not allowed rule processing
-When Rule.allowed is false - omit `backendRefs` field for it. This will force istio to return 404 for matched path
+### Forbidden rule processing (`allowed: false`)
+
+Per [docs/istio/allowed-and-forbidden-routes.md](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md),
+Istio's Gateway API has no "allowed but return 404" rule. **Do not emit the rule at all** — no
+`backendRefs`-less rule, no direct-response filter. If every rule in a `RouteV3` (or an entire
+virtualService) is forbidden, omit that `RouteV3`/virtualService's output entirely.
+
+Instead, record it in the skill's report under `accessControl.forbidden[]`:
+
+- `from`: the rule's match value (post path-type resolution, pre any `regExp` root reduction).
+- `cr`: the source `RouteConfiguration`/`Mesh` CR name.
+- `methods`: include **only** when the rule's `match.headers[]` contains a matcher on the
+  pseudo-header `:method` (i.e. a legacy method restriction); omit the field otherwise.
+
+If the CR's `spec.gateways` includes a border gateway name (`public-gateway-service` —
+see [parent-refs-resolution.md](parent-refs-resolution.md) PRIORITY 0), add one
+`# ⚠ MANUAL REVIEW` line and a `needsReview:` entry: "Forbidden route `<from>` on a border
+gateway — the service's public-gateway AuthorizationPolicy must not allow this path." Rules on a
+non-border gateway (egress, mesh) are recorded but not flagged — they have no public-gateway
+exposure to protect against.
+
+### Deny rule processing (`deny: true`)
+
+Legacy `deny: true` let a route override an already-allowed route (e.g. one an OOB configuration
+allowed) with a forced 404 — see [docs/istio/allowed-and-forbidden-routes.md](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md).
+Gateway API has no per-gateway deny rule. **Do not emit the rule at all** — same handling as
+`allowed: false`. Always add `# ⚠ MANUAL REVIEW` (this is a narrower, more surprising case than a
+plain forbidden route, since it was overriding something already allowed elsewhere).
+
+Record it in the report under `accessControl.deny[]`, using the same fields as `forbidden[]`
+(`from`, `cr`, optional `methods`), and a `needsReview:` entry: "Deny route `<from>` — exclude
+this path from the service's public-gateway AuthorizationPolicy (it was overriding an
+already-allowed OOB route)."
 
 ### RouteMatch
 
@@ -213,13 +245,41 @@ When Rule.allowed is false - omit `backendRefs` field for it. This will force is
   ───────────────────────────────────────────────────────────────────────────────────────
   prefix    string           → path.type: PathPrefix,        value: <prefix>
   path      string           → path.type: Exact,             value: <path>
-  regExp    string           → path.type: RegularExpression, value: <regexp>
+  regExp    string           → reduce to a PathPrefix root, see `regExp reduction` below
   headers   []HeaderMatcher  → matches[].headers[]
 
   Path match type — mutually exclusive, apply first non-empty in this priority:
     1. prefix  → PathPrefix
     2. path    → Exact
-    3. regExp  → RegularExpression
+    3. regExp  → PathPrefix root (never RegularExpression — see below)
+
+#### regExp reduction
+
+Gateway API `RegularExpression` path matches are no longer emitted for `RouteMatch.regExp` (header
+matcher `safeRegexMatch` etc. are unaffected — see HeaderMatcher below). Reduce the regex to a
+`PathPrefix` root instead, mirroring the root reduction `httproutes-generator-maven-plugin` /
+`httproutes-generator-spring-maven-plugin` apply to annotation routes:
+
+1. Strip a leading `^` anchor if present.
+2. Cut the pattern at the first regex metacharacter (`(`, `[`, `.`, `*`, `+`, `?`, `{`, `|`, `\`,
+   `$`) or templated segment. Everything before the cut, up to the last complete `/`-separated
+   segment, becomes the `PathPrefix` value.
+3. Apply `prefixRewrite` (if set) as usual — it is independent of this reduction.
+4. **Too-general root — flag, do not emit:** if the reduced prefix is exactly `/`, `/api`, `/vN`,
+   `/api/vN`, or `/vN/api` (N = one or more digits; case-insensitive; trailing slash ignored), it
+   names no API resource or service and would shadow every other route on the gateway it
+   attaches to. Do not emit the rule. Add `# ⚠ MANUAL REVIEW` quoting the original `regExp` value,
+   and record it exactly like a forbidden route (see `Forbidden rule processing`) but under a
+   `needsReview:` entry worded "regExp `<value>` reduces to the too-general prefix `<prefix>` —
+   express it as an Exact/PathPrefix match by hand."
+5. **Specific root — no flag.** Any other reduced prefix is emitted as a normal `PathPrefix` rule.
+   Note the conversion in the chat Output Summary (not `needsReview:`) so the regex-to-prefix
+   narrowing/widening is visible, but it does not block the migration.
+6. **Merge against an existing rule with the same reduced root:** if another rule in the same
+   `RouteV3`/virtualService already emits that exact `PathPrefix` value with the same rewrite and
+   backend, drop the duplicate silently (same rule, same target). If the rewrite or backend
+   differs, keep both and add `# ⚠ MANUAL REVIEW` — the regex conversion is ambiguous and a human
+   must confirm which one is authoritative.
 
 ---
 
@@ -310,6 +370,8 @@ so the flag has to be acted on rather than noted.
 | `VirtualService.hosts[]` | `*` host | appears on an east-west (mesh) route |
 | `RouteDestination` | `cluster` / `httpVersion` / `circuitBreaker` / `tcpKeepalive` | non-empty; `cluster` is **not** flagged on egress external destinations (used as ServiceEntry name) |
 | `VirtualService.name` | reused on the same gateway **and this CR emits virtual-service-level headers** | the reused names carry different `addHeaders` / `removeHeaders`; Core Mesh keeps one list, Istio gives each HTTPRoute its own. A CR whose headers are all rule-level does not fire this |
-| `RouteV3.Rule` | `idleTimeout` / `rateLimit` / `deny` | non-empty / non-nil |
+| `RouteV3.Rule` | `idleTimeout` / `rateLimit` | non-empty / non-nil |
+| `RouteV3.Rule` | `deny: true` | always flagged — rule omitted, see `Deny rule processing (deny: true)` |
+| `RouteMatch` | `regExp` reducing to a too-general `PathPrefix` root (`/`, `/api`, `/vN`, `/api/vN`, `/vN/api`) | see `regExp reduction` — rule omitted |
 | `HeaderMatcher` | `invertMatch: true` or `presentMatch: false` | Gateway API has no negated header match; dropping it widens the route |
 | `HeaderMatcher` | `rangeMatch` | numeric range has no Gateway API equivalent |

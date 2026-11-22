@@ -164,44 +164,94 @@ each. If the desired runtime mesh for an environment is unclear, keep the defaul
 
 ## Step 3 — Add the Maven plugin (Java services only)
 
-**Idempotency check:** if `httproutes-generator-maven-plugin` is already present
-in `pom.xml`, record under `done:` ("already present") and finish.
+Two separate artifacts exist, one per framework (see the
+[Spring plugin README](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-maven-plugins/httproutes-generator-spring-maven-plugin/README.md)
+and the
+[Quarkus plugin README](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-maven-plugins/httproutes-generator-maven-plugin/README.md)):
+
+| Framework | Artifact |
+|---|---|
+| Spring (`spring-boot-starter-*` detected in `pom.xml`) | `com.netcracker.cloud.plugins:httproutes-generator-spring-maven-plugin` |
+| Quarkus (`quarkus-*` detected in `pom.xml`) | `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin` |
+
+Use the same framework detection as [Step 1](#step-1--switch-to-mesh-type-aware-route-registration-libraries).
+If both markers are present (e.g. `quarkus-spring-web`) or neither is conclusive, do not guess:
+check the `resolutions` input for id `java-framework`; if absent, with `interactive: true` ask the
+user, otherwise add an `unresolved:` entry (id `java-framework`, options `[spring, quarkus]`) and
+skip this step only — everything else still runs. Set `status: partial` when writing the final
+report. Each plugin itself also fails the build (not this skill) if it detects the wrong
+framework's markers with none of its own — see the README "Framework guard" section — so a wrong
+guess here surfaces immediately at `mvn` time rather than silently.
+
+**Idempotency check:** if the artifact matching the detected framework is already present in
+`pom.xml` at version `>= 1.2.1`, record under `done:` ("already present") and finish. If the
+*other* artifact is present instead (e.g. the old generic `httproutes-generator-maven-plugin` on a
+Spring-only service), switch the `artifactId` to the one matching the detected framework rather
+than adding a second plugin. If the right artifact is present below `1.2.1`, bump the version.
 
 - **If no `pom.xml`** → record under `skipped:` ("No pom.xml found — Go-only
   service") and finish.
 - **If the Java service does not use route-registration annotations** → record
   under `skipped:` with the reason and finish.
-- **If `pom.xml` exists and annotations are used**, follow these five sub-steps
-  (from the [plugin README](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-maven-plugins/httproutes-generator-maven-plugin/README.md)):
-  1. **Add plugin to `pom.xml`** with the following configuration:
+- **If `pom.xml` exists and annotations are used**, follow these five sub-steps:
+  1. **Add the plugin matching the detected framework** to `pom.xml` with the following
+     configuration:
      - `<groupId>com.netcracker.cloud.plugins</groupId>`
-     - `<artifactId>httproutes-generator-maven-plugin</artifactId>`
+     - `<artifactId>httproutes-generator-spring-maven-plugin</artifactId>` (Spring) or
+       `<artifactId>httproutes-generator-maven-plugin</artifactId>` (Quarkus).
      - `<version>` must use the latest available release, but never lower than
-       `1.0.2` (`>= 1.0.2`).
+       `1.2.1` (`>= 1.2.1`).
      - `<goal>generate-routes</goal>`
      - `<packages>` resolved from `src/main/java/...`. If ambiguous, set
        `com.example` and add a `needsReview:` entry.
      - `<servicePort>` set to the `backendRefPort` input.
      - `<outputFile>` pointing inside the chart templates directory, defaulting
        to `<chartPath>/templates/annotations-httproutes.yaml`.
-     - `<backendRefVal>` set to the `backendRefName` input, e.g.
-       `<backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>`.
+     - `<backendRefVal>` **always set explicitly** to the `backendRefName` input, e.g.
+       `<backendRefVal>{{ .Values.DEPLOYMENT_RESOURCE_NAME }}</backendRefVal>`. The plugin's own
+       default changed from `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` to
+       `{{ .Values.SERVICE_NAME }}` in 1.2.0 — do not rely on the default, set the value so it
+       matches the migration-wide `backendRefName` regardless of plugin version.
      - `<labels>` set to the `routeLabels` input, in Maven plugin label format:
        `<labels><label><key>my/special-key</key><value>value1</value></label></labels>`.
        Do not invent values.
+     - Do **not** set `HTTPROUTES_GENERATOR_GATEWAYS` in `values.yaml` — the plugin's default
+       (`public-gateway`, `private-gateway`, `internal-gateway-service`) is the set this
+       migration targets; only set it if the service genuinely needs a different/additional
+       gateway list.
+     - **Multi-module reactor:** bind the plugin execution in the last module of the reactor or a
+       dedicated aggregator module — it runs in aggregator mode and needs every scanned module
+       already compiled.
   2. **Confirm `<outputFile>`** is set to a path inside the Helm chart templates
      directory. This file must be committed to the branch.
   3. **Build the project** to generate the output file. Run
      `mvn -q clean process-classes` if Maven is available in the environment and
      record the exit code under `commandsRun:`. If Maven is not available,
      record under `skipped:` ("mvn not available in environment") and continue.
-     If Maven is available but exits non-zero → `status: failed` per the
-     contract.
+     If Maven is available but exits non-zero, map the plugin's failure message to
+     `needsReview:` verbatim before failing — these are expected, by-design build failures, not
+     tooling errors:
+     - an unresolved `${...}` property placeholder in a route path;
+     - a route that cannot be expressed as a `PathPrefix` + `ReplacePrefixMatch` rewrite (tail
+       mismatch between the "from" and "to" paths);
+     - two roots reducing to the same match with different rewrite targets;
+     - a root reducing to `/` (a class-level `@Route` / `@GatewayRequestMapping` with no path);
+     - the framework guard (wrong plugin for the detected framework — see the README).
+
+     Then → `status: failed` per the contract.
   4. **Commit the generated `<outputFile>`** to the branch. Remind the user:
      > The plugin generates the output file at compile time. Every time route
      > annotations change, run `mvn clean compile` locally and commit the updated
      > output file before raising a PR.
-  5. Record the selected plugin version and committed file path under `done:`.
+  5. Record the selected plugin artifact, version, and committed file path under `done:`.
+
+The plugin output is at most two HTTPRoute CRs per service: one gateway-group route
+(`{{ .Values.SERVICE_NAME }}-java-annotations`, parented to the three border gateways by default)
+and, only if any facade route needs a rewrite or a longer-than-default timeout, one facade route
+(`{{ .Values.SERVICE_NAME }}-java-annotations-facade`). It never generates a per-type
+`-public`/`-private`/`-internal` HTTPRoute and never generates an `AuthorizationPolicy` — see
+[`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) for the recommended (manual by
+default) workflow for public-gateway access control.
 
 ---
 

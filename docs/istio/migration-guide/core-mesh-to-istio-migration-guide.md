@@ -38,7 +38,7 @@ There are **two ways** to perform the migration. Pick one:
 
 Let the [`core-mesh-to-istio-migration`](../../../agent-packages/core-mesh-to-istio-migration/.apm/skills/core-mesh-to-istio-migration/SKILL.md)
 orchestrator skill drive the entire migration end-to-end. It runs every step
-below in order, delegates to the two atomic skills, validates the result, and
+below in order, delegates to the five atomic skills, validates the result, and
 maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items so nothing
 is missed.
 
@@ -61,7 +61,7 @@ produces an auditable log.
 ### Option B — Follow this guide manually
 
 Work through the steps below yourself, in order (each builds on the previous).
-Along the way you can still invoke the two atomic skills to automate individual
+Along the way you can still invoke the atomic skills to automate individual
 steps, or do the edits by hand. Choose this path when you want full control,
 need to run a single step in isolation, or are migrating something the
 orchestrator cannot fully handle.
@@ -70,9 +70,12 @@ orchestrator cannot fully handle.
 
 | Skill | Purpose |
 |---|---|
-| [`core-mesh-to-istio-migration`](../../../agent-packages/core-mesh-to-istio-migration/.apm/skills/core-mesh-to-istio-migration/SKILL.md) | **Orchestrator** (Option A) — runs the full migration end-to-end, delegates to the two skills below, and maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items |
+| [`core-mesh-to-istio-migration`](../../../agent-packages/core-mesh-to-istio-migration/.apm/skills/core-mesh-to-istio-migration/SKILL.md) | **Orchestrator** (Option A) — runs the full migration end-to-end, delegates to the skills below, and maintains a `MIGRATION_LOG.md` of Done / Skipped / Needs review items |
 | [`core-mesh-crs-to-istio`](../../../agent-packages/core-mesh-crs-to-istio/.apm/skills/core-mesh-crs-to-istio/SKILL.md) | Convert existing Helm mesh CRs (FacadeService, Gateway, RouteConfiguration) to Istio Gateway API resources |
+| [`mesh-build-wiring`](../../../agent-packages/mesh-build-wiring/.apm/skills/mesh-build-wiring/SKILL.md) | Switch to mesh-aware route-registration libraries, wire `SERVICE_MESH_TYPE`, add the Maven plugin |
 | [`httproute-from-code`](../../../agent-packages/httproute-from-code/.apm/skills/httproute-from-code/SKILL.md) | Generate HTTPRoute CRs from Go/Java route registration source code |
+| [`istio-migration-validate`](../../../agent-packages/istio-migration-validate/.apm/skills/istio-migration-validate/SKILL.md) | Verify Istio guards, duplicate rules, access-control lint, imperative control-plane calls |
+| [`public-gateway-authz-policy`](../../../agent-packages/public-gateway-authz-policy/.apm/skills/public-gateway-authz-policy/SKILL.md) | Recommend (and, only on request, draft) the public-gateway `AuthorizationPolicy` |
 
 > The rest of this guide documents the individual steps. With **Option A** the
 > orchestrator performs them for you; with **Option B** you follow them
@@ -82,7 +85,7 @@ orchestrator cannot fully handle.
 
 The skills are distributed as [APM](https://github.com/microsoft/apm) packages
 under [`agent-packages/`](../../../agent-packages). Install the orchestrator into
-your repo — it pulls in the two atomic skills (and the shared
+your repo — it pulls in the five atomic skills above (and the shared
 `path-specificity-sorting` procedure) as dependencies:
 
 ```sh
@@ -307,8 +310,16 @@ SERVICE_MESH_TYPE: "Core"
 
 ## Step 2.3 — Add the Maven Plugin (Java services only)
 
+Two separate artifacts exist, one per framework:
+
+- Spring → [`httproutes-generator-spring-maven-plugin`](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-maven-plugins/httproutes-generator-spring-maven-plugin/README.md)
+- Quarkus → [`httproutes-generator-maven-plugin`](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-maven-plugins/httproutes-generator-maven-plugin/README.md)
+
+Each plugin fails the build if it detects the *other* framework's markers with none of its own —
+pick the one matching your service.
+
 If your Java service uses route-registration annotations:
-1. Add the route-registration [Maven plugin](https://github.com/Netcracker/qubership-core-java-libs/blob/main/core-maven-plugins/httproutes-generator-maven-plugin/README.md). 
+1. Add the plugin matching your framework.
 This plugin scans compiled classes for routing annotations - and generates equivalent HTTPRoutes to provide consistent routing in Istio mesh. 
 2. Specify `outputFile` path in helm chart templates folder. 
 3. Build the project. 
@@ -325,16 +336,19 @@ continuing.
 
 ### Add to pom.xml
 
-Use plugin coordinates `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin`
-and pick the latest available plugin version, but never lower than `1.0.2`.
+Use plugin coordinates `com.netcracker.cloud.plugins:httproutes-generator-spring-maven-plugin`
+(Spring) or `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin` (Quarkus), and pick
+the latest available plugin version, but never lower than `1.2.1`. **Always set
+`<backendRefVal>` explicitly** — the plugin's own default changed from
+`{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` to `{{ .Values.SERVICE_NAME }}` in 1.2.0.
 
 ```xml
 <build>
     <plugins>
         <plugin>
             <groupId>com.netcracker.cloud.plugins</groupId>
-            <artifactId>httproutes-generator-maven-plugin</artifactId>
-            <version><!-- use latest available, but >= 1.0.2 --></version>
+            <artifactId>httproutes-generator-spring-maven-plugin</artifactId> <!-- or httproutes-generator-maven-plugin for Quarkus -->
+            <version><!-- use latest available, but >= 1.2.1 --></version>
             <executions>
                 <execution>
                     <goals>
@@ -348,7 +362,7 @@ and pick the latest available plugin version, but never lower than `1.0.2`.
                 </packages>
                 <servicePort><!-- use detected backendRefPort from Step 1, fallback 8080 --></servicePort>
                 <outputFile>helm-templates/service/templates/annotations-httproutes.yaml</outputFile>
-                <backendRefVal><!-- use detected backendRefName from Step 1 --></backendRefVal>
+                <backendRefVal><!-- use detected backendRefName from Step 1 — do not rely on the plugin default --></backendRefVal>
                 <labels>
                     <!-- use detected output labels from Step 1 -->
                     <label>
@@ -382,6 +396,15 @@ and pick the latest available plugin version, but never lower than `1.0.2`.
 </build>
 ```
 
+The plugin output is at most two HTTPRoute CRs: one gateway-group route
+(`{{ .Values.SERVICE_NAME }}-java-annotations`, parented to `public-gateway`, `private-gateway`
+and `internal-gateway-service` by default — override via chart value
+`HTTPROUTES_GENERATOR_GATEWAYS` only if you need a different set) and, only if a facade route
+needs a rewrite or a longer-than-default timeout, one facade route
+(`{{ .Values.SERVICE_NAME }}-java-annotations-facade`). It never generates a per-type
+`-public`/`-private`/`-internal` HTTPRoute, never generates `RegularExpression` matches, and never
+generates an `AuthorizationPolicy` — see [Step 2.8](#step-28--public-gateway-access-control).
+
 After adding the plugin, run a local build to confirm it passes:
 
 ```bash
@@ -402,7 +425,13 @@ Use the skill [`httproute-from-code`](../../../agent-packages/httproute-from-cod
    - `backendRefName`,
    - `backendRefPort`,
    - `routeLabels` (detected output labels from Step 1).
-3. The skill scans Go and Java files, detects route definitions, and outputs HTTPRoute CRs.
+3. The skill scans Go and Java files, detects route definitions, reduces them to
+   `PathPrefix` roots, and outputs HTTPRoute CRs. Legacy Public/Private/Internal
+   routes (and any route explicitly naming a border gateway) collapse into a
+   single gateway-group CR parented to `public-gateway`, `private-gateway` and
+   `internal-gateway-service` — there is no narrower per-type registration
+   anymore (see [allowed-and-forbidden-routes.md](../allowed-and-forbidden-routes.md)).
+   `Forbidden: true` / `allowed: false` routes are never emitted.
 4. Generated files are saved to `helm-templates/<service name>/templates/source-code-httproutes.yaml`.
 5. Review the summary table printed by the skill. Resolve any errors before continuing.
 6. Commit all generated files to your branch.
@@ -432,7 +461,7 @@ Every HTTPRoute CR in your Helm templates must be wrapped in a conditional guard
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: my-service-public-routes
+  name: my-service-source-code-routes
   namespace: {{ .Values.NAMESPACE }}
 spec:
   ...
@@ -440,7 +469,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: my-service-private-routes
+  name: my-service-source-code-facade-routes
   ...
 {{- end }}
 ```
@@ -530,6 +559,52 @@ Gate forms:
 
 ---
 
+## Step 2.8 — Public Gateway Access Control
+
+Per [allowed-and-forbidden-routes.md](../allowed-and-forbidden-routes.md), every route is now
+registered on `public-gateway`, `private-gateway` and `internal-gateway-service` regardless of
+its legacy type, and legacy `allowed: false` / `deny: true` rules are never emitted — there is no
+Istio equivalent of a per-gateway forced-404. This means a route that used to be unreachable from
+the public gateway (PRIVATE, INTERNAL, or legacy `allowed: false` / `deny: true`) is now reachable
+there **unless excluded**.
+
+Cloud-Core ships a deny-unless-permit `AuthorizationPolicy` for `public-gateway` (`action: ALLOW`
+with no `rules`), so nothing is actually reachable from the public gateway until your service
+brings its own `ALLOW` policy. **It is recommended that you write this policy by hand** — only
+you know which of your service's endpoints are genuinely meant to be public.
+
+Use the skill
+[`public-gateway-authz-policy`](../../../agent-packages/public-gateway-authz-policy/.apm/skills/public-gateway-authz-policy/SKILL.md)
+to collect the candidate paths (legacy public routes, and every `allowed: false` / `deny: true`
+path recorded by Steps 1 and 2.4) and print a hand-authoring template. By default it does **not**
+write any file — it only recommends and lists candidates. If you explicitly ask it to, it will
+generate a draft `AuthorizationPolicy` at
+`<chart>/templates/public-gateway-authorization-policy.yaml`, which still needs your review before
+merging.
+
+Example hand-written policy (see [crs-example.yaml](../crs-example.yaml) for a fuller walkthrough):
+
+```yaml
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: '{{ .Values.SERVICE_NAME }}-public-gateway-allow'
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: public-gateway
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            paths:
+              - /api/v1/my-service/public/*
+              - /api/v1/my-service/health
+```
+
+---
+
 ## Final Checklist
 
 Before raising a PR, verify all of the following:
@@ -543,3 +618,4 @@ Before raising a PR, verify all of the following:
 - [ ] All HTTPRoute CRs wrapped in a `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` block
 - [ ] HTTPRoutes scanned for duplicate rules (same parent + equal match); duplicates resolved or flagged for review
 - [ ] Imperative control-plane API calls in scripts and manifests flagged for review (or removed / gated for Core)
+- [ ] Public-gateway `AuthorizationPolicy` provided for this service (hand-written recommended; a generated draft is reviewed before merging either way)
