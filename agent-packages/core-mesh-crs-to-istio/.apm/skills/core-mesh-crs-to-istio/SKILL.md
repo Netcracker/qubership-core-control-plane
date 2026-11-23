@@ -331,7 +331,10 @@ Process CR kinds in this order, following the mapping reference for each:
    [path-specificity-sorting](../path-specificity-sorting/SKILL.md)
    (sort on each rule's `match.prefix` / `match.path` value, or the reduced `PathPrefix` value for
    a former `match.regExp` — see `regExp reduction` in
-   [route-configuration-mapping.md](route-configuration-mapping.md))
+   [route-configuration-mapping.md](route-configuration-mapping.md)). If an HTTPRoute has more
+   than **16 rules** (Gateway API CRD limit), split it after sorting into chunks of ≤16 rules in
+   the same `-istio.yaml` file named `<name>-1`, `<name>-2`, … with the same `parentRefs` and
+   `labels`.
 6. Standalone `StatefulSession` → [stateful-session-mapping.md](stateful-session-mapping.md)
 7. `LoadBalance` → [load-balance-mapping.md](load-balance-mapping.md)
 8. `HttpFilters` + `RouteConfiguration` rules with `luaFilter` →
@@ -460,7 +463,7 @@ After generating all files, verify:
 - [ ] Egress `https://` / `tlsConfigName` destinations → ServiceEntry + Hostname backendRef
       + TLS DestinationRule / Secret per [tls-def-mapping.md](tls-def-mapping.md)
 - [ ] `TlsDef` wrapped in Core guard; `tls.enabled: false` / empty `tls` skip Istio TLS output
-- [ ] Each HTTPRoute's `rules[]` are sorted by path specificity (most specific first)
+- [ ] Each HTTPRoute's `rules[]` are sorted by path specificity (most specific first) and contain at most 16 rules (split into `<name>-1`, `<name>-2`, … if >16)
 - [ ] Rule-level `statefulSession` → DestinationRule added to the same output file
 - [ ] `StatefulSession` with cookie → DestinationRule generated; delete/disabled requests skipped
 - [ ] `StatefulSession` with `hostname`/`port` → DestinationRule generated per the endpoint-level targeting rules **and** `# ⚠ MANUAL REVIEW` comment added

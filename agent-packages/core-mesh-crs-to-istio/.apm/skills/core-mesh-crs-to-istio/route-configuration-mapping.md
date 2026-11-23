@@ -105,6 +105,8 @@ shared procedure in
 — sort on each rule's match value after `regExp` root reduction (`match.prefix` / `match.path` /
 the reduced `PathPrefix` value for a former `match.regExp`).
 
+**16-rule limit (Gateway API `spec.rules` `maxItems: 16`):** an `HTTPRoute` CR must contain **at most 16 rules** (Kubernetes rejects more). If a sorted rule list has `> 16` entries, split it into consecutive chunks of up to 16 rules in the **same `-istio.yaml` file** (separated by `---`, inside the same Istio guard), repeating `parentRefs` and `metadata.labels`. Name the chunks `<base-name>-1`, `<base-name>-2`, … (no suffix when `≤ 16` rules).
+
 ---
 
 ### RouteV3

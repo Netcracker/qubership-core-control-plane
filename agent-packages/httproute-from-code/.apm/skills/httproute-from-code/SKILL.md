@@ -169,6 +169,10 @@ Internal, Mesh or Facade routes there.
 | Facade | `<ms>-source-code-facade-routes` | Service `{{ .Values.SERVICE_NAME }}` |
 
 Generate a CR only for groups that have at least one route. `<ms>` is resolved in Step 7.
+**16-rule limit:** Gateway API `HTTPRoute` allows at most **16 rules per CR**. If a group still has
+`> 16` rules after root reduction (Step 6a) and sorting (Step 9), split it into consecutive chunks
+of ≤16 rules in the same file (`---` separated), with identical `parentRefs` and `labels`, named
+`<cr-name>-1`, `<cr-name>-2`, … (no suffix when `≤ 16` rules).
 Old per-type names (`-public-routes`, `-private-routes`, `-internal-routes`) are no longer produced;
 tell the user to delete stale files from earlier runs.
 

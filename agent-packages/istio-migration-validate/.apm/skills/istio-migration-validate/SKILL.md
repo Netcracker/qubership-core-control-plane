@@ -49,6 +49,7 @@ renderChecks:
   istioMode: pass | fail | skipped   # Istio resources present under SERVICE_MESH_TYPE=Istio
   coreMode: pass | fail | skipped    # no Istio resources leak under SERVICE_MESH_TYPE=Core
 duplicateGroups: <N>
+oversizedHttpRoutes: <N>      # HTTPRoutes with >16 rules (Gateway API CRD maxItems: 16)
 accessControlLint:            # Step 3b — read-only, additive
   noBackendRules: <N>          # rules with no backendRefs (leftover forbidden-route emulation)
   regexMatches: <N>            # matches[].path.type: RegularExpression still present
@@ -184,7 +185,12 @@ it never edits or generates anything.
      Cloud-Core's deny-unless-permit policy. Services with no public endpoints need none."
    - **`1` or more** → no finding; this step does not evaluate whether the policy's paths are
      correct, only that one exists.
-4. **Do not modify any file in this step.** It only reports.
+4. **16-rule limit.** Across every Istio-guarded `HTTPRoute`, check `len(spec.rules) <= 16`
+   (Gateway API CRD `maxItems: 16` — Kubernetes rejects CRs with more). Record the offending count
+   under `oversizedHttpRoutes:`; for each one, add a `needsReview:` entry naming the file,
+   `HTTPRoute` name, and rule count, with suggested action: "Split into separate `HTTPRoute` CRs
+   of at most 16 rules each (`<name>-1`, `<name>-2`, …)."
+5. **Do not modify any file in this step.** It only reports.
 
 ## Step 4 — Flag imperative control-plane calls
 
@@ -249,6 +255,6 @@ these calls are safe to auto-migrate.**
 
 Write the contract report file (see [Contract → Outputs](#outputs)), then print
 a short chat summary: guards added, render-check outcomes, duplicate groups
-found, access-control lint results (no-backend rules, leftover regex matches,
+found, oversized `HTTPRoute` CRs (>16 rules), access-control lint results (no-backend rules, leftover regex matches,
 public-gateway `AuthorizationPolicy` count), control-plane calls found, and
 every `needsReview:` entry.

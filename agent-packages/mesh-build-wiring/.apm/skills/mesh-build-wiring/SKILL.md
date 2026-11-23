@@ -258,10 +258,11 @@ than adding a second plugin. If the right artifact is present below `1.2.1`, bum
      > `mvn clean process-classes` locally and commit the updated output file before raising a PR.
   5. Record the selected plugin artifact, version, and generated file path under `done:`.
 
-The plugin output is at most two HTTPRoute CRs per service: one gateway-group route
+The plugin outputs a gateway-group route
 (`{{ .Values.SERVICE_NAME }}-java-annotations`, parented to the three border gateways by default)
-and, only if any facade route needs a rewrite or a longer-than-default timeout, one facade route
-(`{{ .Values.SERVICE_NAME }}-java-annotations-facade`). It never generates a per-type
+and, only if any facade route needs a rewrite or a longer-than-default timeout, a facade route
+(`{{ .Values.SERVICE_NAME }}-java-annotations-facade`) — split into multiple CRs if a route
+exceeds the Gateway API 16-rule limit. It never generates a per-type
 `-public`/`-private`/`-internal` HTTPRoute and never generates an `AuthorizationPolicy` — see
 [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) for the recommended (manual by
 default) workflow for public-gateway access control.

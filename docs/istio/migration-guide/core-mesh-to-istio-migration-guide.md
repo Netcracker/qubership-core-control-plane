@@ -396,12 +396,13 @@ the latest available plugin version, but never lower than `1.2.1`. **Always set
 </build>
 ```
 
-The plugin output is at most two HTTPRoute CRs: one gateway-group route
+The plugin outputs a gateway-group route
 (`{{ .Values.SERVICE_NAME }}-java-annotations`, parented to `public-gateway`, `private-gateway`
 and `internal-gateway-service` by default — override via chart value
 `HTTPROUTES_GENERATOR_GATEWAYS` only if you need a different set) and, only if a facade route
-needs a rewrite or a longer-than-default timeout, one facade route
-(`{{ .Values.SERVICE_NAME }}-java-annotations-facade`). It never generates a per-type
+needs a rewrite or a longer-than-default timeout, a facade route
+(`{{ .Values.SERVICE_NAME }}-java-annotations-facade`) — split into multiple CRs if a route
+exceeds the Gateway API 16-rule limit. It never generates a per-type
 `-public`/`-private`/`-internal` HTTPRoute, never generates `RegularExpression` matches, and never
 generates an `AuthorizationPolicy` — see [Step 2.5](#step-25--public-gateway-access-control).
 
