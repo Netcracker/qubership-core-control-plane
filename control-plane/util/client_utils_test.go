@@ -278,6 +278,17 @@ func TestDoRequest_Returns401WithoutResending(t *testing.T) {
 	}
 }
 
+func TestDoRequest_ServerErrorIsReportedWithStatusCode(t *testing.T) {
+	useM2MAuthMode(t, security.M2MAuthModeLegacy)
+	respondInTurn(fasthttp.StatusServiceUnavailable)
+
+	resp, err := DoRequest(context.Background(), fasthttp.MethodPost, "http://target:8080/api", nil, logging.GetLogger(""))
+
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "503")
+}
+
 func TestDoRequest_HybridResendsWithLegacyTokenAfter401(t *testing.T) {
 	useM2MAuthMode(t, security.M2MAuthModeHybrid)
 	gotAuth := respondInTurn(fasthttp.StatusUnauthorized, fasthttp.StatusOK)
