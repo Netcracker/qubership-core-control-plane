@@ -152,13 +152,17 @@ Replace the old route-posting libraries versions with the new mesh-aware version
 
 ### Java — update your dependency
 
+Java services need route-registration `7.5.2` or newer: it ships the
+`@ForbiddenRoute` annotation that the Maven plugin of Step 2.3 needs for
+forbidden routes (see [Forbidden routes](#forbidden-routes)).
+
 #### Spring
 
 ```xml
 <dependency>
     <groupId>com.netcracker.cloud</groupId>
     <artifactId>route-registration-webclient</artifactId>
-    <version>7.1.0<!-- should be >=7.1.0 --></version>
+    <version>7.5.2<!-- should be >=7.5.2 --></version>
 </dependency>
 
 OR 
@@ -166,7 +170,7 @@ OR
 <dependency>
     <groupId>com.netcracker.cloud</groupId>
     <artifactId>route-registration-resttemplate</artifactId>
-    <version>7.1.0<!-- should be >=7.1.0 --></version>
+    <version>7.5.2<!-- should be >=7.5.2 --></version>
 </dependency>
 ```
 
@@ -178,7 +182,7 @@ Using rest libraries BOM
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>rest-libraries-bom</artifactId>
-                <version>7.1.0<!-- should be >=7.1.0 --></version>
+                <version>7.5.2<!-- should be >=7.5.2 --></version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
@@ -194,7 +198,7 @@ Using common BOM
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>cloud-core-java-bom</artifactId>
-                <version>12.0.2<!-- should be >=12.0.2 --></version>
+                <version>12.2.5<!-- should be >=12.2.5 --></version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -208,7 +212,7 @@ Using common BOM
 <dependency>
     <groupId>com.netcracker.cloud.quarkus</groupId>
     <artifactId>routes-registrator</artifactId>
-    <version>9.1.0<!-- should be >=9.1.0 --></version>
+    <version>10.3.2<!-- should be >=10.3.2 --></version>
 </dependency>
 ```
 
@@ -220,7 +224,7 @@ Using BOM
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>cloud-core-quarkus-bom-publish</artifactId>
-                <version>9.1.0<!-- should be >=9.1.0 --></version>
+                <version>10.3.2<!-- should be >=10.3.2 --></version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -326,7 +330,7 @@ continuing.
 ### Add to pom.xml
 
 Use plugin coordinates `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin`
-and pick the latest available plugin version, but never lower than `1.0.2`.
+and pick the latest available plugin version, but never lower than `1.1.5`.
 
 ```xml
 <build>
@@ -334,7 +338,7 @@ and pick the latest available plugin version, but never lower than `1.0.2`.
         <plugin>
             <groupId>com.netcracker.cloud.plugins</groupId>
             <artifactId>httproutes-generator-maven-plugin</artifactId>
-            <version><!-- use latest available, but >= 1.0.2 --></version>
+            <version><!-- use latest available, but >= 1.1.5 --></version>
             <executions>
                 <execution>
                     <goals>
@@ -387,6 +391,35 @@ After adding the plugin, run a local build to confirm it passes:
 ```bash
 mvn clean process-classes
 ```
+
+### Forbidden routes
+
+Istio has no regex routes: the plugin cuts every gateway path before its first
+`{variable}` and matches it as a `PathPrefix` (see
+[Regex Routes Migration](../regex-routes-migration.md)). A class-level prefix then
+routes everything below it, so an endpoint with a narrower route type inside a
+wider controller — or a path the cut exposes — would become reachable on the
+public / private gateway, where legacy returned 404. The plugin fails the build
+with `N route migration errors, see log` and lists each path. Fix them in one of
+three ways:
+
+1. **Split the controllers (recommended).** Give each exposure level its own
+   controller with a separate class-level gateway prefix (for example a public
+   controller and a private controller). Routing alone then keeps them apart and
+   legacy 404s stay 404. ⚠ **Backward compatibility break:** the gateway URLs of
+   the moved endpoints change, so their clients must be updated.
+2. **Add `@ForbiddenRoute`** (`com.netcracker.cloud.routesregistration.common.annotation.ForbiddenRoute`)
+   to each element the errors name, with the gateways the error lists, e.g.
+   `@ForbiddenRoute({RouteType.PUBLIC, RouteType.PRIVATE})`. The plugin generates
+   an `AuthorizationPolicy` DENY rule per path.
+3. **Set `<autoGenerateAuthorizationPolicies>true</autoGenerateAuthorizationPolicies>`**
+   in the plugin configuration when annotating each element is too complex — the
+   plugin generates every missing DENY rule itself.
+
+With options 2 and 3 a denied request gets `403 RBAC: access denied` instead of
+the legacy 404, the DENY rules need Istio ≥ 1.22, and
+`meshConfig.pathNormalization` must be `MERGE_SLASHES` or stronger. The
+migration skills stop and ask which option to apply.
 
 ---
 

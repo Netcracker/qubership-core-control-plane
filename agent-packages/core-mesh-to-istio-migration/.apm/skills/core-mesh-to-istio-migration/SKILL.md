@@ -2,10 +2,12 @@
 name: core-mesh-to-istio-migration
 description: >
   Orchestrate the full Cloud-Core Mesh to Istio migration end-to-end — convert
-  declarative mesh CRs to Gateway API, migrate route-registration libraries, wire
-  SERVICE_MESH_TYPE, add the Java HTTPRoute generator, generate HTTPRoutes from
-  Go/Java code, validate Istio guards / duplicate rules / imperative control-plane
-  calls, and maintain .mesh-migration/MIGRATION_LOG.md. Use when asked to migrate a
+  declarative mesh CRs to Gateway API (routes with path variables cut to
+  PathPrefix, forbidden routes to AuthorizationPolicy DENY), migrate
+  route-registration libraries, wire SERVICE_MESH_TYPE, add the Java HTTPRoute
+  generator, generate HTTPRoutes from Go/Java code, validate Istio guards /
+  duplicate rules / DENY overlaps / imperative control-plane calls, and maintain
+  .mesh-migration/MIGRATION_LOG.md. Use when asked to migrate a
   service from Core Mesh to Istio (Ambient Mesh) or run the migration guide end-to-end.
 ---
 
@@ -28,7 +30,6 @@ validation") to resume a migration instead of running from scratch. Default is
 a full run from Step 1. See the report lifecycle below for how a resumed run
 treats earlier steps' reports.
 
-
 ## Sub-skills invoked
 
 | Sub-skill                                                                           | Used in step | Purpose                                                        |
@@ -36,7 +37,14 @@ treats earlier steps' reports.
 | [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio/SKILL.md)                      | Step 1       | Convert existing Helm mesh CRs to Gateway API + Istio resources |
 | [`mesh-build-wiring`](../mesh-build-wiring/SKILL.md)                                | Steps 2.1–2.3 | Mesh-aware libraries, SERVICE_MESH_TYPE env, Maven plugin      |
 | [`httproute-from-code`](../httproute-from-code/SKILL.md)                            | Step 2.4     | Generate HTTPRoute CRs from Go/Java route registration code    |
-| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.7 | Istio guards, render checks, duplicate rules, imperative control-plane calls |
+| [`istio-migration-validate`](../istio-migration-validate/SKILL.md)                  | Steps 2.5–2.7 | Istio guards, render checks, duplicate rules, DENY overlaps, imperative control-plane calls |
+
+`core-mesh-crs-to-istio` and `httproute-from-code` both follow the shared
+[`regex-routes-migration`](../regex-routes-migration/SKILL.md) procedure for
+routes with `{variables}` and forbidden routes: every path is cut to a
+`PathPrefix`, forbidden paths on the public / private gateways become
+`AuthorizationPolicy` DENY rules, and routes whose behavior would change come
+back as `route-conflict/*` questions. **No step generates a `VirtualService`.**
 
 **How to invoke a sub-skill:** communicate only through the sub-skill's
 `## Contract` — resolved inputs in, report file out. Always pass
@@ -84,8 +92,10 @@ Lifecycle:
   Contract, stop and add a **Needs review** entry (contract mismatch) instead of
   guessing field meanings.
 - `status: partial` means the `unresolved:` list blocks part of the output.
-  Relay each entry's `question` (and `options`) to the user verbatim, in **one**
-  batched round. Deliver the answers as a `resolutions` map keyed by the
+  Relay each entry's `question` (and `options`, marking `default` as the
+  recommended one) to the user verbatim, in **one** batched round — the question
+  texts carry their own explanation (for example the BWC warning of
+  `java-forbidden-routes`), so never shorten them. Deliver the answers as a `resolutions` map keyed by the
   entries' `id` — by **continuing the same sub-agent** when the harness
   supports it (context intact, no rework), otherwise by **re-invoking** the
   sub-skill with `resolutions` as an input (its idempotency checks make the
@@ -97,6 +107,10 @@ Lifecycle:
   read is still `partial`, stop, log each surviving entry under **Needs
   review**, and ask the user whether to continue with the incomplete output or
   abort. Never treat a `partial` report as done.
+- **Exception — `blockedBy`:** a report with `status: partial`, an empty
+  `unresolved:` and `blockedBy: java-forbidden-routes` (from
+  `mesh-build-wiring`) means the user chose to refactor controllers. Do not
+  re-ask; apply [Stop for a controller refactor](#stop-for-a-controller-refactor).
 
 ---
 
@@ -190,101 +204,11 @@ reason.
 
 ## Migration log — MANDATORY
 
-The skill **must** create and continuously update a migration log next to the
-sub-skill reports:
-
-```
-.mesh-migration/MIGRATION_LOG.md
-```
-
-The log is the single source of truth for what the automation did. It is updated
-**after every step** — never wait until the end. If the log file cannot be
-written for any reason, stop immediately and report the failure to the user.
-Like the reports, the log is a working file inside the gitignored
-`.mesh-migration/` folder; a full run starts a fresh log, a resumed run appends
-to the existing one.
-
-### Log structure
-
-````markdown
-# Core Mesh → Istio Migration Log
-
-Started: <ISO-8601 timestamp>
-Chart:   <chart path>
-Code:    <code path>
-Language: <Go | Java | Go+Java>
-
----
-
-## Done
-**Items fully applied by automation. One bullet per concrete change.**
-
-## Skipped
-**Items intentionally not applied, with reason.**
-
-## Needs review
-**Items the user MUST verify before merging. Each entry MUST include:**
-**- File / location**
-**- Why it needs human review**
-**- Suggested action**
-
-## Per-step status
-
-| Step | Title                                       | Status      | Notes |
-|------|---------------------------------------------|-------------|-------|
-| 1    | Migrate mesh CRs → HTTPRoute CRs            | pending     |       |
-| 1.1  | Log manually handle flagged features        | pending     |       |
-| 2.1  | Switch to mesh-aware route libraries        | pending     |       |
-| 2.2  | Set SERVICE_MESH_TYPE env var               | pending     |       |
-| 2.3  | Add Maven plugin (Java only)                | pending     |       |
-| 2.4  | Generate HTTPRoute CRs from code            | pending     |       |
-| 2.5  | Verify HTTPRoutes are Istio-guarded         | pending     |       |
-| 2.6  | Detect duplicate HTTPRoute rules            | pending     |       |
-| 2.7  | Flag imperative control-plane calls         | pending     |       |
-
-## Commands run
-
-| Step | Command | Exit code | Notes |
-|------|---------|-----------|-------|
-````
-
-> **Note:** The log uses bold text (not HTML comments) for section descriptions
-> so they are preserved across all Markdown renderers and are re-parseable by
-> the agent on idempotent reruns.
-
-### Logging rules
-
-- **Do:** append concrete file paths, resource names, counts, and commands you ran.
-- **Do:** classify every non-trivial action as **Done**, **Skipped**, or **Needs review**.
-- **Do:** record every command and its exit code in the **Commands run** table.
-- **Do:** echo a short chat summary of the log update after each step
-  (`Updated MIGRATION_LOG.md — 3 done, 1 needs review`).
-- **Don't:** overwrite the log — always append.
-- **Don't:** delete a `Needs review` entry until the user confirms it is resolved.
-
-### What belongs in each bucket
-
-**Structural blockers / flagged conversions** — Copy every `needsReview:` line and every `# ⚠ MANUAL REVIEW` hit from
-sub-skill reports into **Needs review**.
-
-**Unknown values** — values the agent cannot safely infer and must not guess
-(orchestrator / wiring concerns, not CR field mapping):
-
-| Item | Example location |
-|------|-----------------|
-| Unresolved gateway references (`unresolved:` from Step 1) | HTTPRoute `parentRefs` |
-| Missing microservice name (placeholder `<microservice-name>` in output) | Generated HTTPRoute / `source-code-httproutes.yaml` |
-| Ambiguous Java route-registration artifact (webclient vs resttemplate) | `pom.xml` |
-| Unknown library versions | `pom.xml` / `go.mod` |
-
-**Done** examples: files wrapped in Core/Istio guards, generated `-istio.yaml`
-files, HTTPRoutes emitted from code, Maven plugin added, env var wired, library
-versions bumped, `values.yaml` / `values.schema.json` updated, commands that
-exited 0.
-
-**Skipped** examples: Maven plugin for a Go-only service, library swap for a
-language not present, a step the user explicitly said to defer, optional build
-commands not available in the environment.
+Keep `.mesh-migration/MIGRATION_LOG.md` updated **after every step**; if it
+cannot be written, stop and report the failure. **Before Step 1, read
+[`migration-log.md`](migration-log.md) in full with the Read tool** — it defines
+the log structure, the logging rules, and what belongs in **Done** /
+**Skipped** / **Needs review**. Never overwrite the log — append.
 
 ---
 
@@ -320,16 +244,22 @@ report that Steps 2.3 and 2.4 read for `backendRef` and `labels.values`.
    `DestinationRule` (one per host — conflicting policies are flagged
    `⚠ MANUAL REVIEW` inside the skill), convert `HttpFilters` +
    `RouteConfiguration` Lua scripts → `TrafficExtension` (requires Istio
-   ≥ 1.30), and update `values.yaml` / `values.schema.json`.
+   ≥ 1.30), cut every route path with `{variables}` to a `PathPrefix`, turn
+   `allowed: false` routes (and paths the cut newly exposes) on the public /
+   private gateways into `AuthorizationPolicy` DENY rules, and update
+   `values.yaml` / `values.schema.json`.
 3. Read `.mesh-migration/reports/core-mesh-crs-to-istio.yaml`. **If
    `status: partial`**, collect every entry under `unresolved:` and ask the user
    all questions in **one batch** (for each unresolved gateway: ingress or
-   mesh?). Deliver the answers as a `resolutions` map keyed by entry `id` —
+   mesh?; for each `route-conflict/*`: the question text verbatim with its
+   options). Deliver the answers as a `resolutions` map keyed by entry `id` —
    continue the same sub-agent when possible, otherwise re-invoke the sub-skill
    with `resolutions` — and re-read the report. Log each decision under
    **Needs review** → move to **Done** once applied.
-4. Copy the report's `filesModified` / `filesGenerated`, resource counts, and
-   `needsReview` items into the log.
+4. Copy the report's `filesModified` / `filesGenerated`, resource counts
+   (including `authorizationPolicy`), and `needsReview` items into the log —
+   the three AuthorizationPolicy precondition lines (Istio ≥ 1.22, path
+   normalization, 404 → 403) go under **Needs review** once.
 5. **Capture the detected backend reference** from the report's `backendRef`
    field. If both `name` and `port` are set, record them in the log (under
    **Done**) as the migration-wide backend reference to reuse in Step 2.3 /
@@ -346,8 +276,6 @@ Log update:
 - **Done:** every file in `Files modified` and `Files generated`; the detected
   `backendRefName` / `backendRefPort` and `routeLabels` (if resolved).
 - **Needs review:** every item from the sub-skill's "Items needing manual review".
-
-
 
 ### Step 1.1 — Log manually handle flagged features
 
@@ -384,9 +312,38 @@ records "already compliant / already present" items under `done:`.
    round (e.g. `java-registration-artifact`: webclient or resttemplate?),
    deliver the answers via `resolutions` (continue the sub-agent or re-invoke),
    and re-read the report. Then copy `done:` / `skipped:` / `commandsRun:` /
-   `needsReview:` items into the log and the per-step status rows for 2.1, 2.2,
-   and 2.3. `status: failed` → apply the
+   `forbiddenRouteErrors:` / `needsReview:` items into the log and the per-step
+   status rows for 2.1, 2.2, and 2.3. `status: failed` → apply the
    [Error policy](#error-policy--read-before-executing-any-step).
+4. **Forbidden routes (Java).** The `java-forbidden-routes` question means
+   `httproutes-generator-maven-plugin` failed the build: paths forbidden (404)
+   in legacy would be routed by Istio. **Stop and ask the user** — relay the
+   question verbatim, with its three options and the recommended
+   `split-controllers` (and its ⚠ BWC break: the gateway URLs of moved endpoints
+   change). Do not pick an answer yourself and do not continue to Step 2.4 before
+   the user answered. Deliver the answer via `resolutions`:
+   - `forbidden-route-annotations` / `auto-generate-authorization-policies` →
+     the sub-skill applies it and rebuilds; continue once its report is
+     `complete`. Log the annotated files (or the plugin option) under **Done**.
+   - `split-controllers` → the report comes back with
+     `blockedBy: java-forbidden-routes`; apply
+     [Stop for a controller refactor](#stop-for-a-controller-refactor).
+
+#### Stop for a controller refactor
+
+The user chose to split controllers, which only a developer can do. Then:
+
+1. Log every `needsReview:` entry of the report under **Needs review**, and set
+   status row 2.3 to `blocked — controller refactor`; rows 2.4–2.7 to
+   `not run`.
+2. Do **not** run Steps 2.4–2.7.
+3. Print:
+   > ⏸ Migration paused at Step 2.3: split the controllers listed in
+   > `.mesh-migration/MIGRATION_LOG.md` so each class-level gateway prefix has
+   > one route type. ⚠ This changes the gateway URLs of the moved endpoints —
+   > update their clients. Then rerun this migration from Step 2.3.
+4. Produce the [Final report](#final-checklist-and-hand-off) with the open
+   items, and stop.
 
 ### Step 2.4 — Generate HTTPRoute CRs from route registration code
 
@@ -409,7 +366,9 @@ report this step's follow-up items read.
    and emits one HTTPRoute CR per type to
    `helm-templates/<service name>/templates/source-code-httproutes.yaml`.
 3. Read `.mesh-migration/reports/httproute-from-code.yaml`. **If
-   `status: partial` with an `unresolved:` entry `microservice-name`** (the
+   `status: partial` with `route-conflict/*` entries**, relay them verbatim in
+   one batch and deliver the answers via `resolutions`, as in Step 1.
+   **If `status: partial` with an `unresolved:` entry `microservice-name`** (the
    output contains the literal `<microservice-name>` placeholder):
    - Ask the user for the service name and deliver it via `resolutions`
      (continue the sub-agent or re-invoke), then re-read the report.
@@ -426,7 +385,8 @@ report this step's follow-up items read.
    > route registration code changes, rerun the `httproute-from-code` skill and
    > commit the updated output before raising a PR.
 6. Read `.mesh-migration/reports/httproute-from-code.yaml` and copy its
-   `filesGenerated`, `routesGenerated`, and `needsReview` items into the log.
+   `filesGenerated`, `routesGenerated`, `authorizationPoliciesGenerated`, and
+   `needsReview` items into the log.
 7. For every `needsReview` entry in the report (skipped rows, `ERROR:`
    sections), add a **Needs review** log entry.
 
@@ -446,54 +406,18 @@ report this step's follow-up items read.
 3. Read `.mesh-migration/reports/istio-migration-validate.yaml`; copy `guardsAdded:`
    (log under **Done**), `commandsRun:`, `controlPlaneCalls:` (log the count
    under **Done**), and `needsReview:` items into the log and the per-step
-   status rows for 2.5, 2.6, and 2.7. `status: failed` → apply the
+   status rows for 2.5, 2.6, and 2.7. Every `denyOverlaps` finding goes under
+   **Needs review**. `status: failed` → apply the
    [Error policy](#error-policy--read-before-executing-any-step).
 
 ---
 
 ## Final checklist and hand-off
 
-Before declaring the migration complete, produce a **Final report** that mirrors
-the "Final Checklist" in the migration guide. Mark `[x]` only when the step has
-at least one **Done** entry and zero unresolved **Needs review** entries:
-
-```markdown
-## Final report
-
-- [x/ ] Existing mesh CRs converted to HTTPRoute CRs
-- [x/ ] StatefulSession / LoadBalance CRs converted to DestinationRule CRs
-- [x/ ] Flagged features from Step 1.1 resolved
-- [x/ ] Mesh-aware libraries replace old route-posting libraries
-- [x/ ] SERVICE_MESH_TYPE set in Helm values / Deployment
-- [x/ ] Maven plugin added and local build passes (Java only)
-- [x/ ] HTTPRoute CRs generated from route registration code
-- [x/ ] All HTTPRoute CRs wrapped in the Istio conditional
-- [x/ ] HTTPRoutes scanned for duplicate rules (same parent + equal match)
-- [x/ ] Imperative control-plane API calls flagged for review
-
-Open items (require user review):
-- <list all remaining "Needs review" entries from .mesh-migration/MIGRATION_LOG.md>
-```
-
-Close with a plain-language summary telling the user:
-
-1. **What was applied automatically** (reference the Done section count).
-2. **What was skipped and why** (reference the Skipped section).
-3. **What requires careful human review before merging** — enumerate every
-   remaining **Needs review** entry from `.mesh-migration/MIGRATION_LOG.md`
-   (sourced from sub-skill `needsReview:` / `# ⚠ MANUAL REVIEW` / `unresolved:`
-   items).
-4. The recommended validation commands the user should run locally before pushing:
-
-   ```bash
-   # Must return at least one HTTPRoute or Gateway line
-   helm template <chart> --set SERVICE_MESH_TYPE=Istio \
-     | grep -E 'kind: (HTTPRoute|Gateway)'
-
-   # Must return nothing — HTTPRoutes must not leak under Core mode
-   helm template <chart> --set SERVICE_MESH_TYPE=Core \
-     | grep 'kind: HTTPRoute'
-   ```
+Before declaring the migration complete — or when it stops early — produce the
+**Final report** and the plain-language closing summary exactly as
+[`migration-log.md`](migration-log.md) → "Final checklist and hand-off"
+describes.
 
 ---
 
@@ -522,8 +446,11 @@ Close with a plain-language summary telling the user:
 
 This skill only modifies:
 Helm templates, `values.yaml`, `values.schema.json`, `pom.xml`, `go.mod`, the
-consumer `.gitignore` (the `.mesh-migration/` entry), and files under
-`.mesh-migration/` (reports and `MIGRATION_LOG.md`).
+consumer `.gitignore` (the `.mesh-migration/` entry), files under
+`.mesh-migration/` (reports, worksheets and `MIGRATION_LOG.md`), and — only when
+the user answers `forbidden-route-annotations` — Java sources, where it adds
+`@ForbiddenRoute` annotations and their imports.
 
-It does not raise pull requests, push branches, rewrite application logic, or
-modify git configuration.
+It does not raise pull requests, push branches, rewrite application logic (it
+never splits controllers itself), generate `VirtualService` resources, or modify
+git configuration.

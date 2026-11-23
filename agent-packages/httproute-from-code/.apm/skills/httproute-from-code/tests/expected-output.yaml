@@ -1,0 +1,158 @@
+# Rules are sorted by path specificity.
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: demo-service-source-code-public-routes
+  labels:
+    app.kubernetes.io/name: demo-service
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: public-gateway
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: private-gateway
+    - group: ''
+      kind: Service
+      name: internal-gateway-service
+  rules:
+    # ⚠ MANUAL REVIEW: /api/v1/svc/debug now also returns 404 for /api/v1/svc/debug/admin
+    # that legacy routed to R2
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1/svc/debug
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1/svc
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /svc
+      backendRefs:
+        - group: ''
+          kind: Service
+          name: demo-service
+          port: 8080
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: demo-service-source-code-private-routes
+  labels:
+    app.kubernetes.io/name: demo-service
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: private-gateway
+    - group: ''
+      kind: Service
+      name: internal-gateway-service
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1/svc/orders
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /svc/orders
+      timeouts:
+        request: 30s
+      backendRefs:
+        - group: ''
+          kind: Service
+          name: demo-service
+          port: 8080
+          weight: 1
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: demo-service-source-code-deny-public
+  labels:
+    app.kubernetes.io/name: demo-service
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: public-gateway
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/svc"
+        - "/api/v1/svc/{**}"
+        notPaths:
+        - "/api/v1/svc/{*}"
+        - "/api/v1/svc/{*}/{**}"
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/svc/debug"
+        - "/api/v1/svc/debug/{**}"
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/svc/orders/{*}/items"
+        - "/api/v1/svc/orders/{*}/items/{**}"
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/svc/{*}/admin"
+        - "/api/v1/svc/{*}/admin/{**}"
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: demo-service-source-code-deny-private
+  labels:
+    app.kubernetes.io/name: demo-service
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: private-gateway
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/svc"
+        - "/api/v1/svc/{**}"
+        notPaths:
+        - "/api/v1/svc/orders/{*}/items"
+        - "/api/v1/svc/orders/{*}/items/{**}"
+        - "/api/v1/svc/{*}"
+        - "/api/v1/svc/{*}/{**}"
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/svc/debug"
+        - "/api/v1/svc/debug/{**}"
+  - to:
+    - operation:
+        ports: ["8080"]
+        paths:
+        - "/api/v1/svc/{*}/admin"
+        - "/api/v1/svc/{*}/admin/{**}"
+        notPaths:
+        - "/api/v1/svc/orders/{*}/items"
+        - "/api/v1/svc/orders/{*}/items/{**}"
+{{- end }}

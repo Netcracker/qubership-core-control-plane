@@ -2,12 +2,22 @@
 name: httproute-from-code
 description: >
   Generate Gateway API HTTPRoute CRs from Go or Java route-registration code
-  (routeregistration.Route / RouteEntry call sites). Use when asked to generate
-  HTTPRoutes from source code, convert route registrations to HTTPRoute YAML, or
-  extract routes from Go/Java files.
+  (routeregistration.Route / RouteEntry call sites), plus AuthorizationPolicy DENY
+  rules for forbidden routes on the public/private gateways. Use when asked to
+  generate HTTPRoutes from source code, convert route registrations to HTTPRoute
+  YAML, or extract routes from Go/Java files.
 ---
 
 # Generate GatewayAPI HTTPRoute CRs from Go or Java route registration code
+
+> **Before you start:** open the sibling skill `regex-routes-migration` with the
+> Read tool — the folder next to this skill's folder
+> ([link](../regex-routes-migration/SKILL.md)) — and read **all four** of its
+> files in full: `SKILL.md`, `procedure.md`, `render.md`, `worked-example.md`.
+> Step 4 runs its procedure; the worksheet, the row command, the conflict
+> questions and the AuthorizationPolicy template are defined only there. This
+> skill is split as well: read [`route-detection.md`](route-detection.md) at
+> Step 2 and [`rendering.md`](rendering.md) at Step 10.
 
 ## Invocation
 
@@ -77,11 +87,15 @@ inputsUsed:
   backendRefPort: <value>
   routeLabels: <map>
 filesGenerated: [<paths>]
+worksheets: [<.mesh-migration/work/httproute-from-code-<gateway>.md, one per gateway>]
 routesGenerated: <N>
+authorizationPoliciesGenerated: <N>
 unresolved: []              # blocking user decisions, each {id, question, options, default}
-                            # e.g. id microservice-name when it fell back to <microservice-name>
+                            # e.g. id microservice-name when it fell back to <microservice-name>,
+                            # or route-conflict/<#A>-<#B> from regex-routes-migration Step 5
 needsReview:
-  - <one line per skipped row or ERROR>
+  - <one line per ERROR, ⚠ MANUAL REVIEW note, answered route conflict,
+     and the AuthorizationPolicy precondition lines>
 ```
 
 Consumers must ignore unknown report fields. A consumer that sees a
@@ -124,143 +138,124 @@ No Go or Java files found in provided path
 
 ---
 
-## Step 2 — Detect route definitions
+## Steps 2–3 — Detect route definitions and extract fields
 
-### Go patterns
-
-```go
-// Struct literal inline
-registrar.WithRoutes(
-    routeregistration.Route{
-        From:      "/api/v1/users",
-        To:        "/users",
-        RouteType: routeregistration.Public,
-        Timeout:   30 * time.Second,
-        Forbidden: false,
-        Gateway:   "",
-        Hosts:     []string{"api.company.com"},
-    },
-)
-
-// Chained
-routeregistration.NewRegistrar().
-    WithRoutes(routeregistration.Route{...}).
-    Register()
-
-// Variable
-r := routeregistration.Route{...}
-registrar.WithRoutes(r)
-
-// Slice spread
-routes := []routeregistration.Route{...}
-registrar.WithRoutes(routes...)
-
-// Mesh
-routeregistration.Route{
-    From:      "/mesh",
-    RouteType: routeregistration.Mesh,
-    Gateway:   "mesh-gateway",
-}
-
-// Facade
-routeregistration.Route{
-    From:    "/facade",
-    Gateway: "facade",
-}
-```
-
-### Java patterns
-
-> **IMPORTANT — Annotation-based routes are explicitly OUT OF SCOPE.**
-> `@Route` / `@Gateway` class/method annotations are processed at compile time
-> by `httproutes-generator-maven-plugin`. Do NOT
-> extract routes from these annotations here — doing so would duplicate the
-> plugin's output. Only extract routes from **`RouteEntry` builder/constructor
-> call sites** as shown below.
-
-```java
-// Builder
-RouteEntry.builder()
-    .from("/api/v1/users")
-    .to("/users")
-    .type(RouteType.PUBLIC)
-    .timeout(30000L)
-    .allowed(true)
-    .namespace("default")
-    .gateway("my-gateway")
-    .hosts(Set.of("api.company.com"))
-    .build()
-
-// Constructors — all variants
-new RouteEntry("/api/v1/users", RouteType.PUBLIC)
-new RouteEntry("/api/v1/users", RouteType.PUBLIC, 30000L)
-new RouteEntry("/api/v1/users", RouteType.PUBLIC, "prod-namespace")
-new RouteEntry("/api/v1/users", RouteType.PUBLIC, "prod-namespace", 30000L)
-new RouteEntry("/api/v1/users", "/users", RouteType.PUBLIC)
-new RouteEntry("/api/v1/users", "/users", RouteType.PUBLIC, 30000L)
-new RouteEntry("/api/v1/users", "/users", RouteType.PUBLIC, "prod-namespace")
-new RouteEntry("/api/v1/users", "/users", RouteType.PUBLIC, "prod-namespace", 30000L)
-
-// Collections
-List.of(new RouteEntry(...), RouteEntry.builder()...build())
-routes.add(new RouteEntry(...))
-
-// postRoutes call sites
-processor.postRoutes(List.of(new RouteEntry(...)))
-processor.postRoutes(microserviceUrl, routes)
-```
+**Read [`route-detection.md`](route-detection.md) now, in full, with the Read
+tool.** It lists the Go `routeregistration.Route` and Java `RouteEntry` call-site
+patterns to detect (annotation-based Java routes are out of scope — the Maven
+plugin owns them), the unified field table (`from`, `to`, `routeType`,
+`forbidden`, `namespace`, `timeout`, `gateway`, `hosts`), Java constructor
+disambiguation, and RouteType normalization.
 
 ---
 
-## Step 3 — Extract fields
+## Step 4 — Build the gateway worksheets
 
-### Unified field table
+Routes with `{variables}` and forbidden routes cannot be converted one by one:
+Istio has no regex routes, so a path is cut before its first variable, and the
+legacy 404s of forbidden routes must become `AuthorizationPolicy` DENY rules.
+Read [`regex-routes-migration`](../regex-routes-migration/SKILL.md) in full and
+build its worksheets (`.mesh-migration/work/httproute-from-code-<gateway>.md`).
 
-| Field | Go source | Java source | Default |
+Legacy route registration posts every Public / Private / Internal route to **all
+three** border gateways and marks it forbidden (`allowed: false`, 404) on the
+gateways wider than its type — and on all of them when the route itself is
+forbidden. Add one row per route and gateway accordingly:
+
+| Route | `public-gateway-service` | `private-gateway-service` | `internal-gateway-service` |
 |---|---|---|---|
-| `from` | `From:` | `.from(...)` / 1st path arg | REQUIRED |
-| `to` | `To:` | `.to(...)` / 2nd path arg | same as `from` |
-| `routeType` | `RouteType:` | `.type(RouteType.X)` | Public / PUBLIC |
-| `skip` | `Forbidden: true` | `allowed: false` | false |
-| `namespace` | n/a (from config) | `.namespace(...)` / namespace arg | `default` |
-| `timeout` | `Timeout:` | `.timeout(...)` / timeout arg | omit |
-| `gateway` | `Gateway:` | `.gateway(...)` | derived |
-| `hosts` | `Hosts:` | `.hosts(Set.of(...))` | omit |
+| `Public` | allowed | allowed | allowed |
+| `Private` | forbidden `implicit` | allowed | allowed |
+| `Internal` | forbidden `implicit` | forbidden `implicit` | allowed |
+| any type with `Forbidden: true` / `.allowed(false)` | forbidden `explicit` | forbidden `explicit` | forbidden `explicit` |
 
-### Java constructor disambiguation
-3-arg `new RouteEntry(path, type, X)`:
-- X is `Long` or numeric literal → timeout
-- X is `String` → namespace
+A `Mesh` or `Facade` route adds one row to the worksheet of its own gateway
+(Step 5): allowed, or forbidden `explicit` when the route is forbidden.
 
-4-arg `new RouteEntry(from, to, type, X)`:
-- X is `Long` or numeric literal → timeout
-- X is `String` → namespace
+Consumer columns:
 
-### RouteType normalization
+| Column | Value |
+|---|---|
+| `#` | `R<n>`, in discovery order (file path, then line). One route keeps its id in every worksheet |
+| `source` | `<file>:<line>` |
+| `owner` | the CR of the route's RouteType (Step 6) |
+| `path` | `from` |
+| `headers` | `-` (route registration has no header matchers) |
+| `allowed` / `forbidden` | per the table above |
+| `behavior` | **`B1` for every allowed row** — all rules share one backend; never a new id per route |
+| `rewrite` | `to` (defaults to `from`); `-` for forbidden rows |
 
-| Go | Java | Canonical |
-|---|---|---|
-| `routeregistration.Public` | `RouteType.PUBLIC` | `Public` |
-| `routeregistration.Private` | `RouteType.PRIVATE` | `Private` |
-| `routeregistration.Internal` | `RouteType.INTERNAL` | `Internal` |
-| `routeregistration.Mesh` | `RouteType.MESH` | `Mesh` |
-| n/a | `RouteType.FACADE` | `Facade` |
+Example — three routes:
 
----
+```text
+R1  Public    /api/v1/svc/{id}        → /svc/{id}
+R2  Internal  /api/v1/svc/{id}/admin  → /svc/{id}/admin
+R3  Public    /api/v1/svc/debug       Forbidden: true
+```
 
-## Step 4 — Skip routes
+give **three rows in each** border worksheet (the other columns omitted):
 
-### Go
-Skip if `Forbidden: true`
+| worksheet | # | path | allowed | forbidden | behavior | rewrite |
+|---|---|---|---|---|---|---|
+| public-gateway-service | R1 | `/api/v1/svc/{id}` | yes | - | B1 | `/svc/{id}` |
+| public-gateway-service | R2 | `/api/v1/svc/{id}/admin` | no | implicit | - | - |
+| public-gateway-service | R3 | `/api/v1/svc/debug` | no | explicit | - | - |
+| private-gateway-service | R1 | `/api/v1/svc/{id}` | yes | - | B1 | `/svc/{id}` |
+| private-gateway-service | R2 | `/api/v1/svc/{id}/admin` | no | implicit | - | - |
+| private-gateway-service | R3 | `/api/v1/svc/debug` | no | explicit | - | - |
+| internal-gateway-service | R1 | `/api/v1/svc/{id}` | yes | - | B1 | `/svc/{id}` |
+| internal-gateway-service | R2 | `/api/v1/svc/{id}/admin` | yes | - | B1 | `/svc/{id}/admin` |
+| internal-gateway-service | R3 | `/api/v1/svc/debug` | no | explicit | - | - |
 
-### Java
-Skip if `allowed: false`
+On internal, R1 and R2 cut to the same `/api/v1/svc` with `R` `/svc` → one rule
+in the Public CR (R2 `merged→R1`). On public / private, R2 becomes a DENY rule
+(implicit, covered by R1's cut), R3 a DENY rule (explicit), and `/api/v1/svc` an
+exposure DENY rule. On internal, R3 is a rule without `backendRefs`.
 
-Include skipped routes in summary.
+**Merge leader** (regex-routes-migration Step 3): when rows of different route
+types merge into one rule, the leader is the row with the **widest** type —
+`Public`, then `Private`, then `Internal` — so the rule lands in that type's CR.
+Its timeout is the largest of the merged rows.
+
+Then run the regex-routes-migration procedure (Steps 1–7) on every worksheet.
+Route conflicts become `unresolved:` entries (`interactive: false`) or chat
+questions (`interactive: true`).
+
+**Gate before Step 5** — run:
+
+```bash
+for g in public private internal; do
+  f=.mesh-migration/work/httproute-from-code-$g-gateway-service.md
+  printf '%s rows=%s\n' "$f" "$(grep -cE '^\| R[0-9]+ ' "$f")"
+done
+```
+
+All three files must exist and show the **same** `rows=` count, equal to the
+number of Public / Private / Internal routes (each such route has a row in every
+border worksheet; Mesh / Facade routes have their own worksheets). Every row has
+`emit`; every worksheet has its `## Row command output`, `## Conflicts` and
+`## DENY rules` sections. Run the regex-routes-migration self-check (its Step 9).
+Do not render anything before this gate passes.
+
+From here on, render **only** what the worksheets say, **per CR, not per
+gateway**: for each RouteType CR, its rules are the routes whose `owner` is that
+CR and whose rendering (regex-routes-migration Step 8, combined over all three
+worksheets) is a rule — a route whose rows are all `merged→…`, `deny` or `none`
+produces no rule. A route's rule is rendered once, in its own CR, even though
+the route has rows in several worksheets. A CR without any rendered rule is not
+generated (an `Internal` route merged into a `Public` rule leaves no internal
+CR). A forbidden route that is `rule` on internal (regex-routes-migration
+Step 7) is rendered — without `backendRefs` — in its own RouteType's CR.
+
+Every rendered rule with a timeout gets `timeouts: {request: <timeout>}` (Step
+8), the largest timeout of the rows merged into it.
 
 ---
 
 ## Step 5 — Map RouteType → gateways
+
+This decides each CR's `parentRefs`. Which rules a CR gets comes from the
+worksheets (Step 4).
 
 | RouteType | Target gateways |
 |---|---|
@@ -303,10 +298,12 @@ Generate ONE HTTPRoute CR per RouteType present in the source.
 ### Algorithm
 
 1. Collect all routes grouped by RouteType.
-2. For each RouteType that has at least one route → generate one CR.
+2. For each RouteType that has at least one rule to render (worksheet `emit`
+   `rule` / `exact` per regex-routes-migration Step 8) → generate one CR.
 3. `parentRefs` = the fixed gateway list for that RouteType (see table above).
-4. `rules[]` = all routes of that RouteType only.
-5. If no routes of a given RouteType exist → skip that CR entirely.
+4. `rules[]` = the rendered rules whose owner is that RouteType's CR. A rule merged
+   from several types sits in the widest type's CR (Step 4).
+5. If no rules of a given RouteType are rendered → skip that CR entirely.
 
 ### Full example
 
@@ -328,7 +325,9 @@ Produces THREE CRs:
 ### Deduplication within a CR
 
 If two route definitions have identical `from` + `to` + `RouteType` → emit ONE rule.
-If same `from` but different `to` → keep both rules.
+Routes that cut to the same `PathPrefix` are merged or reported by
+regex-routes-migration (Steps 3 and 5) — never emit two rules with the same match
+and different rewrites.
 
 ---
 
@@ -393,222 +392,23 @@ Rule: divisible by 60000 → `Xm`, divisible by 1000 → `Xs`, else → `Xms`.
 
 ## Step 9 — Sort rules by path specificity
 
-Before generating the CR, sort all collected routes so that the most specific
-`from` paths appear first in `rules[]`.
+Before generating the CR, sort all collected rules so that the most specific
+paths appear first in `rules[]`.
 
 Apply the shared procedure in
 [`path-specificity-sorting.md`](../path-specificity-sorting/SKILL.md)
-— sort on each rule's `from` path. That file defines the segment-count ordering,
+— sort on the path each rule emits (the cut `PathPrefix` value, not `from`). That file defines the segment-count ordering,
 tie-breaks, a worked example, and why ordering matters across gateway
 implementations.
 
 ---
 
-## Step 10 — Generate HTTPRoute
+## Steps 10–12 — Generate, format and summarize
 
-Generate one CR per RouteType. Wrap ALL CRs together in a single Istio conditional block.
-
-**Rule order:** emit `rules[]` in the path-specificity order produced by
-[Step 9](#step-9--sort-rules-by-path-specificity) (shared procedure
-[`path-specificity-sorting.md`](../path-specificity-sorting/SKILL.md)).
-Most specific match first — never in source/discovery order.
-
-### ParentRef resolution
-
-Resolve every target gateway name to a Gateway API `parentRefs` entry before rendering:
-
-| Target | Rendered parentRef |
-|---|---|
-| `public-gateway` | `- name: public-gateway` with `kind: Gateway` and `group: gateway.networking.k8s.io` |
-| `private-gateway` | `- name: private-gateway` with `kind: Gateway` and `group: gateway.networking.k8s.io` |
-| `internal-gateway-service` | `- name: internal-gateway-service` with `kind: Service` and `group: ''` |
-
-**Mandatory fields — every `parentRefs[]` entry MUST render all three:**
-
-- `group:` — `gateway.networking.k8s.io` for `kind: Gateway`, or `''` (empty
-  string) for `kind: Service`. Always present, never omitted.
-- `kind:` — `Gateway` or `Service`.
-- `name:` — the resolved parent name.
-
-Never emit a parentRef with a missing `group`, `kind`, or `name` (an empty
-`group` must still be written as `group: ''`, not dropped).
-
-### BackendRef resolution
-
-**Mandatory fields — every rule's `backendRefs[]` entry MUST render all five:**
-
-- `group:` — always `''` (empty string), never omitted.
-- `kind:` — always `Service`.
-- `name:` ← `backendRefName` (default `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}`).
-- `port:` ← `backendRefPort` (default `8080`).
-- `weight:` — always `1`.
-
-The same `backendRefName` / `backendRefPort` apply to every rule across every CR
-— they are migration-wide, not per-route (see
-[Inputs / parameters](#inputs--parameters)). The examples below use the defaults;
-substitute the confirmed values when they differ.
-
-These five fields are always required on every emitted rule. Forbidden/skipped
-routes are not emitted at all (see [Step 4](#step-4--skip-routes)), so there is
-no rule with a missing `backendRefs`.
-
-### Labels resolution
-
-If `routeLabels` is provided:
-
-- Render a `metadata.labels` section on every generated HTTPRoute CR.
-- Copy all labels exactly as provided (including Helm template expressions).
-- Keep the same label set for all generated CRs in this run.
-
-If `routeLabels` is not provided:
-
-- Render `metadata.labels` using the default label set from
-  [Inputs / parameters](#inputs--parameters).
-
-### HTTPRoute naming schema
-
-Generated HTTPRoute names follow this fixed pattern:
-
-`<microservice-name>-source-code-<route-type>-routes`
-
-Where `<route-type>` is lowercase and mapped as:
-
-| Canonical RouteType | Name suffix |
-|---|---|
-| `Public` | `public-routes` |
-| `Private` | `private-routes` |
-| `Internal` | `internal-routes` |
-| `Mesh` | `mesh-routes` |
-| `Facade` | `facade-routes` |
-
-Examples:
-
-- `billing-service-source-code-public-routes`
-- `billing-service-source-code-private-routes`
-- `billing-service-source-code-internal-routes`
-
-Naming rules:
-
-- Use the microservice name resolved in [Step 7](#step-7--resolve-microservice-name).
-- Emit exactly one HTTPRoute name per RouteType that has routes (see Step 6).
-- If Step 7 cannot resolve the service name, use `<microservice-name>` in the
-  generated name and record the `unresolved:` entry per Step 7 — the caller
-  supplies the real name via the `resolutions` input.
-
-```yaml
-{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: <microservice-name>-source-code-public-routes
-  labels:
-    app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
-    app.kubernetes.io/part-of: {{ .Values.APPLICATION_NAME }}
-spec:
-  parentRefs:
-    - group: gateway.networking.k8s.io    
-      kind: Gateway
-      name: public-gateway
-    - group: gateway.networking.k8s.io    
-      kind: Gateway    
-      name: private-gateway
-    - group: ''
-      kind: Service
-      name: internal-gateway-service
-
-  rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /api/v1/mesh-test-service-go
-      filters:
-        - type: URLRewrite
-          urlRewrite:
-            path:
-              type: ReplacePrefixMatch
-              replacePrefixMatch: /api/v1
-      backendRefs:
-        - group: ''
-          kind: Service
-          name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
-          port: 8080
-          weight: 1
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: <microservice-name>-source-code-private-routes
-spec:
-  parentRefs:
-    - group: gateway.networking.k8s.io    
-      kind: Gateway    
-      name: private-gateway
-    - group: ''
-      kind: Service
-      name: internal-gateway-service
-  rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /api/v1/mesh-test-service-go-private
-      filters:
-        - type: URLRewrite
-          urlRewrite:
-            path:
-              type: ReplacePrefixMatch
-              replacePrefixMatch: /api/v1/private
-      backendRefs:
-        - group: ''
-          kind: Service
-          name: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}
-          port: 8080
-          weight: 1
-{{- end }}
-```
-
-The `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` opens before the first CR and `{{- end }}` closes after the last CR. The `---` separators between CRs remain inside the block.
-
----
-
-## Step 11 — Output formatting
-
-Separate multiple CRs with `---`.
-
-Output file:
-
-```
-helm-templates/<service name>/templates/source-code-httproutes.yaml
-```
-
----
-
-## Step 12 — Summary
-
-```
-## Summary
-
-| # | File | From | To | RouteType | Gateways | Timeout | Hosts | Skipped |
-|---|---|---|---|---|---|---|---|---|
-| 1 | routes.go | /api/v1/users/profile | /users/profile | Public | public,private,internal | 30s | - | no |
-| 2 | RouteConfig.java | /api/v1/users | /users | Public | public,private,internal | - | - | no |
-| 3 | routes.go | /mesh | /mesh | Mesh | mesh-gateway | - | - | no |
-| 4 | RouteConfig.java | /admin | /admin | Public | - | - | - | yes (allowed=false) |
-```
-
-Note: summary rows reflect sorted order (most specific first).
-
-Also report the `backendRefs` values applied to all rules:
-
-```
-backendRefName: {{ .Values.DEPLOYMENT_RESOURCE_NAME }}   (detected | user-provided | default)
-backendRefPort: 8080                                     (detected | user-provided | default)
-```
-
-Also report labels applied to generated CRs:
-
-```
-routeLabels: <map or "default label set">
-```
+**Read [`rendering.md`](rendering.md) now, in full, with the Read tool.** It
+defines the HTTPRoute CR layout, the mandatory `parentRefs` / `backendRefs`
+fields, labels, the naming schema, the full YAML example, the
+`AuthorizationPolicy` section, the output file, and the chat summary.
 
 ---
 
@@ -621,6 +421,10 @@ Stop and report if:
 - RouteType conflicts with explicit gateway value
 - Java constructor argument types are ambiguous
 - No routes detected in any file
+
+A path with a partial variable segment (`/v{version}/x`) is **not** an error: it
+is routed by its cut, and regex-routes-migration flags it only when it ends up in
+a DENY rule.
 - `backendRefPort` is provided but is not a positive integer
 - `routeLabels` is provided but is not a string-to-string map
 
@@ -646,4 +450,5 @@ Ingress
 GRPCRoute
 TCPRoute
 
-Only HTTPRoute.
+Only HTTPRoute, plus the AuthorizationPolicy DENY rules for forbidden routes on
+the public and private gateways.

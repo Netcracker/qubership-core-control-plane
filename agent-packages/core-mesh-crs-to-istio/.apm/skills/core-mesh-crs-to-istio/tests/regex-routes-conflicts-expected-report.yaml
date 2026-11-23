@@ -1,0 +1,26 @@
+# Relevant part of .mesh-migration/reports/core-mesh-crs-to-istio.yaml after the
+# first run. Questions follow the regex-routes-migration templates; compare ids,
+# options and defaults exactly and the question text by its filled-in values.
+status: partial
+resources:
+  routeConfiguration: 2
+  authorizationPolicy: 1
+unresolved:
+  - id: route-conflict/R1-R2
+    question: "Routes R1 /api/v1/shop/items (backend shop:8080, rewrite /api/v1/shop/items → /items) and R2 /api/v1/shop/items/{id}/reviews (backend reviews:8080, rewrite /api/v1/shop/items → /items) on public-gateway-service both become PathPrefix /api/v1/shop/items in Istio: Istio has no regex routes, so every path is cut before its first {variable}, and one PathPrefix can have only one behavior. Which behavior should /api/v1/shop/items keep? keep-R1 | keep-R2 | manual (emit neither and handle it by hand)."
+    options: [keep-R1, keep-R2, manual]
+    default: keep-R1
+  - id: route-conflict/R3-R4
+    question: "On public-gateway-service, route R4 /api/v1/billing/invoices/{id}/pdf becomes PathPrefix /api/v1/billing/invoices, so Istio sends every request below /api/v1/billing/invoices to it. In legacy route R3 /api/v1/billing served requests like /api/v1/billing/invoices/x: legacy → backend billing:8080, rewrite /api/v1/billing → /billing, Istio → backend billing:8080, rewrite /api/v1/billing/invoices → /pdf/invoices. accept (keep the rule and this change) | manual."
+    options: [accept, manual]
+    default: null
+  - id: route-conflict/R5-R6
+    question: "On public-gateway-service, route R6 /api/v1/catalog/public is a longer PathPrefix than /api/v1/catalog (from route R5 /api/v1/catalog/{tenant}/export), so Istio sends requests like /api/v1/catalog/public/export to R6 (backend catalog:8080, rewrite /api/v1/catalog/public → /catalog/public), while legacy sent them to R5 (backend export:8080, rewrite /api/v1/catalog → /export-api). accept (keep both rules and this change) | manual."
+    options: [accept, manual]
+    default: null
+needsReview:
+  - "⚠ MANUAL REVIEW: /api/v1/billing/{id}/audit is forbidden in legacy, but on internal-gateway-service it is now routed by PathPrefix /api/v1/billing; no DENY policy is generated for this gateway"
+  - "AuthorizationPolicy path templates ({*}, {**}) require Istio >= 1.22."
+  - "meshConfig.pathNormalization.normalization must be MERGE_SLASHES or stronger — otherwise %2F, .. and // bypass the DENY rules."
+  - "Denied requests now get 403 \"RBAC: access denied\" instead of the legacy 404."
+  - "Check the ## Coverage, ## Pair checks and ## DENY rules sections of .mesh-migration/work/core-mesh-crs-to-istio-public-gateway-service.md, .mesh-migration/work/core-mesh-crs-to-istio-internal-gateway-service.md: route conflicts and DENY notPaths depend on segment-by-segment path comparisons — confirm each verdict before merging."
