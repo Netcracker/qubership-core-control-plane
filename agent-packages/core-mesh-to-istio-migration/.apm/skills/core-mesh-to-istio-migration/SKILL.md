@@ -183,9 +183,11 @@ Applies to services that use route-registration libraries or annotations. Invoke
 `interactive: false` and, for Java, `backendRefName` / `backendRefPort` / `routeLabels`. It switches
 libraries to mesh-aware versions, wires `SERVICE_MESH_TYPE`, and adds the matching Maven plugin
 (`httproutes-generator-spring-maven-plugin` for Spring, `httproutes-generator-maven-plugin` for
-Quarkus, both `1.2.1`). Handle `partial` (e.g. `java-registration-artifact`, `maven-plugin-packages`)
-via `resolutions`; copy `done:` / `skipped:` / `commandsRun:` / `needsReview:` into the log and the
-2.1–2.3 rows. `failed` → Error policy.
+Quarkus, both `1.2.1`; when the Quarkus plugin is used, it also updates
+`com.netcracker.cloud.quarkus:routes-registrator` to `>= 10.4.1`). Handle `partial` (e.g.
+`java-registration-artifact`, `maven-plugin-packages`) via `resolutions`; copy `done:` /
+`skipped:` / `commandsRun:` / `needsReview:` into the log and the 2.1–2.3 rows. `failed` → Error
+policy.
 
 ### Step 2.4 — HTTPRoutes from route-registration code
 

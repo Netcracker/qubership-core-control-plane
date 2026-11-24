@@ -100,10 +100,13 @@ compliant") and skip that dependency.
     of adding duplicate explicit dependency versions.
 - **Quarkus** (`quarkus-*` detected in `pom.xml`):
   - Replace or add `com.netcracker.cloud.quarkus:routes-registrator` at version
-    `>= 9.1.0`.
+    `>= 9.1.0` — or `>= 10.4.1` if the service uses the Quarkus Maven plugin
+    `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin` (see
+    [Step 3](#step-3--add-the-maven-plugin-java-services-only)).
   - If the project uses `dependencyManagement`, prefer an existing or upgraded
     `com.netcracker.cloud:cloud-core-quarkus-bom-publish` at version `>= 9.1.0`
-    instead of adding duplicate explicit dependency versions.
+    instead of adding duplicate explicit dependency versions (unless a higher
+    version of `routes-registrator` is required for the Quarkus Maven plugin).
 - Choosing webclient vs resttemplate: keep the variant already in `pom.xml`; otherwise grep the
   sources for `WebClient` vs `RestTemplate` imports and pick the one that is used. If the choice is
   still ambiguous, do not guess: check the `resolutions` input for id
@@ -192,10 +195,13 @@ framework's markers with none of its own — see the README "Framework guard" se
 guess here surfaces immediately at `mvn` time rather than silently.
 
 **Idempotency check:** if the artifact matching the detected framework is already present in
-`pom.xml` at version `>= 1.2.1`, record under `done:` ("already present") and finish. If the
-*other* artifact is present instead (e.g. the old generic `httproutes-generator-maven-plugin` on a
-Spring-only service), switch the `artifactId` to the one matching the detected framework rather
-than adding a second plugin. If the right artifact is present below `1.2.1`, bump the version.
+`pom.xml` at version `>= 1.2.1`, record under `done:` ("already present") and finish — except for
+Quarkus (`httproutes-generator-maven-plugin`), where you must still verify
+`com.netcracker.cloud.quarkus:routes-registrator` is at version `>= 10.4.1` (bumping it to
+`10.4.1` if lower and recording that under `done:`) before finishing. If the *other* artifact is
+present instead (e.g. the old generic `httproutes-generator-maven-plugin` on a Spring-only
+service), switch the `artifactId` to the one matching the detected framework rather than adding a
+second plugin. If the right artifact is present below `1.2.1`, bump the version.
 
 - **If no `pom.xml`** → record under `skipped:` ("No pom.xml found — Go-only
   service") and finish.
@@ -211,6 +217,11 @@ than adding a second plugin. If the right artifact is present below `1.2.1`, bum
      - `<artifactId>httproutes-generator-spring-maven-plugin</artifactId>` (Spring) or
        `<artifactId>httproutes-generator-maven-plugin</artifactId>` (Quarkus).
      - `<version>` exactly `1.2.1` (keep a higher version if one is already there).
+     - **Quarkus `routes-registrator` version requirement:** if the service uses the Quarkus Maven
+       plugin (`com.netcracker.cloud.plugins:httproutes-generator-maven-plugin`), update
+       `com.netcracker.cloud.quarkus:routes-registrator` in `pom.xml` to version `>= 10.4.1` (set
+       `10.4.1` if lower; leave an already higher version as is) and record the update under
+       `done:`.
      - `<goal>generate-routes</goal>`
      - `<packages>` = the common base package of the classes under `src/main/java` that contain the
        annotations found above. If there is no single common base package, check `resolutions` for
