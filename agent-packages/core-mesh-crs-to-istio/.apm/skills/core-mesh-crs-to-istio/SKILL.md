@@ -90,7 +90,7 @@ backendRef:
 labels:
   values: <map or null>
   unresolvedReason: <string or null>
-accessControl:                     # omit entirely when all three lists are empty
+accessControl:                     # always present, even when all three lists are empty ([])
   # `from` is always a plain path (never a regex): the prefix/path value, or the reduced PathPrefix
   # root of a regExp. `matchType` is prefix | exact | reduced-regexp.
   legacyPublic:                    # routes that used to be reachable from the public gateway
@@ -101,11 +101,13 @@ accessControl:                     # omit entirely when all three lists are empt
     - from: <path>
       matchType: <prefix|exact|reduced-regexp>
       cr: <CR name>
+      gateways: [<spec.gateways>]  # the source CR's spec.gateways, verbatim
       methods: [<HTTP methods>]    # present only when a :method header matcher was attached
   deny:                            # deny:true rules — never emitted, see route-configuration-mapping.md
     - from: <path>
       matchType: <prefix|exact|reduced-regexp>
       cr: <CR name>
+      gateways: [<spec.gateways>]  # the source CR's spec.gateways, verbatim
       methods: [<HTTP methods>]    # present only when a :method header matcher was attached
 unresolved:                 # empty when status is complete
   - id: gateway/<gateway-name>
@@ -388,7 +390,8 @@ public-gateway `AuthorizationPolicy` recommendation (see
    processing (allowed: false)` and `Deny rule processing (deny: true)` in
    [route-configuration-mapping.md](route-configuration-mapping.md) as each rule is processed; do
    not re-derive them here, just make sure every entry produced there lands in the report.
-3. Omit the whole `accessControl` block from the report when all three lists are empty.
+3. Always write the `accessControl` block, with `[]` for an empty list. A report without the block
+   comes from a version before 3.1.0, which omitted an empty block; consumers treat it as stale.
 
 ### Step 6 — Capture labels applied to generated resources
 
@@ -535,7 +538,7 @@ Detected output labels (for Maven plugin / code-generated HTTPRoutes):
   # if unresolved, state why: helper indirection not resolvable
   #                           | conflicting label definitions
 
-Access control (only when accessControl is non-empty — see Step 5a):
+Access control (only when any accessControl list is non-empty — see Step 5a):
   Legacy-public routes now registered on public-gateway, private-gateway and internal-gateway-service:
     - <from> (<CR name>)
   Forbidden routes (never emitted — no Istio equivalent):

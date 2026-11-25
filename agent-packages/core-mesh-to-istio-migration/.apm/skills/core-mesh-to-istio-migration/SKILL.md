@@ -50,6 +50,10 @@ Reports live in `.mesh-migration/reports/<skill>.yaml`.
   from Step 1 instead if they are stale." If a report needed later (e.g. Step 1's `backendRef` and
   `labels` for Steps 2.3/2.4) is missing or `failed`, ask the user to start earlier or provide the
   values. Mark skipped steps `reused (report of <generatedAt>)` in the status table.
+  A reused Step 1 or Step 2.4 report without an `accessControl` key comes from a version that
+  omitted the block (`core-mesh-crs-to-istio` before 3.1.0, `httproute-from-code` before 2.2.0), so
+  it may hide public routes: treat it like a missing report for Step 2.5 and ask the user to rerun
+  that step.
 - **Always invoke every sub-skill of the steps you run**, even if its output already exists: the
   sub-skills are idempotent and the report they write is what later steps read.
 - After each sub-skill, read its report; ignore unknown fields. If `reportSchema` is missing or newer
@@ -220,8 +224,10 @@ deny-unless-permit: a service is unreachable from outside until it ships its own
    "if this service has no public endpoints you need no policy" — and ask **once**: "I recommend you
    write the public-gateway AuthorizationPolicy yourself. Do you want me to generate a draft anyway?"
 5. Branch on the user's reply:
-   - **Insists on a draft** → re-invoke with `generate: true`, re-read the report, log the file
-     under **Done** and "draft — review every path" under **Needs review**.
+   - **Insists on a draft** → re-invoke with `generate: true` and re-read the report. Log the
+     file under **Done** only when `status: complete`, `generated: true`, and `fileGenerated` is
+     set; add "draft — review every path" under **Needs review**. Otherwise log "no draft written"
+     under **Needs review** with the report's `needsReview:` entries.
    - **Confirms no public endpoints** → log under **Skipped** ("internal-only service — no
      public-gateway AuthorizationPolicy needed").
    - **Declines / will write by hand (expected)** → log under **Needs review**: "Service owner to
@@ -266,12 +272,14 @@ Open items: <every remaining Needs review entry>
 ```
 
 Close with a plain-language summary: what was applied automatically (Done count), what was skipped
-and why, every remaining **Needs review** entry, and these local checks to run before pushing
-(`grep` finding nothing under Core is the passing result):
+and why, every remaining **Needs review** entry, and these local checks to run before pushing.
+Each check counts only when its `helm template` exits 0; under Core, `grep` finding nothing is the
+passing result:
 
 ```bash
-helm template <chart> --set SERVICE_MESH_TYPE=Istio | grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/'
-helm template <chart> --set SERVICE_MESH_TYPE=Core  | grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/'
+api='^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/'
+out=$(helm template <chart> --set SERVICE_MESH_TYPE=Istio) && printf '%s\n' "$out" | grep -E "$api" && echo "Istio check passed"
+out=$(helm template <chart> --set SERVICE_MESH_TYPE=Core)  && ! printf '%s\n' "$out" | grep -E "$api" && echo "Core check passed"
 ```
 
 ---
