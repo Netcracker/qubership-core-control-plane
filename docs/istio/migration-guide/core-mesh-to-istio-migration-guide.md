@@ -22,7 +22,7 @@ All namespaces of the same Composite Deployment must be enrolled into the mesh s
 
 ### Cloud-Core
 
-Cloud-Core supports Istio since version 9.27.2 (release 26.3).
+Cloud-Core supports Istio since version 10.4.x (release 27.1).
 
 Migration of the existing environment to Istio must be performed via 2 sequentual deployment sessions:
 1. Deploy Cloud-Core 9.27.2+ with parameter `SERVICE_MESH_TYPE=Istio`;
