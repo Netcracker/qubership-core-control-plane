@@ -30,7 +30,7 @@ const (
 func TestProxyRequestsToMaster_doesNotProxyARequestRefusedWhileReading(t *testing.T) {
 	calls, upstream := startRecordingUpstream(t)
 	setNodeState(t, upstream, clustering.Slave)
-	addr := serveGroup(t, ProxyRequestsToMaster())
+	addr, _ := serveGroup(t, ProxyRequestsToMaster())
 
 	tests := []struct {
 		name       string
@@ -56,13 +56,14 @@ func TestProxyRequestsToMaster_doesNotProxyARequestRefusedWhileReading(t *testin
 func TestProxyRequestsToMaster_answersARefusedRequestWithoutWaitingForTheMaster(t *testing.T) {
 	_, upstream := startRecordingUpstream(t)
 	setNodeState(t, upstream, clustering.Master)
-	addr := serveGroup(t, ProxyRequestsToMaster())
+	addr, laterCalls := serveGroup(t, ProxyRequestsToMaster())
 	// Let a request stuck in WaitMasterReady finish, or the app's shutdown waits for it.
 	t.Cleanup(clustering.CurrentNodeState.SetMasterReady)
 
 	status := sendRaw(t, addr, bodyOverTheLimit)
 
 	assert.Equal(t, http.StatusRequestEntityTooLarge, status, "status")
+	assert.Zero(t, laterCalls.Load(), "calls of the group middleware after the proxy")
 }
 
 func TestServiceProxyHandler_doesNotProxyARequestRefusedWhileReading(t *testing.T) {
@@ -70,7 +71,7 @@ func TestServiceProxyHandler_doesNotProxyARequestRefusedWhileReading(t *testing.
 	never := func(fiber.Ctx) bool { return false }
 	always := func(fiber.Ctx) bool { return true }
 	fallback := func(c fiber.Ctx) error { return c.SendStatus(http.StatusTeapot) }
-	addr := serveGroup(t, NewService(upstream.address(), never, always, fallback).ProxyHandler())
+	addr, _ := serveGroup(t, NewService(upstream.address(), never, always, fallback).ProxyHandler())
 
 	tests := []struct {
 		name       string
@@ -89,6 +90,34 @@ func TestServiceProxyHandler_doesNotProxyARequestRefusedWhileReading(t *testing.
 
 			assert.Equal(t, tt.wantStatus, status, "status")
 			assert.Equal(t, tt.wantCalls, calls.Load(), "requests the upstream received")
+		})
+	}
+}
+
+// The group middleware after the proxy would parse the unread body of a refused request, and a route validator that
+// fails resets the response headers, X-Request-Id among them. It used to run for such a request.
+func TestServiceProxyHandler_endsTheChainForARefusedRequest(t *testing.T) {
+	always := func(fiber.Ctx) bool { return true }
+	fallback := func(c fiber.Ctx) error { return c.SendStatus(http.StatusTeapot) }
+	addr, laterCalls := serveGroup(t, NewService("", always, always, fallback).ProxyHandler())
+
+	tests := []struct {
+		name           string
+		request        string
+		wantStatus     int
+		wantLaterCalls int32
+	}{
+		{name: "body over the limit", request: bodyOverTheLimit, wantStatus: http.StatusRequestEntityTooLarge, wantLaterCalls: 0},
+		{name: "body within the limit", request: bodyWithinLimit, wantStatus: http.StatusNoContent, wantLaterCalls: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			laterCalls.Store(0)
+
+			status := sendRaw(t, addr, tt.request)
+
+			assert.Equal(t, tt.wantStatus, status, "status")
+			assert.Equal(t, tt.wantLaterCalls, laterCalls.Load(), "calls of the group middleware after the proxy")
 		})
 	}
 }
@@ -124,18 +153,24 @@ func setNodeState(t *testing.T, master upstreamNode, role clustering.Role) {
 }
 
 // serveGroup serves the DELETE route under an /api/v2 group with middleware, the way the service registers its API,
-// on a real listener: app.Test cannot send a request whose body Fiber refuses while reading it.
-func serveGroup(t *testing.T, middleware fiber.Handler) string {
+// on a real listener: app.Test cannot send a request whose body Fiber refuses while reading it. A second group
+// middleware, counted in the returned counter, stands for the route validators registered after the proxy.
+func serveGroup(t *testing.T, middleware fiber.Handler) (string, *atomic.Int32) {
 	t.Helper()
+	laterCalls := &atomic.Int32{}
+	later := func(c fiber.Ctx) error {
+		laterCalls.Add(1)
+		return c.Next()
+	}
 	app := fiber.New(fiber.Config{BodyLimit: 1024})
-	app.Group("/api/v2", middleware).Delete("/control-plane/routes/node", func(c fiber.Ctx) error {
+	app.Group("/api/v2", middleware, later).Delete("/control-plane/routes/node", func(c fiber.Ctx) error {
 		return c.SendStatus(http.StatusNoContent)
 	})
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	go func() { _ = app.Listener(listener, fiber.ListenConfig{DisableStartupMessage: true}) }()
 	t.Cleanup(func() { _ = app.Shutdown() })
-	return listener.Addr().String()
+	return listener.Addr().String(), laterCalls
 }
 
 func sendRaw(t *testing.T, addr, request string) int {
