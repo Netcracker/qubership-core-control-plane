@@ -46,7 +46,6 @@ spec:
                 request_handle:logInfo("no uuid found")
             end
         end
-`	
 ---
 apiVersion: nc.core.mesh/v3
 kind: RouteConfiguration
@@ -75,5 +74,5 @@ spec:
 ```
 
 In this example lua filter configured for one route only:
-* Route `/api/{version}/service/catalogManagement` has the reference to script that allows to copy uuid from path to header, so the request like `/api/v1/service/catalogManagement/abcd1234-e5f6-7890-1234-567890abcdef` will be sent with heaader `X-Uuid: abcd1234-e5f6-7890-1234-567890abcdef`
-* Request to `/api/{version}/service/catalogExport`does not have per-route LuaFilter configuration, so they will be processed without any scripting
+* Route `/api/{version}/service/catalogManagement` has the reference to script that allows to copy uuid from path to header, so the request like `/api/v1/service/catalogManagement/abcd1234-e5f6-7890-1234-567890abcdef` will be sent with header `X-Uuid: abcd1234-e5f6-7890-1234-567890abcdef`
+* Request to `/api/{version}/service/catalogExport` does not have per-route LuaFilter configuration, so they will be processed without any scripting
