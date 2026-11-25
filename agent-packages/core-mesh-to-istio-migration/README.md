@@ -4,8 +4,9 @@ An APM package that drives the **full** Cloud-Core Mesh → Istio migration
 end-to-end. It is an orchestrator: it delegates the heavy lifting to the
 [`core-mesh-crs-to-istio`](../core-mesh-crs-to-istio),
 [`mesh-build-wiring`](../mesh-build-wiring),
-[`httproute-from-code`](../httproute-from-code), and
-[`istio-migration-validate`](../istio-migration-validate) packages, resolves
+[`httproute-from-code`](../httproute-from-code),
+[`istio-migration-validate`](../istio-migration-validate), and
+[`public-gateway-authz-policy`](../public-gateway-authz-policy) packages, resolves
 user questions, and keeps an auditable `.mesh-migration/MIGRATION_LOG.md`.
 
 ## Install
@@ -14,7 +15,7 @@ user questions, and keeps an auditable `.mesh-migration/MIGRATION_LOG.md`.
 apm install Netcracker/qubership-core-control-plane/agent-packages/core-mesh-to-istio-migration --target claude
 ```
 
-This pulls in the four atomic sub-skills it delegates to — and transitively the
+This pulls in the five atomic sub-skills it delegates to — and transitively the
 shared [`path-specificity-sorting`](../path-specificity-sorting) procedure — as
 declared `dependencies`, so they all resolve as siblings under
 `.claude/skills/`.
@@ -26,8 +27,8 @@ pick up a new version.
 ## What you get
 
 - The [`SKILL.md`](.apm/skills/core-mesh-to-istio-migration/SKILL.md) — the full
-  migration procedure (Step 1 mesh-CR conversion through Step 2.6 duplicate-rule
-  detection), the mandatory `.mesh-migration/MIGRATION_LOG.md` format, the error policy, and
+  migration procedure (Step 1 mesh-CR conversion through Step 2.8 control-plane-call
+  flagging, with public-gateway access control at Step 2.5), the mandatory `.mesh-migration/MIGRATION_LOG.md` format, the error policy, and
   idempotent reruns.
 - An instruction that fires when you ask to run an Istio migration on a service
   or Helm chart, steering the agent to the skill.
@@ -39,6 +40,9 @@ service from Core Mesh to Istio. You can also invoke the skill by name against a
 chart or service directory, e.g. "run core-mesh-to-istio-migration on
 helm-templates/my-service".
 
-It runs every step in order, delegates to the four atomic skills,
+It runs every step in order, delegates to the five atomic skills,
 validates the result, and writes a Done / Skipped / Needs-review log to
 `.mesh-migration/MIGRATION_LOG.md` — review every **Needs review** entry before raising a PR.
+Public-gateway access control (Step 2.5) defaults to a hand-authoring
+recommendation; it only generates an `AuthorizationPolicy` draft if you
+explicitly ask it to.
