@@ -64,17 +64,21 @@ Also write `.mesh-migration/reports/httproute-from-code.yaml` (create the direct
 ```yaml
 reportSchema: 1
 skill: httproute-from-code
+chartPath: <chartPath>      # required — consumers must match this before reusing the report
 status: complete            # complete | partial | failed
 generatedAt: <ISO-8601>
 inputsUsed: {backendRefName: <v>, backendRefPort: <v>, routeLabels: <map>}
 filesGenerated: [<paths>]   # empty when no routes were found
 routesGenerated: <N>        # 0 is valid
-accessControl:              # omit entirely when both lists are empty
+accessControl:              # always present, including when both lists are empty
+  collected: true           # absent means this run did not finish collection
+  chartPath: <chartPath>
   legacyPublic:             # emitted routes whose legacy type was Public
-    - {from: <original path>, source: <file:line>, matchType: prefix}
+    - {from: <original path>, source: <file:line>, matchType: prefix, gateways: [public-gateway-service]}
   forbidden:                # Forbidden:true / allowed:false — never emitted
-    - {from: <path>, legacyType: <Public|Private|Internal>, source: <file:line>, matchType: prefix}
-  # no `deny` here: code registration has no deny flag
+    - {from: <path>, legacyType: <Public|Private|Internal>, source: <file:line>, matchType: prefix, gateways: [<legacy gateway or []>]}
+  deny: []                  # code registration has no deny flag; keep the list so the shape matches
+  regexReductions: []
 unresolved: []              # {id, question, options, default}; e.g. id microservice-name
 needsReview: [<one line per skipped route or problem>]
 ```
@@ -90,8 +94,9 @@ report a contract mismatch.
 - Ignore `vendor/`, `.git/`, `node_modules/`, `testdata/`, `target/`, `src/test/`.
 - Mixed Go and Java → process both, merge per microservice.
 - **No Go/Java files, or no route registrations found: not an error.** Write the report with
-  `status: complete`, `routesGenerated: 0`, `filesGenerated: []`, print "No code-registered routes
-  found — nothing to generate (annotation-based routes are handled by the Maven plugin)", and stop.
+  `status: complete`, `routesGenerated: 0`, `filesGenerated: []`, `chartPath`, and
+  `accessControl.collected: true` with empty lists. Print "No code-registered routes found —
+  nothing to generate (annotation-based routes are handled by the Maven plugin)", and stop.
 
 ## Step 2 — Detect route definitions
 
@@ -164,15 +169,22 @@ Internal, Mesh or Facade routes there.
 
 | Group | CR name | parentRefs |
 |---|---|---|
-| gateway group | `<ms>-source-code-routes` | `public-gateway`, `private-gateway`, `internal-gateway-service` |
+| gateway group, legacy Public | `<ms>-source-code-routes` | `public-gateway`, `private-gateway`, `internal-gateway-service` |
+| gateway group, legacy Private or Internal, public access not clear | `<ms>-source-code-routes-nonpublic` | `private-gateway`, `internal-gateway-service` |
 | Mesh | `<ms>-source-code-mesh-routes` (several mesh gateways: `<ms>-source-code-mesh-<gateway>-routes`, one CR each) | Service named by the route's `gateway` value |
 | Facade | `<ms>-source-code-facade-routes` | Service `{{ .Values.SERVICE_NAME }}` |
 
 Generate a CR only for groups that have at least one route. `<ms>` is resolved in Step 7.
+Private and Internal routes share the public HTTPRoute only when input `publicGatewayAccess` is
+`clear` and no in-chart AuthorizationPolicy ALLOW that targets `public-gateway` matches them.
+Until then they stay on `<ms>-source-code-routes-nonpublic`. Do not forbid them on the private
+gateway. The same chart search as
+[parent-refs-resolution.md](../core-mesh-crs-to-istio/parent-refs-resolution.md) applies.
 **16-rule limit:** Gateway API `HTTPRoute` allows at most **16 rules per CR**. If a group still has
 `> 16` rules after root reduction (Step 6a) and sorting (Step 9), split it into consecutive chunks
 of ≤16 rules in the same file (`---` separated), with identical `parentRefs` and `labels`, named
-`<cr-name>-1`, `<cr-name>-2`, … (no suffix when `≤ 16` rules).
+`<cr-name>-1`, `<cr-name>-2`, … (no suffix when `≤ 16` rules). One gateway group is one HTTPRoute
+only while it stays within that limit.
 Old per-type names (`-public-routes`, `-private-routes`, `-internal-routes`) are no longer produced;
 tell the user to delete stale files from earlier runs.
 
@@ -192,8 +204,8 @@ Mirrors the reduction the Maven plugins apply to annotation routes.
    already yields this route's target, drop this route; `timeout` becomes the max of both.
 5. Two routes reducing to the same match with different rewrite targets → skip both and add a
    `needsReview:` entry naming them.
-6. A match reducing to `/` → skip it and add a `needsReview:` entry (it would shadow every other
-   route).
+6. A match reducing to `/` → skip it and add a `needsReview:` entry (a broad prefix can match
+   additional requests as a fallback when no higher-precedence rule applies).
 7. Output is always `PathPrefix` (optionally with `URLRewrite`/`ReplacePrefixMatch`); never `Exact`
    or `RegularExpression`.
 
@@ -233,9 +245,10 @@ Wrap **all** CRs in one `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` … `{{
 - **Omitted always:** `metadata.namespace` and `spec.hostnames` (Go `Hosts`/Java `hosts` and
   `namespace` are not carried over; if `hosts` was set mention it in the summary — headless-service
   routes need `hostnames` added by hand, see `docs/istio/known-issues.md`).
-- Filter order per rule: `URLRewrite` (if any); `timeouts.request` when a timeout exists.
+- `URLRewrite`, when present, is an entry under the rule's `filters`. `timeouts.request`, when
+  present, is a field on the rule itself, next to `matches` and `backendRefs`, not a filter.
 
-Example (gateway group; defaults shown):
+Example (gateway group; defaults shown, with `timeouts.request` on the rule and `URLRewrite` under `filters`):
 
 ```yaml
 {{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
@@ -278,6 +291,8 @@ spec:
           name: '{{ .Values.SERVICE_NAME }}'
           port: 8080
           weight: 1
+      timeouts:
+        request: 30s
     - matches:
         - path:
             type: PathPrefix
@@ -307,8 +322,9 @@ then forbidden rows. Also print the applied `backendRefName` / `backendRefPort` 
 their origin (detected, user-provided, default), and — when any exist — the access-control note:
 
 ```
-Legacy-public routes now registered on public-gateway, private-gateway and internal-gateway-service:
+Legacy-public routes registered on public-gateway, private-gateway and internal-gateway-service:
 - /api/v1/users (routes.go:12)
+Private and internal routes stay off public-gateway until access is checked.
 Forbidden routes (never emitted): /admin (RouteConfig.java:42)
 No AuthorizationPolicy is generated here — see public-gateway-authz-policy.
 ```

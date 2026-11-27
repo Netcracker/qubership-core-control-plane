@@ -44,10 +44,14 @@ files, never committed; the orchestrator handles both in orchestrated runs):
 ```yaml
 reportSchema: 1
 skill: mesh-build-wiring
+chartPath: <chartPath>
 status: complete            # complete | partial | failed
 generatedAt: <ISO-8601>
+versions:
+  routesRegistrator: <version applied or already present, or null>
+  httpRoutesGeneratorPlugin: <version applied or already present, or null>
 done:
-  - <one line per applied change, e.g. "pom.xml: rest-libraries-bom bumped to 7.1.0">
+  - <one line per applied change, e.g. "pom.xml: rest-libraries-bom bumped to 7.6.2">
 skipped:
   - <one line per intentionally skipped item, with reason>
 commandsRun:
@@ -77,8 +81,14 @@ available. Writes the report file. Nothing else.
 
 Apply only to languages actually present in the repo.
 
-**Versions:** when adding or bumping, set exactly the minimum version stated below (never invent or
-guess a newer one — you may have no registry access); leave an already higher version as is.
+**Versions:** when adding or bumping, set exactly the minimum version stated in this section
+(never invent or guess a newer one — you may have no registry access); leave an already higher
+version as is.
+
+**Quarkus `routes-registrator` floor** (the only place this skill states it): `10.4.2`. Use it with
+or without `httproutes-generator-maven-plugin`. Step 1 and Step 3 both mean this floor. Record the
+version you left in the file under `versions.routesRegistrator`. Do not repeat the number in the
+plugin branches.
 
 ### Java
 
@@ -93,20 +103,19 @@ compliant") and skip that dependency.
 - **Spring** (`spring-boot-starter-*` detected in `pom.xml`):
   - Replace old route-posting dependencies with either
     `com.netcracker.cloud:route-registration-webclient` or
-    `com.netcracker.cloud:route-registration-resttemplate` at version `>= 7.1.0`.
+    `com.netcracker.cloud:route-registration-resttemplate` at version `>= 7.6.2`.
   - If the project uses `dependencyManagement`, prefer an existing or upgraded
-    `com.netcracker.cloud:rest-libraries-bom` at version `>= 7.1.0`, or
-    `com.netcracker.cloud:cloud-core-java-bom` at version `>= 12.0.2`, instead
+    `com.netcracker.cloud:rest-libraries-bom` at version `>= 7.6.2`, or
+    `com.netcracker.cloud:cloud-core-java-bom` at version `>= 12.3.2`, instead
     of adding duplicate explicit dependency versions.
 - **Quarkus** (`quarkus-*` detected in `pom.xml`):
-  - Replace or add `com.netcracker.cloud.quarkus:routes-registrator` at version
-    `>= 9.1.0` — or `>= 10.4.1` if the service uses the Quarkus Maven plugin
-    `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin` (see
+  - Replace or add `com.netcracker.cloud.quarkus:routes-registrator` at the
+    Quarkus `routes-registrator` floor defined above, whether or not the service
+    uses `httproutes-generator-maven-plugin` (see
     [Step 3](#step-3--add-the-maven-plugin-java-services-only)).
   - If the project uses `dependencyManagement`, prefer an existing or upgraded
-    `com.netcracker.cloud:cloud-core-quarkus-bom-publish` at version `>= 9.1.0`
-    instead of adding duplicate explicit dependency versions (unless a higher
-    version of `routes-registrator` is required for the Quarkus Maven plugin).
+    `com.netcracker.cloud:cloud-core-quarkus-bom-publish` that yields at least
+    that same floor, instead of adding a duplicate explicit dependency version.
 - Choosing webclient vs resttemplate: keep the variant already in `pom.xml`; otherwise grep the
   sources for `WebClient` vs `RestTemplate` imports and pick the one that is used. If the choice is
   still ambiguous, do not guess: check the `resolutions` input for id
@@ -195,13 +204,14 @@ framework's markers with none of its own — see the README "Framework guard" se
 guess here surfaces immediately at `mvn` time rather than silently.
 
 **Idempotency check:** if the artifact matching the detected framework is already present in
-`pom.xml` at version `>= 1.2.1`, record under `done:` ("already present") and finish — except for
-Quarkus (`httproutes-generator-maven-plugin`), where you must still verify
-`com.netcracker.cloud.quarkus:routes-registrator` is at version `>= 10.4.1` (bumping it to
-`10.4.1` if lower and recording that under `done:`) before finishing. If the *other* artifact is
-present instead (e.g. the old generic `httproutes-generator-maven-plugin` on a Spring-only
-service), switch the `artifactId` to the one matching the detected framework rather than adding a
-second plugin. If the right artifact is present below `1.2.1`, bump the version.
+`pom.xml` at version `>= 1.2.2`, record under `done:` ("already present"). For Quarkus
+(`httproutes-generator-maven-plugin`), still verify `routes-registrator` against the floor defined
+above and bump it when it is lower. If Step 1 or that bump changed `pom.xml`, run the generation
+build in sub-step 3 and record it before finishing. If neither changed configuration, finish
+without the build. If the *other* artifact is present instead (e.g. the old generic
+`httproutes-generator-maven-plugin` on a Spring-only service), switch the `artifactId` to the one
+matching the detected framework rather than adding a second plugin. If the right artifact is
+present below `1.2.2`, bump the version.
 
 - **If no `pom.xml`** → record under `skipped:` ("No pom.xml found — Go-only
   service") and finish.
@@ -216,12 +226,11 @@ second plugin. If the right artifact is present below `1.2.1`, bump the version.
      - `<groupId>com.netcracker.cloud.plugins</groupId>`
      - `<artifactId>httproutes-generator-spring-maven-plugin</artifactId>` (Spring) or
        `<artifactId>httproutes-generator-maven-plugin</artifactId>` (Quarkus).
-     - `<version>` exactly `1.2.1` (keep a higher version if one is already there).
-     - **Quarkus `routes-registrator` version requirement:** if the service uses the Quarkus Maven
-       plugin (`com.netcracker.cloud.plugins:httproutes-generator-maven-plugin`), update
-       `com.netcracker.cloud.quarkus:routes-registrator` in `pom.xml` to version `>= 10.4.1` (set
-       `10.4.1` if lower; leave an already higher version as is) and record the update under
-       `done:`.
+     - `<version>` exactly `1.2.2` (keep a higher version if one is already there).
+     - **Quarkus `routes-registrator`:** if the service uses the Quarkus Maven plugin, set
+       `com.netcracker.cloud.quarkus:routes-registrator` to the plugin floor defined above when
+       the current version is lower. Leave an already higher version as is. Record the version
+       under `done:` and `versions.routesRegistrator`.
      - `<goal>generate-routes</goal>`
      - `<packages>` = the common base package of the classes under `src/main/java` that contain the
        annotations found above. If there is no single common base package, check `resolutions` for
@@ -234,8 +243,8 @@ second plugin. If the right artifact is present below `1.2.1`, bump the version.
        to `<chartPath>/templates/annotations-httproutes.yaml`.
      - `<backendRefVal>` **always set explicitly** to the `backendRefName` input, e.g.
        `<backendRefVal>{{ .Values.SERVICE_NAME }}</backendRefVal>` (the default when nothing was
-       detected). Do not rely on the plugin's own default (it changed in 1.2.0) — set the value so
-       it matches the migration-wide `backendRefName`.
+       detected). Do not rely on the plugin default. Set the value so it matches the
+       migration-wide `backendRefName`.
      - `<labels>` set to the `routeLabels` input, in Maven plugin label format:
        `<labels><label><key>my/special-key</key><value>value1</value></label></labels>`.
        Do not invent values.
@@ -248,9 +257,11 @@ second plugin. If the right artifact is present below `1.2.1`, bump the version.
        already compiled.
   2. **Confirm `<outputFile>`** is set to a path inside the Helm chart templates
      directory. This file must be committed to the branch.
-  3. **Build the project** to generate the output file. Run
-     `mvn -q clean process-classes` if Maven is available in the environment and
-     record the exit code under `commandsRun:`. If Maven is not available,
+  3. **Build the project** whenever Step 1 or this step changed `pom.xml`, including a
+     `routes-registrator` bump made while the plugin was already present. A compatible plugin
+     does not skip this build. Run `mvn -q clean process-classes` if Maven is available and
+     record the command and exit code under `commandsRun:` and `done:`. If neither Maven step
+     changed configuration, record that the build was not required. If Maven is not available,
      record under `skipped:` ("mvn not available in environment") and continue.
      If Maven is available but exits non-zero, map the plugin's failure message to
      `needsReview:` verbatim before failing — these are expected, by-design build failures, not
@@ -259,7 +270,9 @@ second plugin. If the right artifact is present below `1.2.1`, bump the version.
      - a route that cannot be expressed as a `PathPrefix` + `ReplacePrefixMatch` rewrite (tail
        mismatch between the "from" and "to" paths);
      - two roots reducing to the same match with different rewrite targets;
-     - a root reducing to `/` (a class-level `@Route` / `@GatewayRequestMapping` with no path);
+     - a root reducing to `/` (a class-level `@Route` / `@GatewayRequestMapping` with no path; a
+       broad prefix can match additional requests as a fallback when no higher-precedence rule
+       applies);
      - the framework guard (wrong plugin for the detected framework — see the README).
 
      Then → `status: failed` per the contract.

@@ -29,6 +29,31 @@ spec:
   - matches:
     - path:
         type: PathPrefix
+        value: /api/v1/billing/exports
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing-service
+      port: 8080
+      weight: 1
+    timeouts:
+      request: 1000ms
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing/exports
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing-service
+      port: 8080
+      weight: 1
+    timeouts:
+      request: 5000ms
+  # ⚠ MANUAL REVIEW: /api/v1/billing/exports matches coincide but timeouts differ; both rules kept.
+  - matches:
+    - path:
+        type: PathPrefix
         value: /api/v1/billing/invoices
     backendRefs:
     - group: ''
@@ -36,10 +61,36 @@ spec:
       name: billing-service
       port: 8080
       weight: 1
-  # ⚠ MANUAL REVIEW: /api/v1/billing/admin (allowed: false) not emitted; now registered on public-gateway, make sure the public-gateway AuthorizationPolicy does not allow it.
-  # ⚠ MANUAL REVIEW: /api/v1/billing/invoices/bulk (allowed: false, DELETE) not emitted; make sure the public-gateway AuthorizationPolicy does not allow it.
-  # ⚠ MANUAL REVIEW: /api/v1/billing/internal-only (deny: true) not emitted; exclude it from the public-gateway AuthorizationPolicy.
-  # ⚠ MANUAL REVIEW: regExp "/api/v1/.*" reduces to the too-general prefix /api/v1; not emitted, express it as an Exact/PathPrefix match by hand.
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing/reports
+      headers:
+      - name: X-Tenant
+        value: a
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing-service
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing/reports
+      headers:
+      - name: X-Tenant
+        value: b
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing-service
+      port: 8080
+      weight: 1
+  # ⚠ MANUAL REVIEW: forbidden rule /api/v1/billing/admin (allowed: false) was omitted. Check whether a remaining rule and the public-gateway AuthorizationPolicy cover this path.
+  # ⚠ MANUAL REVIEW: forbidden rule /api/v1/billing/invoices/bulk (allowed: false, DELETE) was omitted. Check whether a remaining rule and the public-gateway AuthorizationPolicy cover this path.
+  # ⚠ MANUAL REVIEW: deny route /api/v1/billing/internal-only applies to public-gateway-service. Draft a public-gateway DENY only for this source.
+  # ⚠ MANUAL REVIEW: regExp "/api/v1/.*" reduces to the too-general prefix /api/v1; not emitted. A broad prefix can match additional requests as a fallback when no higher-precedence rule applies.
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -49,14 +100,12 @@ spec:
   parentRefs:
   - group: gateway.networking.k8s.io
     kind: Gateway
-    name: public-gateway
-  - group: gateway.networking.k8s.io
-    kind: Gateway
     name: private-gateway
   - group: ''
     kind: Service
     name: internal-gateway-service
   rules:
+  # ⚠ MANUAL REVIEW: /api/v1/billing/ledger was not public. public-gateway parent withheld until effective Gateway access is verified.
   - matches:
     - path:
         type: PathPrefix

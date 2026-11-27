@@ -23,6 +23,19 @@ Run against the chart or service directory to migrate (`helm-templates/my-servic
 may name a **start step** ("start from Step 2.4", "rerun the validation") to resume; the default is a
 full run from Step 1.
 
+Saved prompts from before the policy step was inserted use the old validation numbers. Map them
+before choosing a start step:
+
+| What the user says | Start at |
+|---|---|
+| "rerun the validation", "run istio-migration-validate" | Step 2.6 |
+| old Step 2.5 (guards and render checks) | Step 2.6 |
+| old Step 2.6 (duplicate rules) | Step 2.7 |
+| old Step 2.7 (control-plane calls) | Step 2.8 |
+
+Current Step 2.5 is public-gateway policy authoring. Do not open it for a request to rerun
+validation.
+
 ## Sub-skills
 
 | Sub-skill | Steps | Purpose |
@@ -45,13 +58,22 @@ Reports live in `.mesh-migration/reports/<skill>.yaml`.
 - **Before the first step**, ensure the repo `.gitignore` contains `.mesh-migration/` (append it with
   a short comment if missing; log under **Done**). Reports and the log are never committed.
 - **Full run:** delete `.mesh-migration/reports/` and any old `MIGRATION_LOG.md` first.
-- **Resumed run:** keep existing reports. Before executing, list each reused report (`skill`,
-  `generatedAt`, `status`) and say: "Resuming from <step>; reusing these previous results — rerun
-  from Step 1 instead if they are stale." If a report needed later (e.g. Step 1's `backendRef` and
-  `labels` for Steps 2.3/2.4) is missing or `failed`, ask the user to start earlier or provide the
-  values. Mark skipped steps `reused (report of <generatedAt>)` in the status table.
-- **Always invoke every sub-skill of the steps you run**, even if its output already exists: the
-  sub-skills are idempotent and the report they write is what later steps read.
+- **Resumed run:** keep existing reports only when each reused report has `status: complete` and
+  `chartPath` equal to the selected chart. Before executing, list each reused report (`skill`,
+  `generatedAt`, `status`, `chartPath`) and say: "Resuming from <step>; reusing these previous
+  results — rerun from Step 1 instead if they are stale." A report with no `chartPath`, or a
+  different one, cannot be tied to this chart: do not reuse it. Ask for a fresh run of that
+  producer or for explicit access-control input. Producer reports (`core-mesh-crs-to-istio`,
+  `httproute-from-code`) also need `accessControl.collected: true`. A missing `collected` flag is
+  an older inventory, not an empty one — re-invoke that producer before Step 2.5 recommends or
+  drafts a policy. A `partial` report is not reusable as-is. Apply the same resolution flow as a
+  fresh partial report: relay every `unresolved:` question, deliver `resolutions`, re-invoke, and
+  require `status: complete` before any later step reads that producer's candidates, `backendRef`,
+  or `labels`. A route with an unresolved Gateway must not stay unconverted while Step 2.5 runs.
+  If a report needed later is missing or `failed`, ask the user to start earlier or provide the
+  values. Mark skipped steps `reused (report of <generatedAt>)` only after those checks pass.
+- **Always invoke every sub-skill of the steps you run** when its report cannot be reused. When it
+  can, the report file — not a transcript — is what later steps read.
 - After each sub-skill, read its report; ignore unknown fields. If `reportSchema` is missing or newer
   than that skill's Contract documents, stop and add a **Needs review** entry (contract mismatch).
 - `status: partial` → relay every `unresolved:` entry's `question` (and `options`) to the user in
@@ -157,6 +179,10 @@ Copy every sub-skill `needsReview:` line and every `# ⚠ MANUAL REVIEW` hit int
 infer (unresolved gateway, `<microservice-name>` placeholder, ambiguous Java artifact, unknown
 library version) also go to **Needs review** — never guess them.
 
+Copy each `accessControl.regexReductions` entry into the log: source rule, original expression,
+and replacement match. Put a `conflicts: false` entry under **Done**. Put a `conflicts: true`
+entry under **Needs review** only through the producer's `needsReview` line, not a second time.
+
 ---
 
 ## Execution plan
@@ -172,8 +198,15 @@ Run steps in order from the start step. After each: update the log and status ro
 2. `status: partial` → ask the user all `unresolved:` questions in one batch. For a gateway question
    explain: "*ingress* = an entry point that receives traffic from outside; *mesh* = internal
    service-to-service traffic. If unsure, answer mesh." Deliver `resolutions`, re-read the report.
-3. Copy `filesModified` / `filesGenerated`, resource counts and `needsReview` into the log. A
-   `# ⚠ MANUAL REVIEW` flag is never safe to auto-fix: leave the comment in the file.
+3. Copy `filesModified` / `filesGenerated`, resource counts, `regexReductions`, and `needsReview`
+   into the log. A `# ⚠ MANUAL REVIEW` flag is never safe to auto-fix: leave the comment in the
+   file. If `publicAttachment.withheld` is non-empty, explain that those routes are not on
+   `public-gateway` yet. Ask the user to check AuthorizationPolicies that target
+   `public-gateway`, including project policies outside the chart
+   ([crs-example.yaml](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/crs-example.yaml)
+   section 3a). Absence of a policy in this chart is not proof the routes are unreachable. Only
+   when the user confirms no ALLOW matches, re-invoke with `publicGatewayAccess: clear` and
+   `reconcileParents: true`. If an in-chart ALLOW matches, leave the routes off `public-gateway`.
 4. Capture `backendRef` and `labels.values` as described in Step 0.
 
 ### Steps 2.1–2.3 — Build and deployment wiring
@@ -183,8 +216,9 @@ Applies to services that use route-registration libraries or annotations. Invoke
 `interactive: false` and, for Java, `backendRefName` / `backendRefPort` / `routeLabels`. It switches
 libraries to mesh-aware versions, wires `SERVICE_MESH_TYPE`, and adds the matching Maven plugin
 (`httproutes-generator-spring-maven-plugin` for Spring, `httproutes-generator-maven-plugin` for
-Quarkus, both `1.2.1`; when the Quarkus plugin is used, it also updates
-`com.netcracker.cloud.quarkus:routes-registrator` to `>= 10.4.1`). Handle `partial` (e.g.
+Quarkus). Do not restate the Quarkus `routes-registrator` floor here. Copy
+`versions.routesRegistrator` from the mesh-build-wiring report into the log — that field is the
+version the child actually applied. Handle `partial` (e.g.
 `java-registration-artifact`, `maven-plugin-packages`) via `resolutions`; copy `done:` /
 `skipped:` / `commandsRun:` / `needsReview:` into the log and the 2.1–2.3 rows. `failed` → Error
 policy.
@@ -207,32 +241,45 @@ code-registered routes is normal (annotation-only Java services); log it under *
 ### Step 2.5 — Public-gateway access (AuthorizationPolicy)
 
 Per [docs/istio/allowed-and-forbidden-routes.md](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md),
-every route is now registered on the public gateway too, where Cloud-Core's policy is
-deny-unless-permit: a service is unreachable from outside until it ships its own `ALLOW` policy.
-**Recommended: the service owner writes it by hand.** Never generate one unless told to.
+routes that were already public are also registered on the private and internal gateways.
+Formerly non-public routes stay off `public-gateway` until Step 1's attachment gate is clear.
+**Recommend that the service owner write the AuthorizationPolicy by hand.** Never generate one
+unless told to. Do not treat a missing service-owned policy as proof that a route is unreachable.
 
-1. Merge the `accessControl` blocks of the Step 1 and Step 2.4 reports.
-2. Invoke [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) with `chartPath`,
-   `codePath`, the merged `accessControl`, `routeLabels`, `generate: false`, `interactive: false`.
-3. Read its report. If `existingPolicy` is set: log the path under **Done**, relay the candidates for
-   comparison, and skip the question.
-4. Otherwise relay the recommendation and candidate lists to the user in plain words — including
-   "if this service has no public endpoints you need no policy" — and ask **once**: "I recommend you
-   write the public-gateway AuthorizationPolicy yourself. Do you want me to generate a draft anyway?"
-5. Branch on the user's reply:
-   - **Insists on a draft** → re-invoke with `generate: true`, re-read the report, log the file
-     under **Done** and "draft — review every path" under **Needs review**.
+1. Use the Step 1 and Step 2.4 reports only when each has `chartPath` equal to the selected chart
+   and `accessControl.collected: true`. Otherwise re-invoke the producer, or stop and ask for
+   explicit access-control input. Do not merge a stale or foreign report.
+2. Merge the accepted `accessControl` blocks. Keep `collected: true` and `chartPath` on the merged
+   object. Invoke [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md) with
+   `chartPath`, `codePath`, the merged `accessControl`, `routeLabels`, `generate: false`,
+   `interactive: false`.
+3. Read its report. If `inventory` is `rejected` or `status` is `failed`, follow the Error policy.
+   Do not describe the result as an empty candidate list.
+4. If `existingPolicy` is set: log the path under **Done**, relay the candidates for comparison,
+   and skip the question.
+5. Otherwise relay the recommendation and candidate lists, including that a project-level ALLOW
+   can cover paths the service does not list, and ask **once**: "I recommend you write the
+   public-gateway AuthorizationPolicy yourself. Do you want me to generate a draft anyway?"
+6. Branch on the user's reply:
+   - **Insists on a draft** → re-invoke with `generate: true` and re-read the report. Log the file
+     under **Done** and "draft — review every path" under **Needs review** only when `status` is
+     `complete`, `generated` is `true`, and `fileGenerated` is a non-null path. Otherwise do not
+     record success. Log the actual outcome (no candidates, existing policy preserved, or failure).
    - **Confirms no public endpoints** → log under **Skipped** ("internal-only service — no
-     public-gateway AuthorizationPolicy needed").
+     public-gateway AuthorizationPolicy needed") only after effective Gateway permissions have
+     been checked (Step 1 attachment gate, including policies outside the chart). Remember
+     `publicPolicyDecision: none-required` for Step 2.6. If that check has not happened, leave
+     the decision unset and say so under **Needs review**.
    - **Declines / will write by hand (expected)** → log under **Needs review**: "Service owner to
      write the public-gateway AuthorizationPolicy by hand, candidates:" followed by the candidate
      paths copied into the log itself (not just a pointer to the report file).
-6. `status: failed` → Error policy.
+7. `status: failed` → Error policy.
 
 ### Steps 2.6–2.8 — Validate (after any draft policy exists)
 
 Invoke [`istio-migration-validate`](../istio-migration-validate/SKILL.md) with `chartPath`,
-`repoRoot`, `interactive: false`. It adds missing Istio guards (its one automatic fix), runs the
+`repoRoot`, `interactive: false`, and `publicPolicyDecision` when Step 2.5 stored
+`none-required` after the access check. It adds missing Istio guards (its one automatic fix), runs the
 `helm template` checks for both mesh types, flags duplicate HTTPRoute rules, lints for leftover
 no-backend / `RegularExpression` rules and policy presence, and flags imperative control-plane calls.
 
@@ -266,13 +313,32 @@ Open items: <every remaining Needs review entry>
 ```
 
 Close with a plain-language summary: what was applied automatically (Done count), what was skipped
-and why, every remaining **Needs review** entry, and these local checks to run before pushing
-(`grep` finding nothing under Core is the passing result):
+and why, every remaining **Needs review** entry, and these local checks to run before pushing.
+Require each `helm template` to exit 0 before reading its output. Do not pipe Helm into `grep`:
+a failed Core render is not a pass.
 
 ```bash
-helm template <chart> --set SERVICE_MESH_TYPE=Istio | grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/'
-helm template <chart> --set SERVICE_MESH_TYPE=Core  | grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/'
+istio_render=$(mktemp)
+core_render=$(mktemp)
+if helm template <chart> --set SERVICE_MESH_TYPE=Istio > "$istio_render"; then
+  grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' "$istio_render"
+else
+  echo "FAIL: Istio render failed; do not treat empty grep output as a result"
+fi
+if helm template <chart> --set SERVICE_MESH_TYPE=Core > "$core_render"; then
+  if grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' "$core_render"; then
+    echo "FAIL: Istio resources rendered under Core"
+  else
+    echo "PASS: no Istio resources under Core"
+  fi
+else
+  echo "FAIL: Core render failed; do not treat empty grep output as a pass"
+fi
+rm -f "$istio_render" "$core_render"
 ```
+
+Tell the user to mention these effects in the merge description: the wider Gateway attachment,
+regex cuts and omitted legacy 404 rules, and the requirement to commit generated routes.
 
 ---
 

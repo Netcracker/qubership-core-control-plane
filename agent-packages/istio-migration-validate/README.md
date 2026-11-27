@@ -12,9 +12,10 @@ flagged for review. An access-control lint flags leftover no-backend /
 not). It also flags imperative control-plane API calls left in shell scripts
 and manifests, which the migration never converts.
 
-Extracted from the `core-mesh-to-istio-migration` orchestrator (its former
-Steps 2.5–2.7) so it can also run standalone — for example as a chart check
-during PR review.
+Extracted from the `core-mesh-to-istio-migration` orchestrator. It is Steps
+2.6–2.8 now. A saved prompt that starts at the old Step 2.5 is the policy step;
+use "rerun the validation" or start at Step 2.6. It can also run standalone —
+for example as a chart check during PR review.
 
 ## Install
 

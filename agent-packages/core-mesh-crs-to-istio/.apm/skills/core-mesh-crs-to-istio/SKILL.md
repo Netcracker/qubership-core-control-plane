@@ -46,6 +46,8 @@ old resources in `{{- if eq .Values.SERVICE_MESH_TYPE "Core" }}` and new Istio r
 | `chartPath` | path | yes | Chart or templates folder to transform |
 | `interactive` | bool | no | `true` only when a user invokes the skill directly in their own session; orchestrators and sub-agent wrappers pass `false` |
 | `resolutions` | map `<unresolved id>: <answer>` | no | Answers to a previous run's `unresolved:` entries |
+| `publicGatewayAccess` | string | no | `clear` only after the caller has checked every AuthorizationPolicy that targets `public-gateway`, including policies outside the chart, and confirmed none ALLOW a formerly non-public route. Default `unverified` |
+| `reconcileParents` | bool | no | `true` rewrites only `spec.parentRefs` on an existing generated HTTPRoute and leaves consumer edits to rules, filters, and labels in place. Default `false` |
 
 With `interactive: false` (the default for orchestrated and sub-agent runs),
 never ask the user: every blocking question becomes an `unresolved:` entry.
@@ -68,6 +70,7 @@ direct run it does both itself, which is the one edit it makes outside
 ```yaml
 reportSchema: 1
 skill: core-mesh-crs-to-istio
+chartPath: <chartPath>     # required — consumers must match this before reusing the report
 status: complete            # complete | partial (unresolved items block part of the output)
 generatedAt: <ISO-8601>
 filesModified: [<paths>]
@@ -90,23 +93,41 @@ backendRef:
 labels:
   values: <map or null>
   unresolvedReason: <string or null>
-accessControl:                     # omit entirely when all three lists are empty
+accessControl:                     # always present, including when every list is empty
+  collected: true                  # false or absent means collection did not finish — not an empty inventory
+  chartPath: <chartPath>
   # `from` is always a plain path (never a regex): the prefix/path value, or the reduced PathPrefix
-  # root of a regExp. `matchType` is prefix | exact | reduced-regexp.
+  # root of a regExp. `matchType` is prefix | reduced-regexp. Do not record an exact-match type.
   legacyPublic:                    # routes that used to be reachable from the public gateway
     - from: <path>
-      matchType: <prefix|exact|reduced-regexp>
+      matchType: <prefix|reduced-regexp>
       cr: <RouteConfiguration/Mesh CR name>
+      gateways: [<source spec.gateways>]
   forbidden:                       # allowed:false rules — never emitted, see route-configuration-mapping.md
     - from: <path>
-      matchType: <prefix|exact|reduced-regexp>
+      matchType: <prefix|reduced-regexp>
       cr: <CR name>
+      gateways: [<source spec.gateways>]
       methods: [<HTTP methods>]    # present only when a :method header matcher was attached
   deny:                            # deny:true rules — never emitted, see route-configuration-mapping.md
     - from: <path>
-      matchType: <prefix|exact|reduced-regexp>
+      matchType: <prefix|reduced-regexp>
       cr: <CR name>
+      gateways: [<source spec.gateways>]   # egress and custom gateways stay here; do not retarget them
       methods: [<HTTP methods>]    # present only when a :method header matcher was attached
+  regexReductions:                 # every regExp cut, including non-conflicting ones
+    - cr: <CR name>
+      sourceRule: <virtualService name>#<rule index>
+      original: <regExp text>
+      replacement: <PathPrefix value>
+      conflicts: false             # true only for a too-general root or a same-match behavior conflict
+publicAttachment:
+  verified: false                  # true only when publicGatewayAccess was clear and no in-chart ALLOW matched
+  withheld:
+    - cr: <CR name>
+      from: <path>
+      reason: unverified | matching-allow
+      policy: <AuthorizationPolicy name or null>
 unresolved:                 # empty when status is complete
   - id: gateway/<gateway-name>
     question: "Gateway '<gateway-name>' is referenced in routes but not defined in this chart — ingress or mesh?"
@@ -221,15 +242,12 @@ review instead.
     1. **Well-known platform gateway name** — takes highest priority regardless of any local CR:
         * `"egress-gateway"` → **egress** type
         * `"public-gateway-service"` / `"private-gateway-service"` / `"internal-gateway-service"`
-          → **border** type. All three resolve to the identical fixed parentRefs triple
-          (`public-gateway`, `private-gateway`, `internal-gateway-service`) — see
-          [parent-refs-resolution.md](parent-refs-resolution.md) PRIORITY 0. Matching any one of
-          the three widens the whole CR to all three; there is no narrower "ingress-only"
-          resolution anymore (Istio does not reproduce the legacy per-gateway PUBLIC/PRIVATE/
-          INTERNAL visibility — see
-          [docs/istio/allowed-and-forbidden-routes.md](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md)).
-          `internal-gateway-service` carries no `port`; Lua and other extensions still target the
-          mesh Gateway from discovery, `waypoint` on Cloud Core, unaffected by this widening.
+          → **border** type. See [parent-refs-resolution.md](parent-refs-resolution.md) PRIORITY 0.
+          A CR that includes `public-gateway-service` gets all three parents. A formerly
+          non-public CR gets `private-gateway` and `internal-gateway-service` only, until the
+          public-attachment gate is clear. `internal-gateway-service` carries no `port`. Lua and
+          other extensions still target the mesh Gateway from discovery, `waypoint` on Cloud
+          Core, unaffected by HTTPRoute parents.
     2. **Gateway CR in the scanned chart/folder** — used only if the name is not well-known:
         - `spec.gatewayType: ingress` or `egress` → ingress/egress Gateway
         - `spec.gatewayType: mesh` or absent → mesh (parentRef = Service)
@@ -251,10 +269,21 @@ review instead.
      reference only unresolved gateways, record each under `unresolved:` in the
      report (id `gateway/<name>`, options `[ingress, mesh]`), and finish with
      `status: partial`. The caller obtains the answers and delivers them via the
-     `resolutions` input; on the follow-up run, process only the previously
-     skipped CRs — already-wrapped originals and already-generated `-istio`
-     files must not be produced twice (see the Step 3 and Step 4 idempotency
-     checks).
+     `resolutions` input. On the follow-up run, manifest generation is limited
+     to the previously skipped CRs — already-wrapped originals and
+     already-generated `-istio` files must not be produced twice (see the Step
+     3 and Step 4 idempotency checks). Access-control collection is not limited
+     to those CRs. Read the previous report when its `chartPath` matches and
+     `accessControl.collected` is true. Keep every entry whose `cr` is not
+     reprocessed in this pass, drop entries for CRs you reprocess, then append
+     the entries collected from the skipped CRs. The final report must contain
+     candidates from both passes. If a first-pass candidate is missing, set
+     `status: failed` and explain it under `needsReview`. If the previous
+     report has no `accessControl.collected: true`, do not trust its lists.
+     Re-read the already-converted `RouteConfiguration` CRs and collect
+     access-control entries only — do not rewrite their Core guards or
+     `-istio.yaml` files — so the inventory still covers both passes, then set
+     `collected: true`.
    - **Do not infer** gateway type from the gateway name alone.
 
 ### Step 3 — Wrap originals in Core condition
@@ -290,6 +319,22 @@ documents leaves each of them enclosed, so the file is left alone.
 
 **Idempotency check:** if the `-istio` sibling already exists, add only the
 resources it is missing; do not duplicate documents a previous run generated.
+
+An existing HTTPRoute with the same name can still carry the old parent
+mapping (only `public-gateway`, only `private-gateway`, or only
+`internal-gateway-service`) from a previous skill version. A public
+`RouteConfiguration` now expects three parents. Add-missing-only must not treat
+that document as finished.
+
+Recompute the expected `parentRefs` from the source CR. If the generated rules,
+filters, timeouts, and labels match what this run would emit, replace
+`spec.parentRefs` with the expected list. If any of those differ, the file has
+consumer edits: leave it unchanged unless `reconcileParents: true`, in which
+case rewrite only `spec.parentRefs` and leave rules, filters, labels, and
+comments in place. Otherwise add `needsReview`: "HTTPRoute `<name>` still uses
+the old parent mapping (`<parents>`). Expected parents are `<expected>`.
+Rerun with `reconcileParents: true` to update parents only, or edit the
+parents by hand." Do not drop consumer-added rules to force the new parents.
 
 Create a **new file** for each original, with `-istio` before the extension:
 
@@ -380,15 +425,16 @@ public-gateway `AuthorizationPolicy` recommendation (see
 [`public-gateway-authz-policy`](../public-gateway-authz-policy/SKILL.md)):
 
 1. **`accessControl.legacyPublic[]`** — every rule that is **emitted** (not forbidden, not
-   `deny`) from a CR whose `spec.gateways` includes `public-gateway-service` (i.e. a rule that
-   used to be reachable from the public gateway and stays reachable there under the PRIORITY 0
-   widening). Record its plain path (a `regExp` is recorded as its reduced `PathPrefix` root with
-   `matchType: reduced-regexp`) and source CR name.
-2. **`accessControl.forbidden[]`** and **`accessControl.deny[]`** — populated by `Forbidden rule
-   processing (allowed: false)` and `Deny rule processing (deny: true)` in
-   [route-configuration-mapping.md](route-configuration-mapping.md) as each rule is processed; do
-   not re-derive them here, just make sure every entry produced there lands in the report.
-3. Omit the whole `accessControl` block from the report when all three lists are empty.
+   `deny`) from a CR whose `spec.gateways` includes `public-gateway-service` (a rule that used to
+   be reachable from the public gateway). Record its plain path (a `regExp` is recorded as its
+   reduced `PathPrefix` root with `matchType: reduced-regexp`), source CR name, and `gateways`.
+2. **`accessControl.forbidden[]`**, **`accessControl.deny[]`**, and
+   **`accessControl.regexReductions[]`** — populated while each rule is processed in
+   [route-configuration-mapping.md](route-configuration-mapping.md). Do not re-derive them here.
+   Every deny and forbidden entry keeps its source `gateways`.
+3. Always write `accessControl`, with `collected: true` and `chartPath`, even when every list is
+   empty. An omitted block is an unfinished older inventory, not an empty one. On a follow-up
+   run, merge both passes as Step 2 describes before setting `collected: true`.
 
 ### Step 6 — Capture labels applied to generated resources
 
@@ -535,13 +581,17 @@ Detected output labels (for Maven plugin / code-generated HTTPRoutes):
   # if unresolved, state why: helper indirection not resolvable
   #                           | conflicting label definitions
 
-Access control (only when accessControl is non-empty — see Step 5a):
-  Legacy-public routes now registered on public-gateway, private-gateway and internal-gateway-service:
-    - <from> (<CR name>)
-  Forbidden routes (never emitted — no Istio equivalent):
-    - <from> (<CR name>)
-  Deny routes (never emitted — no Istio equivalent):
-    - <from> (<CR name>)
+Access control (always — collected: true, including an empty inventory):
+  Legacy-public routes:
+    - <from> (<CR name>, gateways: <list>)
+  Forbidden rules omitted (not registered by the omitted rule):
+    - <from> (<CR name>, gateways: <list>)
+  Deny routes omitted, still tied to their source gateway:
+    - <from> (<CR name>, gateways: <list>)
+  Regex cuts (also copy these into the migration log; conflicts only when conflicts: true):
+    - <sourceRule>: <original> → PathPrefix <replacement> (conflicts: <true|false>)
+  Public-gateway parents withheld:
+    - <from> (<CR name>, reason)
   No AuthorizationPolicy is generated by this skill — see public-gateway-authz-policy for the
   recommended manual-authoring workflow (generation only on explicit request).
 

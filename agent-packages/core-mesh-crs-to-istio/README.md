@@ -60,8 +60,10 @@ It wraps the originals in `SERVICE_MESH_TYPE=Core` guards, generates
 reference, output labels, and any `⚠ MANUAL REVIEW` items.
 
 Per [`docs/istio/allowed-and-forbidden-routes.md`](../../docs/istio/allowed-and-forbidden-routes.md),
-routes on any border gateway (`public-gateway-service` / `private-gateway-service` /
-`internal-gateway-service`) are widened to register on all three; `allowed: false` / `deny: true`
-rules are never emitted (no 404 rule exists on Istio); and `regExp` path matches are reduced to
-`PathPrefix` roots instead of `RegularExpression`. It never generates an `AuthorizationPolicy` —
+a route that was already on `public-gateway-service` is registered on all three border parents.
+A formerly private or internal route stays off `public-gateway` until applicable Gateway policies
+have been checked. `allowed: false` / `deny: true` rules are never emitted (no 404 rule exists on
+Istio); each recorded entry keeps its source gateway. `regExp` path matches are reduced to
+`PathPrefix` roots instead of `RegularExpression`, and every cut is written to the report. It
+never generates an `AuthorizationPolicy` —
 see [`public-gateway-authz-policy`](../public-gateway-authz-policy).

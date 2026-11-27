@@ -33,7 +33,9 @@ and [`httproute-from-code`](../httproute-from-code) have run, feeding it their
 `accessControl` report blocks.
 
 By default (no explicit insistence from the user) this skill **only
-recommends** — it prints the manual-authoring template and the collected
-candidates, and does not write any file. It writes a draft
-`AuthorizationPolicy` to the chart only when told to generate one anyway.
-Services with no public endpoints need no policy at all.
+recommends**. It prints the manual-authoring template and the collected
+candidates. It still writes `.mesh-migration/reports/public-gateway-authz-policy.yaml`.
+A standalone run can also append `.mesh-migration/` to `.gitignore`. It writes
+a draft `AuthorizationPolicy` to the chart only when told to generate one.
+Services with no public endpoints need no policy of their own only after
+effective public-gateway access has been checked.

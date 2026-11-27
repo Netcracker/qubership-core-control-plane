@@ -5,7 +5,7 @@ awareness: switches to mesh-aware route-registration libraries (Java Spring /
 Quarkus, Go), sets the `SERVICE_MESH_TYPE` environment variable in Helm values
 and Deployments, and adds the right Maven plugin for Java services —
 `httproutes-generator-spring-maven-plugin` (Spring) or
-`httproutes-generator-maven-plugin` (Quarkus), both at `>= 1.2.1`.
+`httproutes-generator-maven-plugin` (Quarkus), both at `>= 1.2.2`.
 
 Extracted from the `core-mesh-to-istio-migration` orchestrator (its former
 Steps 2.1–2.3) so it can run standalone or in a sub-agent with its own context.
