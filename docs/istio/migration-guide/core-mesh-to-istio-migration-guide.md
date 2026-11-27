@@ -161,7 +161,7 @@ Replace the old route-posting libraries versions with the new mesh-aware version
 <dependency>
     <groupId>com.netcracker.cloud</groupId>
     <artifactId>route-registration-webclient</artifactId>
-    <version>7.1.0<!-- should be >=7.1.0 --></version>
+    <version>7.6.2<!-- should be >=7.6.2 --></version>
 </dependency>
 
 OR 
@@ -169,7 +169,7 @@ OR
 <dependency>
     <groupId>com.netcracker.cloud</groupId>
     <artifactId>route-registration-resttemplate</artifactId>
-    <version>7.1.0<!-- should be >=7.1.0 --></version>
+    <version>7.6.2<!-- should be >=7.6.2 --></version>
 </dependency>
 ```
 
@@ -181,7 +181,7 @@ Using rest libraries BOM
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>rest-libraries-bom</artifactId>
-                <version>7.1.0<!-- should be >=7.1.0 --></version>
+                <version>7.6.2<!-- should be >=7.6.2 --></version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
@@ -197,7 +197,7 @@ Using common BOM
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>cloud-core-java-bom</artifactId>
-                <version>12.0.2<!-- should be >=12.0.2 --></version>
+                <version>12.3.2<!-- should be >=12.3.2 --></version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -209,15 +209,15 @@ Using common BOM
 
 The effective `routes-registrator` version is the floor from
 [`mesh-build-wiring`](../../../agent-packages/mesh-build-wiring/.apm/skills/mesh-build-wiring/SKILL.md):
-`>= 9.1.0` when the service does not use the Quarkus generator plugin, and `>= 10.4.1` when it uses
-`com.netcracker.cloud.plugins:httproutes-generator-maven-plugin`. A BOM import at `9.1.0` does not
-meet the plugin floor. Both recipes below have to resolve to that effective version.
+`>= 10.4.2` with or without `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin`.
+Plugin `1.2.2` is built against `routes-registrator` `10.4.2`, so a BOM import at `9.1.0` does not
+meet the floor. Both recipes below have to resolve to `10.4.2`.
 
 ```xml
 <dependency>
     <groupId>com.netcracker.cloud.quarkus</groupId>
     <artifactId>routes-registrator</artifactId>
-    <version>9.1.0<!-- >= 9.1.0, or >= 10.4.1 with httproutes-generator-maven-plugin --></version>
+    <version>10.4.2<!-- >= 10.4.2 --></version>
 </dependency>
 ```
 
@@ -229,7 +229,7 @@ Using BOM
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>cloud-core-quarkus-bom-publish</artifactId>
-                <version>9.1.0<!-- >= 9.1.0 without the Quarkus plugin; with httproutes-generator-maven-plugin the resolved routes-registrator must be >= 10.4.1 --></version>
+                <version>10.4.2<!-- >= 10.4.2; a 9.1.x import does not meet the routes-registrator floor --></version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -344,7 +344,7 @@ continuing.
 
 Use plugin coordinates `com.netcracker.cloud.plugins:httproutes-generator-spring-maven-plugin`
 (Spring) or `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin` (Quarkus), and pick
-the latest available plugin version, but never lower than `1.2.1`. **Always set
+the latest release, `1.2.2`, and never a lower version. **Always set
 `<backendRefVal>` explicitly** — the plugin's own default changed from
 `{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` to `{{ .Values.SERVICE_NAME }}` in 1.2.0.
 
@@ -354,7 +354,7 @@ the latest available plugin version, but never lower than `1.2.1`. **Always set
         <plugin>
             <groupId>com.netcracker.cloud.plugins</groupId>
             <artifactId>httproutes-generator-spring-maven-plugin</artifactId> <!-- or httproutes-generator-maven-plugin for Quarkus -->
-            <version><!-- use latest available, but >= 1.2.1 --></version>
+            <version>1.2.2</version>
             <executions>
                 <execution>
                     <goals>
