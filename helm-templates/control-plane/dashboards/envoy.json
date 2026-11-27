@@ -951,6 +951,11 @@
           "op": "=",
           "text": "N/A",
           "value": "2147483647"
+        },
+        {
+          "op": "=",
+          "text": "N/A",
+          "value": "4294967295"
         }
       ],
       "valueName": "current"
@@ -1649,13 +1654,83 @@
       }
     },
     {
+      "datasource": "$datasource",
+      "description": "Expiration dates reported by Envoy for the selected gateway pods.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Expires" },
+            "properties": [{ "id": "unit", "value": "dateTimeAsIso" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Days left" },
+            "properties": [{ "id": "decimals", "value": 1 }]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 151,
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Expires", "desc": false }]
+      },
+      "targets": [
+        {
+          "expr": "min by (pod, envoy_cluster_name, envoy_tls_certificate) (envoy_cluster_ssl_certificate_expiration_unix_time_seconds{namespace=\"$namespace\", container=\"$service_name\", pod=~\"${pod_name:regex}\"} < 253402300800) * 1000",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "expr": "(min by (pod, envoy_cluster_name, envoy_tls_certificate) (envoy_cluster_ssl_certificate_expiration_unix_time_seconds{namespace=\"$namespace\", container=\"$service_name\", pod=~\"${pod_name:regex}\"} < 253402300800) - time()) / 86400",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "B"
+        }
+      ],
+      "title": "Envoy upstream TLS certificate expiration",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "envoy_tls_certificate": true },
+            "indexByName": {
+              "pod": 0,
+              "envoy_cluster_name": 1,
+              "Value #A": 2,
+              "Value #B": 3
+            },
+            "renameByName": {
+              "pod": "Gateway pod",
+              "envoy_cluster_name": "Upstream cluster",
+              "Value #A": "Expires",
+              "Value #B": "Days left"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
       "collapsed": true,
       "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 27
       },
       "id": 26,
       "panels": [
@@ -2387,7 +2462,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 28
       },
       "id": 129,
       "panels": [
@@ -3632,7 +3707,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 29
       },
       "id": 94,
       "panels": [
@@ -4261,7 +4336,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 30
       },
       "id": 24,
       "panels": [
@@ -4641,7 +4716,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 31
       },
       "id": 42,
       "panels": [
@@ -5198,7 +5273,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 32
       },
       "id": 140,
       "panels": [
@@ -5705,7 +5780,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 25
+        "y": 33
       },
       "id": 103,
       "panels": [
@@ -6204,7 +6279,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 34
       },
       "id": 112,
       "panels": [
@@ -6701,7 +6776,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 35
       },
       "id": 114,
       "panels": [
@@ -7200,7 +7275,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 28
+        "y": 36
       },
       "id": 89,
       "panels": [

@@ -41,6 +41,7 @@ The following articles and sources describe Service Mesh and it's usage in BlueG
         * [Move from Facade gateway to Composite (Mesh) gateway](./development-guide.md#move-from-facade-gateway-to-composite-mesh-gateway)
         * [Move from Composite gateway to Facade gateway](./development-guide.md#move-from-composite-gateway-to-facade-gateway)
         * [Egress gateway](./development-guide.md#egress-gateway)
+        * [Gateway certificate expiry dashboard](./development-guide.md#gateway-certificate-expiry-dashboard)
         * [gRPC routes](./development-guide.md#grpc-routes)
         * [Custom ports for facade and composite gateways](./development-guide.md#custom-ports-for-facade-composite-gateways)
         * [TLS support in microservice](./development-guide.md#tls-support-in-microservice)

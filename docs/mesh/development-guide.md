@@ -43,6 +43,7 @@
     * [Custom Host Header Rewrite in Gateways](#custom-host-header-rewrite-in-gateways)
 * [Domain](#domain)
 * [Control Plane Metrics](#control-plane-metrics)
+* [Gateway certificate expiry dashboard](#gateway-certificate-expiry-dashboard)
 
 
 ## Introduction
@@ -1242,3 +1243,18 @@ certificate_days_to_expiry{cert_common_name="root ca",tls_def="erp-gateway-level
 certificate_valid{cert_common_name="leaf cert",tls_def="erp-gateway-level"} 0
 certificate_valid{cert_common_name="root ca",tls_def="erp-gateway-level"} 1
 ```
+
+### Gateway certificate expiry dashboard
+
+Open **Envoy Table** → **Overview** → **Envoy upstream TLS certificate expiration** in Grafana. Select the gateway namespace, service name, and pod. For Egress Gateway, select `egress-gateway` as the service name.
+
+| Column | Meaning |
+|--------|---------|
+| Gateway pod | The Envoy pod that reported the expiry. |
+| Upstream cluster | The Envoy upstream that uses the TLS configuration. |
+| Expires | The expiration date and time in the dashboard timezone. |
+| Days left | Days from the end of the selected time range to expiry. A negative value means the certificate has expired. |
+
+The table uses `envoy_cluster_ssl_certificate_expiration_unix_time_seconds` from the Core Mesh gateway's `/stats/prometheus` endpoint. The Control Plane Helm chart provisions the dashboard when `MONITORING_ENABLED=true`. Prometheus must scrape the selected gateway, and Envoy must have loaded the TLS configuration for the upstream.
+
+To rotate a CA, use **Upstream cluster** to find the route and look up its `destination.tlsConfigName`. For gateway-wide trust, find the `TlsDef` whose `trustedForGateways` includes the gateway and match the CA to its bundle. Update the identified `TlsDef.spec.tls.trustedCA` through [the apply configuration API](../api/control-plane-api.md#apply-configuration), then verify the updated expiry in Grafana and test the HTTPS route. [Cluster-level TLS example](../configs/8_cluster_TLS.yaml) · [Gateway-wide TLS example](../configs/11_gateway_TLS.yaml)
