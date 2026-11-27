@@ -18,14 +18,10 @@ run-name: >
 
 on:
   push:
-    paths-ignore:
-      - 'httproute-generator/**'
     branches:
       - main
       - 'lts/**'
   pull_request:
-    paths-ignore:
-      - 'httproute-generator/**'
     types: [opened, synchronize, reopened]
 
 jobs:
