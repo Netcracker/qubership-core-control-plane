@@ -69,9 +69,15 @@ Rules without `luaFilter` → no extension resource.
 
 Classify gateways using Step 2 of the main skill.
 
-- For ingress/egress gateways, reuse the resolved Gateway name from
-  [route-configuration-mapping.md](route-configuration-mapping.md), priorities
-  1–2.
+- For `public-gateway-service` / `private-gateway-service`, target the single named Gateway
+  (`public-gateway` / `private-gateway`) — **not** the PRIORITY 0 widened triple. A
+  `TrafficExtension` only ever targets the exact gateway(s) `HttpFilters.spec.gateways` named;
+  it does not follow the HTTPRoute's widened `parentRefs`. A route that is now also registered
+  on the other two border gateways runs there **without** the Lua filter — the filter stays
+  scoped to its original gateway. This is expected and not flagged.
+- For other platform/discovered ingress/egress gateways (e.g. `egress-gateway`), reuse the
+  resolved Gateway name from [route-configuration-mapping.md](route-configuration-mapping.md)
+  PRIORITY 1–2.
 - For internal/mesh gateways, do not reuse the HTTPRoute Service parentRefs.
   Resolve the mesh Gateway discovered from the source CR (`waypoint` for
   `internal-gateway-service` on Cloud Core) and use it as `targetRefs.name`.

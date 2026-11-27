@@ -1,0 +1,70 @@
+{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: billing-public-routes
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: public-gateway
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: private-gateway
+  - group: ''
+    kind: Service
+    name: internal-gateway-service
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing/accounts
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing-service
+      port: 8080
+      weight: 1
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing/invoices
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing-service
+      port: 8080
+      weight: 1
+  # ⚠ MANUAL REVIEW: /api/v1/billing/admin (allowed: false) not emitted; now registered on public-gateway, make sure the public-gateway AuthorizationPolicy does not allow it.
+  # ⚠ MANUAL REVIEW: /api/v1/billing/invoices/bulk (allowed: false, DELETE) not emitted; make sure the public-gateway AuthorizationPolicy does not allow it.
+  # ⚠ MANUAL REVIEW: /api/v1/billing/internal-only (deny: true) not emitted; exclude it from the public-gateway AuthorizationPolicy.
+  # ⚠ MANUAL REVIEW: regExp "/api/v1/.*" reduces to the too-general prefix /api/v1; not emitted, express it as an Exact/PathPrefix match by hand.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: billing-private-routes
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: public-gateway
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: private-gateway
+  - group: ''
+    kind: Service
+    name: internal-gateway-service
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/billing/ledger
+    backendRefs:
+    - group: ''
+      kind: Service
+      name: billing-service
+      port: 8080
+      weight: 1
+{{- end }}
