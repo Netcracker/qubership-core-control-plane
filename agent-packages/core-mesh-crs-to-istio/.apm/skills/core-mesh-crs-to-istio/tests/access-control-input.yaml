@@ -44,9 +44,31 @@ spec:
                   regExp: "/api/v1/billing/accounts/[a-f0-9-]+"
                 allowed: true
               # regExp that reduces to the too-general root /api/v1 — not emitted,
-              # flagged MANUAL REVIEW.
+              # flagged MANUAL REVIEW (the cut conflicts).
               - match:
                   regExp: "/api/v1/.*"
+                allowed: true
+              # Same prefix and backend, different headers — both rules are kept.
+              - match:
+                  prefix: /api/v1/billing/reports
+                  headerMatchers:
+                    - name: X-Tenant
+                      exactMatch: a
+                allowed: true
+              - match:
+                  prefix: /api/v1/billing/reports
+                  headerMatchers:
+                    - name: X-Tenant
+                      exactMatch: b
+                allowed: true
+              # Same normalized match, different timeouts — both kept and flagged.
+              - match:
+                  prefix: /api/v1/billing/exports
+                timeout: 1000
+                allowed: true
+              - match:
+                  prefix: /api/v1/billing/exports
+                timeout: 5000
                 allowed: true
 ---
 apiVersion: nc.core.mesh/v3
@@ -65,8 +87,32 @@ spec:
               cluster: billing-service
               endpoint: http://billing-service:8080
             rules:
-              # Private-only CR — widened to all three border gateways under PRIORITY 0.
+              # Private-only CR — private-gateway and internal-gateway-service only.
+              # public-gateway is withheld until access is verified.
               # Not public-gateway-service, so NOT recorded in accessControl.legacyPublic[].
               - match:
                   prefix: /api/v1/billing/ledger
                 allowed: true
+---
+apiVersion: nc.core.mesh/v3
+kind: RouteConfiguration
+metadata:
+  name: billing-egress-deny
+spec:
+  gateways: ["egress-gateway"]
+  virtualServices:
+    - name: egress-gateway
+      hosts: ["*"]
+      routeConfiguration:
+        version: v1
+        routes:
+          - destination:
+              cluster: billing-service
+              endpoint: http://billing-service:8080
+            rules:
+              # Same path as a public route, but the source gateway is egress.
+              # Recorded on accessControl.deny[] with gateways: [egress-gateway].
+              # Not drafted onto the public gateway.
+              - match:
+                  prefix: /api/v1/billing/invoices
+                deny: true

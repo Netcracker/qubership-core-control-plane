@@ -207,11 +207,17 @@ Using common BOM
 
 #### Quarkus
 
+The effective `routes-registrator` version is the floor from
+[`mesh-build-wiring`](../../../agent-packages/mesh-build-wiring/.apm/skills/mesh-build-wiring/SKILL.md):
+`>= 9.1.0` when the service does not use the Quarkus generator plugin, and `>= 10.4.1` when it uses
+`com.netcracker.cloud.plugins:httproutes-generator-maven-plugin`. A BOM import at `9.1.0` does not
+meet the plugin floor. Both recipes below have to resolve to that effective version.
+
 ```xml
 <dependency>
     <groupId>com.netcracker.cloud.quarkus</groupId>
     <artifactId>routes-registrator</artifactId>
-    <version>9.1.0<!-- should be >=9.1.0 --></version>
+    <version>9.1.0<!-- >= 9.1.0, or >= 10.4.1 with httproutes-generator-maven-plugin --></version>
 </dependency>
 ```
 
@@ -223,7 +229,7 @@ Using BOM
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>cloud-core-quarkus-bom-publish</artifactId>
-                <version>9.1.0<!-- should be >=9.1.0 --></version>
+                <version>9.1.0<!-- >= 9.1.0 without the Quarkus plugin; with httproutes-generator-maven-plugin the resolved routes-registrator must be >= 10.4.1 --></version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -427,12 +433,14 @@ Use the skill [`httproute-from-code`](../../../agent-packages/httproute-from-cod
    - `backendRefPort`,
    - `routeLabels` (detected output labels from Step 1).
 3. The skill scans Go and Java files, detects route definitions, reduces them to
-   `PathPrefix` roots, and outputs HTTPRoute CRs. Legacy Public/Private/Internal
-   routes (and any route explicitly naming a border gateway) collapse into a
-   single gateway-group CR parented to `public-gateway`, `private-gateway` and
-   `internal-gateway-service` — there is no narrower per-type registration
-   anymore (see [allowed-and-forbidden-routes.md](../allowed-and-forbidden-routes.md)).
-   `Forbidden: true` / `allowed: false` routes are never emitted.
+   `PathPrefix` roots, and outputs HTTPRoute CRs. Legacy Public routes collapse
+   into one gateway-group CR parented to `public-gateway`, `private-gateway` and
+   `internal-gateway-service`. Private and Internal routes stay on a separate CR
+   (`<name>-source-code-routes-nonpublic`) without `public-gateway` until effective
+   access is checked (see [allowed-and-forbidden-routes.md](../allowed-and-forbidden-routes.md)).
+   A group with more than 16 output rules is split into numbered objects
+   `<name>-1`, `<name>-2`, and so on, in the same file. `Forbidden: true` /
+   `allowed: false` routes are never emitted.
 4. Generated files are saved to `helm-templates/<service name>/templates/source-code-httproutes.yaml`.
 5. Review the summary table printed by the skill. Resolve any errors before continuing.
 6. Commit all generated files to your branch.
@@ -453,22 +461,25 @@ If `routeLabels` is not passed, the skill applies the default label set:
 
 ## Step 2.5 — Public Gateway Access Control
 
-Per [allowed-and-forbidden-routes.md](../allowed-and-forbidden-routes.md), every route is now
-registered on `public-gateway`, `private-gateway` and `internal-gateway-service` regardless of
-its legacy type, and legacy `allowed: false` / `deny: true` rules are never emitted. A route that
-used to be unreachable from the public gateway (PRIVATE, INTERNAL, `allowed: false`, `deny: true`)
-is therefore registered there too and must be excluded by an `AuthorizationPolicy`.
+Per [allowed-and-forbidden-routes.md](../allowed-and-forbidden-routes.md), a route that was already
+public is registered on `public-gateway`, `private-gateway` and `internal-gateway-service`. A
+formerly private or internal route stays off `public-gateway` until you have checked the
+AuthorizationPolicies that target it. Legacy `allowed: false` / `deny: true` rules are omitted,
+not registered. Do not forbid those routes on the private gateway. A deny is drafted onto the
+public gateway only when its source gateway was public.
 
 Cloud-Core ships a deny-unless-permit `AuthorizationPolicy` for `public-gateway` (`action: ALLOW`
-with no `rules`), so nothing of your service is reachable from the public gateway until it brings
-its own `ALLOW` policy. **Write it by hand** — only you know which endpoints are meant to be public.
-**If your service has no public endpoints, you do not need any policy.**
+with no `rules`). A project-level ALLOW can still match a route you attach. **Write the service
+policy by hand** — only you know which endpoints are meant to be public. You need no policy of
+your own only after that check shows no ALLOW matches the service.
 
 The skill
 [`public-gateway-authz-policy`](../../../agent-packages/public-gateway-authz-policy/.apm/skills/public-gateway-authz-policy/SKILL.md)
-collects candidate paths (legacy public routes, and every `allowed: false` / `deny: true` path
-recorded by Steps 1 and 2.4) and prints a template. It writes no file unless you explicitly ask for a
-draft (`<chart>/templates/public-gateway-authorization-policy.yaml`, to be reviewed before merging).
+collects candidate paths and prints a template. A recommendation still writes
+`.mesh-migration/reports/public-gateway-authz-policy.yaml` and, on a standalone run, can append
+`.mesh-migration/` to `.gitignore`. It creates
+`<chart>/templates/public-gateway-authorization-policy.yaml` only when you explicitly ask for a
+draft, and that file still needs review before merging.
 
 Example hand-written policy (see [crs-example.yaml](../crs-example.yaml) for a fuller walkthrough).
 Paths are exact unless they end in `*`, so list `/x` and `/x/*`. To block a path that another
@@ -523,11 +534,19 @@ metadata:
 
 ### Validation
 
-To verify, do a Helm dry-run with Istio disabled and confirm no Istio / Gateway API objects are rendered:
+To verify, render with Istio disabled and confirm no Istio / Gateway API objects are present.
+The Core render has to succeed before the search. An empty pipe from a failed `helm template` is
+not a pass.
 
 ```bash
-helm template . --set SERVICE_MESH_TYPE=Core | grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/'
-# Expected: no output
+core_render=$(mktemp)
+if helm template . --set SERVICE_MESH_TYPE=Core > "$core_render"; then
+  grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' "$core_render"
+  # Expected: no matches. grep exit code 1 is the pass.
+else
+  echo "FAIL: Core render failed"
+fi
+rm -f "$core_render"
 ```
 
 ---
@@ -605,6 +624,35 @@ Gate forms:
   hook pods.
 
 ---
+
+## Upgrading an in-progress migration
+
+Skill versions before the public-gateway policy step numbered validation as 2.5, 2.6, and 2.7.
+Those prompts now land on policy authoring if you follow the numbers literally.
+
+| Old step | What it was | Current step |
+|---|---|---|
+| 2.5 | Istio guards and render checks | 2.6 |
+| 2.6 | Duplicate HTTPRoute rules | 2.7 |
+| 2.7 | Imperative control-plane calls | 2.8 |
+
+"Rerun the validation" starts at current Step 2.6 (`istio-migration-validate`), not at Step 2.5.
+
+Review these effects before deployment and keep them in the merge description:
+
+- Gateway attachment is wider for routes that were already public: one HTTPRoute that used to
+  parent only `public-gateway` now expects `public-gateway`, `private-gateway`, and
+  `internal-gateway-service`. Formerly non-public routes stay off `public-gateway` until
+  AuthorizationPolicies that target it have been checked. A rerun does not silently rewrite an
+  old parent list when the file has consumer edits; use `reconcileParents: true` or edit the
+  parents by hand.
+- Path regexes are cut to a prefix at the first path variable and are not emitted. A cut is
+  called out when it conflicts with another rule. Legacy `allowed: false` and `deny: true` rules
+  are omitted instead of registered as 404 routes. The forbidden-route comment asks whether a
+  remaining rule and the public policy cover the path.
+- Service owners commit generated routes. That includes `source-code-httproutes.yaml` from
+  `httproute-from-code` and the Maven plugin's `annotations-httproutes.yaml`. Rebuild or rerun
+  the generator when route code or annotations change, then commit the output.
 
 ## Final Checklist
 

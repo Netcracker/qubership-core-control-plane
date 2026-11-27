@@ -217,21 +217,25 @@ virtualService) is forbidden, omit that `RouteV3`/virtualService's output entire
 Instead, record it in the skill's report under `accessControl.forbidden[]`:
 
 - `from`: a **plain path** — the `prefix`/`path` value, or for a `regExp` its reduced `PathPrefix`
-  root (see `regExp reduction`; a reduced root that is too general is not recorded, only flagged).
+  root (see `regExp reduction`; a too-general root is not added to `legacyPublic`, `forbidden`, or
+  `deny`, and is still recorded under `regexReductions` with `conflicts: true`).
   Never put a regex string here: `AuthorizationPolicy` does not understand regex.
-- `matchType`: `prefix`, `exact` (from `path`) or `reduced-regexp`. A `reduced-regexp` entry also
-  gets a `needsReview:` entry, since the reduced root may cover more than the regex did.
+- `matchType`: `prefix` or `reduced-regexp`. A `path` value is recorded as `prefix` too: the old
+  mesh has no exact-match case to special-case. A non-conflicting `reduced-regexp` does not get
+  `needsReview`; a conflicting one does (see `regExp reduction`).
 - `cr`: the source `RouteConfiguration`/`Mesh` CR name.
+- `gateways`: the source `spec.gateways` list, unchanged.
 - `methods`: include **only** when the rule's `match.headers[]` contains a matcher on the
   pseudo-header `:method` (i.e. a legacy method restriction); omit the field otherwise.
 
-If the CR's `spec.gateways` includes **any** of the three border gateway names
-(`public-gateway-service`, `private-gateway-service`, `internal-gateway-service` — all are widened
-to the public gateway, see [parent-refs-resolution.md](parent-refs-resolution.md) PRIORITY 0), add
-one `# ⚠ MANUAL REVIEW` line and a `needsReview:` entry: "Forbidden route `<from>` is now
-registered on public-gateway — make sure the service's public-gateway AuthorizationPolicy does not
-allow this path (if the service has no public endpoints, it needs no policy)." Rules on a non-border gateway (egress, mesh) are
-recorded but not flagged.
+Record `gateways` as the CR's `spec.gateways` list. The forbidden rule is omitted. It is not
+registered on any gateway by this mapping. Add one `# ⚠ MANUAL REVIEW` line and a `needsReview:`
+entry: "Forbidden rule `<from>` was omitted. Check whether a remaining rule and the public-gateway
+AuthorizationPolicy cover this path." Say that only when the source gateways include
+`public-gateway-service` or the route is actually attached to `public-gateway`. For a
+private or internal source, the same omission applies, but do not describe the path as registered
+on the public gateway, and do not forbid it on the private gateway. Rules on a non-border gateway
+(egress, mesh) are recorded with their source gateway and not described as public.
 
 **Nothing left to emit:** if every rule of a `RouteConfiguration` is omitted (forbidden, deny or
 too-general `regExp`), emit no `HTTPRoute` for it (never `rules: []`). If no Istio resource remains
@@ -247,9 +251,11 @@ Gateway API has no per-gateway deny rule. **Do not emit the rule at all** — sa
 plain forbidden route, since it was overriding something already allowed elsewhere).
 
 Record it in the report under `accessControl.deny[]`, using the same fields as `forbidden[]`
-(`from`, `matchType`, `cr`, optional `methods`), and a `needsReview:` entry: "Deny route `<from>` — exclude
-this path from the service's public-gateway AuthorizationPolicy (it was overriding an
-already-allowed OOB route)."
+(`from`, `matchType`, `cr`, `gateways`, optional `methods`). `gateways` is the CR's
+`spec.gateways` list — keep the source gateway, including `egress-gateway` or a custom gateway.
+A `needsReview:` entry names that gateway: "Deny route `<from>` applies to `<gateways>`. Draft a
+public-gateway DENY only when the source includes `public-gateway-service`." Do not move an egress
+or custom-gateway deny onto the public gateway in this report.
 
 ### RouteMatch
 
@@ -277,21 +283,31 @@ matcher `safeRegexMatch` etc. are unaffected — see HeaderMatcher below). Reduc
    `$`) or templated segment. Everything before the cut, up to the last complete `/`-separated
    segment, becomes the `PathPrefix` value.
 3. Apply `prefixRewrite` (if set) as usual — it is independent of this reduction.
-4. **Too-general root — flag, do not emit:** if the reduced prefix is exactly `/`, `/api`, `/vN`,
-   `/api/vN`, or `/vN/api` (N = one or more digits; case-insensitive; trailing slash ignored), it
-   names no API resource or service and would shadow every other route on the gateway it
-   attaches to. Do not emit the rule. Add `# ⚠ MANUAL REVIEW` quoting the original `regExp` value,
-   and a `needsReview:` entry worded "regExp `<value>` reduces to the too-general prefix
-   `<prefix>` — express it as an Exact/PathPrefix match by hand." This is **not** a forbidden
-   route: do not add it to `accessControl`.
-5. **Specific root — no flag.** Any other reduced prefix is emitted as a normal `PathPrefix` rule.
-   Note the conversion in the chat Output Summary (not `needsReview:`) so the regex-to-prefix
-   narrowing/widening is visible, but it does not block the migration.
-6. **Merge against an existing rule with the same reduced root:** if another rule in the same
-   `RouteV3`/virtualService already emits that exact `PathPrefix` value with the same rewrite and
-   backend, drop the duplicate silently (same rule, same target). If the rewrite or backend
-   differs, keep both and add `# ⚠ MANUAL REVIEW` — the regex conversion is ambiguous and a human
-   must confirm which one is authoritative.
+4. **Too-general root — conflict, do not emit:** if the reduced prefix is exactly `/`, `/api`,
+   `/vN`, `/api/vN`, or `/vN/api` (N = one or more digits; case-insensitive; trailing slash
+   ignored), it names no API resource or service. A broad prefix can match additional requests as
+   a fallback when no higher-precedence rule applies. Do not emit the rule. Add
+   `# ⚠ MANUAL REVIEW` quoting the original `regExp` value, and a `needsReview:` entry worded
+   "regExp `<value>` reduces to the too-general prefix `<prefix>` — express it as a PathPrefix
+   match by hand." This is **not** a forbidden route: do not add it to `legacyPublic` /
+   `forbidden` / `deny`. Still record it under `regexReductions` with `conflicts: true`.
+5. **Specific root.** Any other reduced prefix is emitted as a normal `PathPrefix` rule. Do not
+   add `# ⚠ MANUAL REVIEW` for the cut itself. Record every conversion, conflict or not, under
+   `accessControl.regexReductions`:
+   `cr`, `sourceRule` (virtualService name and rule index), `original` (the `regExp` text),
+   `replacement` (`PathPrefix` value). Set `conflicts: false` unless item 4 or item 7 applies.
+   The orchestrator copies this list into the migration log. A non-conflicting cut is not a
+   manual-review item.
+6. **Equivalent rules:** drop a rule only when the normalized match and the behavior are the same.
+   Normalized match = path type + value, header matches, and query matches. Behavior = filters
+   (header modifiers, URLRewrite, and any other filter), `timeouts`, rewrite, and `backendRefs`.
+   Drop that duplicate silently. Different headers or query matches are distinct matches: keep
+   both, with no flag.
+7. **Same normalized match, different behavior:** keep both rules. Add `# ⚠ MANUAL REVIEW` and a
+   `needsReview:` entry naming the path and the fields that differ (filters, timeouts, rewrite,
+   or backend). Dropping either rule would change which requests are routed or which filters run.
+   When a `regExp` reduction produced the shared match, set that `regexReductions` entry's
+   `conflicts: true`. This is the conflict the cut must highlight.
 
 ---
 
@@ -384,8 +400,8 @@ so the flag has to be acted on rather than noted.
 | `VirtualService.name` | reused on the same gateway **and this CR emits virtual-service-level headers** | the reused names carry different `addHeaders` / `removeHeaders`; Core Mesh keeps one list, Istio gives each HTTPRoute its own. A CR whose headers are all rule-level does not fire this |
 | `RouteV3.Rule` | `idleTimeout` / `rateLimit` | non-empty / non-nil |
 | `RouteV3.Rule` | `deny: true` | always flagged — rule omitted, see `Deny rule processing (deny: true)` |
-| `RouteV3.Rule` | `allowed: false` on a CR with any border gateway | rule omitted; the path is now reachable on public-gateway unless the AuthorizationPolicy excludes it |
-| `RouteMatch` | `regExp` reduced to a specific root that conflicts with an existing rule (different rewrite/backend) | see `regExp reduction` item 6 — both kept |
+| `RouteV3.Rule` | `allowed: false` on a CR that is attached to public-gateway | rule omitted; check whether a remaining rule and the public-gateway AuthorizationPolicy cover the path. Do not claim the omitted rule is registered |
+| `RouteMatch` | same normalized match, different filters, timeouts, rewrite, or backend | see `regExp reduction` item 7 — both kept |
 | `RouteMatch` | `regExp` reducing to a too-general `PathPrefix` root (`/`, `/api`, `/vN`, `/api/vN`, `/vN/api`) | see `regExp reduction` — rule omitted |
 | `HeaderMatcher` | `invertMatch: true` or `presentMatch: false` | Gateway API has no negated header match; dropping it widens the route |
 | `HeaderMatcher` | `rangeMatch` | numeric range has no Gateway API equivalent |

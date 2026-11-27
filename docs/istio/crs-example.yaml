@@ -54,6 +54,8 @@ spec:
               - /api/v1/mesh-app-pub/health
 ---
 # 3a. Allow more (project): expand what 2b allowed.
+# This policy is not part of the service chart. Attaching a formerly private route to
+# public-gateway can inherit it. Check policies like this before adding that parent.
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:

@@ -14,17 +14,22 @@ description: >
 ## Why this exists
 
 Per [docs/istio/allowed-and-forbidden-routes.md](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md),
-every route is now registered on `public-gateway`, `private-gateway` and `internal-gateway-service`
-regardless of its legacy PUBLIC/PRIVATE/INTERNAL type. Cloud-Core ships a deny-unless-permit
-`AuthorizationPolicy` for `public-gateway` (`action: ALLOW`, no `rules`), so **nothing of a service
-is reachable from the public gateway until the service brings its own `ALLOW` policy**.
+routes that were already public are registered on `public-gateway`, `private-gateway` and
+`internal-gateway-service`. Formerly non-public routes stay off `public-gateway` until effective
+access has been checked. Cloud-Core ships a deny-unless-permit `AuthorizationPolicy` for
+`public-gateway` (`action: ALLOW`, no `rules`). That policy does not, by itself, prove a route is
+unreachable: a project-level ALLOW that targets the same Gateway can match it. See section 3a of
+[docs/istio/crs-example.yaml](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/crs-example.yaml).
 
 Two consequences, to state to the user in plain words:
 
-- A service that is **not** meant to be called from outside the cluster (internal/private only)
-  needs **no** policy at all — Cloud-Core already blocks it on the public gateway.
-- Only the service owner knows which endpoints are really public. **Write the policy by hand;**
-  this skill drafts one only when explicitly told to.
+- A service that is **not** meant to be called from outside the cluster needs **no** policy of its
+  own only after effective public-gateway access has been checked and no ALLOW matches its paths.
+- Only the service owner knows which endpoints are really public. **Write the policy by hand.**
+  This skill drafts one only when explicitly told to. Do not forbid PRIVATE, INTERNAL, or
+  `allowed: false` routes on the private gateway. A legacy deny may also matter on the gateway it
+  came from; report that gateway, and draft a public DENY only when the entry was on the public
+  gateway.
 
 ## Contract
 
@@ -34,7 +39,7 @@ Two consequences, to state to the user in plain words:
 |---|---|---|---|
 | `chartPath` | path | yes | Helm chart to search for an existing policy / write the draft into |
 | `codePath` | path | no | Java source root to scan (Step 2) |
-| `accessControl` | object | no | Merged `accessControl` blocks of `core-mesh-crs-to-istio` and `httproute-from-code`; if absent, read their report files |
+| `accessControl` | object | no | Merged producer `accessControl` blocks. Used only when `collected: true` and `chartPath` matches this chart |
 | `routeLabels` | map | no | Labels for the draft resource |
 | `generate` | bool | no | `true` only after the user explicitly insisted on a draft. Default `false` |
 | `interactive` | bool | no | `true` only when a user invokes the skill directly; orchestrators pass `false` |
@@ -45,18 +50,21 @@ With `interactive: false` never ask the user; the caller asks and sets `generate
 ### Outputs
 
 Write `.mesh-migration/reports/public-gateway-authz-policy.yaml` (create the directory; ensure
-`.mesh-migration/` is in the repo `.gitignore` — the orchestrator does both when orchestrated):
+`.mesh-migration/` is in the repo `.gitignore` — the orchestrator does both when orchestrated;
+a standalone run does both itself):
 
 ```yaml
 reportSchema: 1
 skill: public-gateway-authz-policy
+chartPath: <chartPath>
 status: complete            # complete | failed
 generatedAt: <ISO-8601>
 recommendation: manual      # always "manual"
+inventory: accepted | rejected
 candidates:
-  legacyPublic: [{path: <path>, matchType: <prefix|exact|reduced-regexp>}]               # matchType optional
-  forbidden: [{path: <path>, methods: [..], matchType: <prefix|exact|reduced-regexp>}]   # methods optional
-  deny:      [{path: <path>, methods: [..], matchType: <...>}]
+  legacyPublic: [{path: <path>, matchType: <prefix|reduced-regexp>, gateways: [...]}]
+  forbidden: [{path: <path>, methods: [..], matchType: <prefix|reduced-regexp>, gateways: [...]}]
+  deny:      [{path: <path>, methods: [..], matchType: <...>, gateways: [...]}]
   javaAnnotated: [<path>, ...]
 generated: false            # true only if a draft file was written this run
 fileGenerated: <path or null>
@@ -72,8 +80,11 @@ and report a contract mismatch. On an unrecoverable error set `status: failed` a
 
 ### Side effects
 
-With `generate: false`: nothing except the report. With `generate: true`: one new file,
-`<chartPath>/templates/public-gateway-authorization-policy.yaml`.
+`generate: false` still writes the report. A standalone run may also append `.mesh-migration/` to
+the repo `.gitignore` when that line is missing. Neither of those creates policy YAML. Policy YAML
+is created only when `generate: true` and Step 4 actually writes
+`<chartPath>/templates/public-gateway-authorization-policy.yaml`. An orchestrated run leaves
+`.gitignore` to the orchestrator.
 
 ---
 
@@ -87,25 +98,40 @@ Step 2 so the candidates are reported.
 
 ## Step 2 — Collect candidates
 
-1. From `accessControl` (input, else the two sibling report files; missing files are not an error):
-   `legacyPublic[]`, `forbidden[]`, `deny[]` (keep `methods` and `matchType` when present).
-2. Best-effort Java scan of `<codePath>/**/*.java` (skip `target/`, `src/test/`) for routes that were
+Tie every reused inventory to this chart before using it.
+
+1. Producer inventory, in this order:
+   - If `accessControl` was passed: accept it only when `collected: true` and its `chartPath` is
+     absent or equal to the selected chart. A missing `collected` flag is an older inventory, not
+     an empty one — including a schema-1 report that never had `accessControl`.
+   - Otherwise read `.mesh-migration/reports/core-mesh-crs-to-istio.yaml` and
+     `httproute-from-code.yaml`. Accept a file only when its top-level `chartPath` equals the
+     selected chart and `accessControl.collected` is `true`.
+   - If the input or a file fails those checks, set `inventory: rejected` and `status: failed`.
+     `needsReview:` "Reports cannot be tied to `<chartPath>`. Re-run core-mesh-crs-to-istio and
+     httproute-from-code on this chart, or pass accessControl with collected: true. Do not treat
+     this as an empty inventory." Do not recommend or draft from the rejected lists.
+   - When both producers have `collected: true` and empty lists, that is a finished empty
+     inventory. Set `inventory: accepted` and continue.
+2. From an accepted inventory, copy `legacyPublic[]`, `forbidden[]`, and `deny[]`. Keep `methods`,
+   `matchType`, and `gateways`.
+3. Best-effort Java scan of `<codePath>/**/*.java` (skip `target/`, `src/test/`) for routes that were
    public: `@Route(type = RouteType.PUBLIC)`, `@Route(value = RouteType.PUBLIC)`,
    `@Route(gateways = "public-gateway-service")`. A bare `@Route` is `INTERNAL`, **not** public.
    Build the full path from the class-level mapping (`@Path`, `@GatewayRequestMapping`,
    `@RequestMapping`) plus the method-level mapping (`@Path`, `@GetMapping`, `@PostMapping`,
    `@PutMapping`, `@DeleteMapping`, `@PatchMapping`, `@RequestMapping`). If a path cannot be resolved,
    add the class+method to `needsReview:` and skip it.
-3. Deduplicate each list. Keep `javaAnnotated` separate from `legacyPublic`.
+4. Deduplicate each list. Keep `javaAnnotated` separate from `legacyPublic`.
 
-## Step 3 — Print the recommendation (always)
+## Step 3 — Print the recommendation (always, when inventory is accepted)
 
 Print this, then all four candidate lists (even when nothing is generated):
 
-> Cloud-Core's public-gateway policy is deny-unless-permit — nothing of this service is reachable
-> from the public gateway until it ships its own `ALLOW` policy. I recommend you write it by hand:
-> only you know which paths must be public. If this service has no public endpoints, you do not
-> need any policy.
+> I recommend you write the public-gateway AuthorizationPolicy by hand: only you know which paths
+> must be public. Cloud-Core's deny-unless-permit policy is not the only ALLOW that can target
+> this Gateway. Check project-level policies before you decide the service needs no policy. If it
+> truly has no public endpoints, and no other ALLOW matches its paths, you do not need a policy.
 
 Hand-authoring template:
 
@@ -137,46 +163,72 @@ Tips:
   both `/x` and `/x/*`.
 - `ALLOW` policies only add; to exclude a path another policy allows, use a separate
   `action: DENY` policy (DENY is evaluated first). Set `methods` only to restrict by HTTP method.
-- Regex is not supported in `paths`; use exact paths or `/x/*` prefixes. Replace templated path
-  segments (`{id}`) with Istio's `{*}` wildcard (otherwise `{id}` is matched literally).
+- Regex is not supported in `paths`. Use the reduced prefix the producer recorded. Do not write a
+  regex, and do not ask for a manual review of a non-conflicting cut.
+- Do not target `private-gateway` or `internal-gateway-service`. Restrictions from `allowed: false`
+  and from PRIVATE / INTERNAL annotations are public-gateway concerns only.
 - See [docs/istio/crs-example.yaml](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/crs-example.yaml).
 
 With `interactive: true` and `generate` unset (and no `existingPolicy`), ask once:
 "Do you want me to generate a draft anyway? Every path in it still needs your review."
 
-## Step 4 — Generate a draft (only when `generate: true` and `existingPolicy` is null)
+## Step 4 — Generate a draft (only when `generate: true`, inventory is accepted, and `existingPolicy` is null)
 
 **Base paths** = `candidates.legacyPublic` plus `candidates.javaAnnotated` (tell the user both were
-included). Replace any `{var}` path segment with `{*}`.
+included). Replace any `{var}` path segment with `{*}`. Do not special-case an exact match. Emit
+`p` and `p/*` for every base path.
 
 - If **base paths** are empty, **do not emit an `ALLOW` policy** (an `ALLOW` policy with only
-  `notPaths` would allow every path on `public-gateway`). Still emit the `DENY` policy below if
-  `deny[]` is non-empty; if both are empty, write no file, record `needsReview:` "No public
-  candidates found — write a policy by hand, or skip it if the service has no public endpoints."
-  and stop.
+  `notPaths` would allow every path on `public-gateway`). Still emit the public `DENY` policy
+  below when a confirmed public deny exists. If nothing is emitted, write no file, set
+  `generated: false` and `fileGenerated: null`, record `needsReview:` "No public candidates found —
+  write a policy by hand, or skip it if the service has no public endpoints." and stop.
+- Set `generated: true` and `fileGenerated:` only after the file has been written. A failed write
+  or an empty draft leaves both as `false` / `null` and sets `status: failed`.
 
 Write one file wrapped in `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` … `{{- end }}`, starting
 with a comment `# DRAFT — generated on request; review every path before merging.`:
 
 1. **ALLOW policy** `{{ .Values.SERVICE_NAME }}-public-gateway-allow` (only when base paths are
    non-empty): one rule, `paths` = every base path `p` as `p` and `p/*`.
-2. **Forbidden candidates** (`forbidden[]`) that lie under a base path (equal to it or starting with
-   `<base>/`); ignore the rest (already denied by default):
-   - no `methods` → add `p` and `p/*` to the rule's `notPaths`;
-   - with `methods` → add `p` and `p/*` to `notPaths` **and** add a second rule
-     `to.operation: {paths: [p, p/*], notMethods: [<methods>]}`.
-3. **DENY policy** `{{ .Values.SERVICE_NAME }}-public-gateway-deny`, only if `deny[]` is non-empty:
-   one rule per entry, `paths: [p, p/*]`, plus `methods: [...]` when the entry has them. Required
-   because `deny: true` overrode paths allowed by *other* policies, which only DENY can do.
-4. **Regex-derived entries** (`matchType: reduced-regexp`) use their reduced prefix; add a
-   `needsReview:` entry for each. Never write a regex into `paths`/`notPaths`.
+2. **Forbidden candidates** (`forbidden[]`) that lie under a base path (equal to it or a whole-segment
+   prefix). Ignore the rest (already denied by default). These exclusions apply only to the public
+   ALLOW. Do not emit a private-gateway policy for them.
+   - Build one ALLOW exception per forbidden path. `notMethods` is the union of `methods` on that
+     entry and on every forbidden ancestor that covers it. Descendants do not add methods to an
+     ancestor.
+   - An entry with no `methods` forbids every method. If it or an ancestor has no `methods`, add
+     `p` and `p/*` to the broad rule's `notPaths` and emit no exception for that path.
+   - Otherwise add `p` and `p/*` to the broad rule's `notPaths`, and add one exception rule
+     `to.operation: {paths: [p, p/*], notMethods: [<union>]}`. Carve a stricter descendant out of
+     the ancestor exception with `notPaths`, and put the ancestor's methods on the descendant
+     exception as well.
+   - Two entries on the same path are expressible: one exception, `notMethods` = the union.
+   - Leave an overlap the draft cannot express for manual review and emit no exception that would
+     allow a method another overlapping entry forbids. The case is a full deny (no `methods`)
+     overlapping a method-restricted entry: an exception would allow methods the full deny bars.
+     `needsReview:` names both paths. Add a regression for this shape and for two method lists on
+     one path; see [tests/README.md](tests/README.md).
+3. **DENY policy** `{{ .Values.SERVICE_NAME }}-public-gateway-deny`, only for `deny[]` entries
+   whose `gateways` include `public-gateway-service` (or that are otherwise confirmed to apply to
+   `public-gateway`). One rule per such entry, `paths: [p, p/*]`, plus `methods` when the entry
+   has them. Required because a public `deny: true` overrode paths allowed by *other* policies.
+   Every other deny stays out of this file. Report it against its original gateway:
+   "Deny `<path>` applies to `<gateways>` and was not drafted onto public-gateway." A missing
+   `gateways` list is not confirmation: do not draft it; ask for a fresh inventory.
+   Do not write a DENY that targets `private-gateway`.
+4. **Regex-derived entries** (`matchType: reduced-regexp`) use their reduced prefix. Do not add
+   `needsReview` unless the producer set `conflicts: true`. Never write a regex into
+   `paths`/`notPaths`.
 5. Apply `routeLabels` to `metadata.labels` if provided; otherwise omit labels.
 6. Record `fileGenerated:`, `generated: true`, and `needsReview:` "Generated policy is a draft —
-   verify every path."
+   verify every path." only when the file was written.
 
 Example — candidates `legacyPublic: [/api/v1/billing/invoices]`,
-`forbidden: [{path: /api/v1/billing/invoices/bulk, methods: [DELETE]}]`,
-`deny: [{path: /api/v1/billing/invoices/internal}]`:
+`forbidden: [{path: /api/v1/billing/invoices/bulk, methods: [DELETE], gateways: [public-gateway-service]}]`,
+`deny: [{path: /api/v1/billing/invoices/internal, gateways: [public-gateway-service]}]`
+plus a second deny `{path: /api/v1/billing/invoices, gateways: [egress-gateway]}` which is reported
+and not drafted:
 
 ```yaml
 rules:   # ALLOW policy
@@ -189,7 +241,7 @@ rules:   # ALLOW policy
           paths: [/api/v1/billing/invoices/bulk, /api/v1/billing/invoices/bulk/*]
           notMethods: [DELETE]
 ---
-# DENY policy: action: DENY
+# DENY policy: action: DENY — public-gateway-service entries only
 rules:
   - to:
       - operation:
@@ -201,3 +253,4 @@ rules:
 - Never overwrite or merge into an existing public-gateway policy.
 - Never generate anything when `generate` is not explicitly `true`.
 - Never modify `HTTPRoute`, `Gateway` or any other resource.
+- Never target `private-gateway` from this skill.

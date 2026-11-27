@@ -18,15 +18,30 @@ The same forbidden route could be created via declarative API via field `allowed
 
 #### Migration to Istio Strategy
 
-It is very tricky to fully replicate this behavior in Istio (see TBD: regex routes issue document link). However, having such complex schema for PUBLIC, PRIVATE and INTERNAL routes seems excessive and we do't want to repeat it in Istio. 
+It is very tricky to fully replicate this behavior in Istio. A per-gateway PUBLIC / PRIVATE / INTERNAL
+schema is more than Istio should copy.
 
-Instead, we assume: 
+Instead:
 
-1. Every route should be registered in all API gateways: public, private, internal and all the gateways that can possibly appear in future (e.g. internet-gateway);
-2. Every route should be allowed on private and internal gateways;
-3. Cloud-Core should bring AuthorizationPolicy CR for public-gateway that works as deny-unless-permit (AuthorizationPolicy with action ALLOW and NO(empty) rules);
-4. Each microservice brings its AuthorizationPolicy CR for public-gateway that allows only some specific subset of routes on public gateway. This AuthorizationPolicy CR should be written manually by microservice owners.
-5. Since forbidden routes now emulated via AuthorizationPolicy, HTTPRoute CR no longer needs to register every endpoint separately - instead only REST controller's roots should become rules inside HTTPRoute CR.
+1. A route that was already on the public gateway is registered on the public, private, and internal
+   gateways. A route that was only private or internal is registered on the private and internal
+   gateways, and stays off the public gateway until someone has checked the AuthorizationPolicies
+   that target that gateway. A project-level ALLOW (see [crs-example.yaml](crs-example.yaml)) can
+   make a newly attached route publicly reachable even when the service has no policy of its own.
+   Absence of a service-owned policy is not proof that the route is unreachable.
+2. Every route should be allowed on the private and internal gateways. Do not forbid a PRIVATE or
+   INTERNAL route, or an `allowed: false` route, on the private gateway. Those restrictions matter
+   on the public gateway. A legacy `deny: true` may also matter on the gateway it came from,
+   including the private gateway.
+3. Cloud-Core brings an AuthorizationPolicy for `public-gateway` that is deny-unless-permit
+   (`action: ALLOW` and no rules).
+4. Each microservice brings its own AuthorizationPolicy for `public-gateway` that allows only the
+   paths that must be public. Write that policy by hand. A generated draft is a separate step and
+   runs only when someone explicitly asks for it.
+5. Forbidden routes are not copied onto the HTTPRoute. The forbidden rule is omitted. Check whether
+   a remaining rule and the public-gateway policy cover that path. Path regexes are not emitted:
+   cut the route at the first path variable and emit a prefix matcher. Highlight that cut when it
+   conflicts with another rule. Otherwise do not ask for a manual review of the cut.
 
 ### Deny Routes
 

@@ -18,8 +18,11 @@ pick up a new version.
 
 - The [`SKILL.md`](.apm/skills/httproute-from-code/SKILL.md) — how to detect
   route definitions in Go/Java, reduce them to `PathPrefix` roots, and emit one
-  CR for the gateway group (public-gateway, private-gateway,
-  internal-gateway-service) plus one per Mesh/Facade group present.
+  HTTPRoute per gateway group (public routes on public-gateway, private-gateway,
+  and internal-gateway-service; private and internal routes stay off
+  public-gateway until access is checked) plus one per Mesh/Facade group.
+  A group with more than 16 output rules is split into `<name>-1`, `<name>-2`,
+  and so on.
 - The shared `rules[]` ordering procedure lives in its own package,
   [`path-specificity-sorting`](../path-specificity-sorting) (declared as a
   dependency), referenced as a sibling skill once installed.

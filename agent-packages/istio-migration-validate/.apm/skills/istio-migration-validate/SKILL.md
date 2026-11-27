@@ -22,6 +22,7 @@ description: >
 | `chartPath` | path | yes | Helm chart to validate |
 | `repoRoot` | path | no | Service root for the Step 4 scan (chart + its scripts). Defaults to the service/module root that owns `chartPath` — not a multi-service monorepo git root |
 | `interactive` | bool | no | `true` only when a user invokes the skill directly; orchestrators and sub-agent wrappers pass `false` |
+| `publicPolicyDecision` | string | no | `none-required` only after the owner confirmed no public endpoints and effective public-gateway access was checked. Omit otherwise |
 
 With `interactive: false` (the default for orchestrated and sub-agent runs),
 never ask the user: every blocking question becomes an `unresolved:` entry and
@@ -42,6 +43,7 @@ files, never committed; the orchestrator handles both in orchestrated runs):
 ```yaml
 reportSchema: 1
 skill: istio-migration-validate
+chartPath: <chartPath>
 status: complete            # complete | partial | failed (a render check failed)
 generatedAt: <ISO-8601>
 guardsAdded: [<files that were missing the Istio guard and got it>]
@@ -51,7 +53,8 @@ renderChecks:
 duplicateGroups: <N>
 oversizedHttpRoutes: <N>      # HTTPRoutes with >16 rules (Gateway API CRD maxItems: 16)
 accessControlLint:            # Step 3b — read-only, additive
-  noBackendRules: <N>          # rules with no backendRefs (leftover forbidden-route emulation)
+  noBackendRules: <N>          # rules with neither backendRefs nor a RequestRedirect filter
+  publicPolicyDecision: <none-required | omitted>
   regexMatches: <N>            # matches[].path.type: RegularExpression still present
   publicGatewayPolicies: <N>   # AuthorizationPolicies targeting Gateway public-gateway
 controlPlaneCalls: <N>        # imperative control-plane calls found by Step 4
@@ -99,25 +102,34 @@ If `helm` is not installed: record under `commandsRun:` as skipped, set both `re
 `skipped`, add a `needsReview:` entry "helm not available — run the two render checks by hand"
 and continue with the next step (not a failure).
 
-Render to a file first so a template error is never mistaken for an empty result:
+Each run uses a private temporary directory so a second validation cannot overwrite this run's
+render. Require each `helm template` to exit 0 before scanning the file it wrote. Delete the
+directory after the checks, including when a render fails.
 
 ```bash
-helm dependency update <chartPath>
-helm template <chartPath> --set SERVICE_MESH_TYPE=Istio > /tmp/istio-render.yaml   # must exit 0
-helm template <chartPath> --set SERVICE_MESH_TYPE=Core  > /tmp/core-render.yaml    # must exit 0
+render_dir=$(mktemp -d)
+helm dependency update <chartPath>                                                # must exit 0
+helm template <chartPath> --set SERVICE_MESH_TYPE=Istio > "$render_dir/istio-render.yaml"  # must exit 0
+helm template <chartPath> --set SERVICE_MESH_TYPE=Core  > "$render_dir/core-render.yaml"   # must exit 0
 
+# Scan only this run's files, and only after that mode's helm template exited 0.
 # Istio mode: must find at least one match (grep exit 0)
-grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' /tmp/istio-render.yaml
+grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' "$render_dir/istio-render.yaml"
 
 # Core mode: must find NONE. grep exit code 1 (no match) is the PASSING result.
-grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' /tmp/core-render.yaml
+grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' "$render_dir/core-render.yaml"
+rm -rf "$render_dir"
 ```
+
+Do not write `/tmp/istio-render.yaml` or `/tmp/core-render.yaml`. Do not pipe `helm template` into
+`grep`: a failed render can look like an empty result.
 
 Record each command and exit code under `commandsRun:` and the outcomes under
 `renderChecks:`.
 
 - A `helm template` command exits non-zero (chart needs extra values, broken template) →
   `status: failed`, quote its error under `needsReview:`; do not evaluate that mode's grep.
+  Still delete `render_dir`.
 - Istio mode: no match → `istioMode: fail`, `status: failed`, and a `needsReview:` entry.
 - Core mode: any match → `coreMode: fail`, `status: failed`, and one `needsReview:` entry per
   offending resource (kind + name; locate its source file under `<chartPath>/templates/`).
@@ -164,10 +176,13 @@ for the public gateway is an `AuthorizationPolicy`, normally written by hand (se
 it never edits or generates anything.
 
 1. **No-backend rules.** Across every HTTPRoute file guarded by `SERVICE_MESH_TYPE=Istio`, count
-   rules with no `backendRefs` at all. A rule with no backend has no Istio equivalent of the
-   legacy forced-404 route and usually means an older, unmigrated conversion slipped through.
-   Record the count under `accessControlLint.noBackendRules:`; for each one found, add a
-   `needsReview:` entry naming the file and rule.
+   rules that have neither `backendRefs` nor a `RequestRedirect` filter (`type: RequestRedirect`
+   or a `requestRedirect` filter). A Gateway API redirect intentionally has no backend; do not
+   flag it. A remaining rule with no backend has no Istio equivalent of the legacy forced-404
+   route and usually means an older, unmigrated conversion slipped through. `noBackendRules` is
+   this count, not the count of every rule that lacks `backendRefs`. Record it under
+   `accessControlLint.noBackendRules:`; for each flagged rule, add a `needsReview:` entry naming
+   the file and rule.
 2. **Leftover regex matches.** Count `matches[].path.type: RegularExpression` occurrences across
    the same files — generated and migrated routes should all be `PathPrefix`/`Exact` now (see
    `regExp reduction` in
@@ -179,10 +194,15 @@ it never edits or generates anything.
 3. **Public-gateway AuthorizationPolicy presence.** Count `AuthorizationPolicy` resources in the
    chart whose `spec.targetRefs` includes `{kind: Gateway, name: public-gateway}`. Record the
    count under `accessControlLint.publicGatewayPolicies:`.
-   - **`0`** → add a `needsReview:` entry: "No public-gateway `AuthorizationPolicy` found —
-     if this service must be reachable from outside the cluster, write one by hand (see
-     `public-gateway-authz-policy`); until then every route is blocked on `public-gateway` by
-     Cloud-Core's deny-unless-permit policy. Services with no public endpoints need none."
+   - **`0`** and `publicPolicyDecision` is `none-required` → do not add a finding. Record
+     `accessControlLint.publicPolicyDecision: none-required`. The caller may pass that value only
+     after effective Gateway permissions have been checked. A project-level ALLOW can still make
+     an attached route public; this step does not reopen a decision the owner already made.
+   - **`0`** otherwise → add a `needsReview:` entry: "No public-gateway `AuthorizationPolicy`
+     found — if this service must be reachable from outside the cluster, write one by hand (see
+     `public-gateway-authz-policy`). Absence of a service-owned policy is not proof every route is
+     blocked: check other ALLOW policies that target `public-gateway`, including project policies
+     outside this chart. Services with no public endpoints need none only after that check."
    - **`1` or more** → no finding; this step does not evaluate whether the policy's paths are
      correct, only that one exists.
 4. **16-rule limit.** Across every Istio-guarded `HTTPRoute`, check `len(spec.rules) <= 16`
@@ -190,7 +210,15 @@ it never edits or generates anything.
    under `oversizedHttpRoutes:`; for each one, add a `needsReview:` entry naming the file,
    `HTTPRoute` name, and rule count, with suggested action: "Split into separate `HTTPRoute` CRs
    of at most 16 rules each (`<name>-1`, `<name>-2`, …)."
-5. **Do not modify any file in this step.** It only reports.
+5. **Old parent mapping.** In `*-istio.yaml`, `source-code-httproutes.yaml`, and
+   `annotations-httproutes.yaml`, an HTTPRoute still uses the old parent mapping when its only
+   parent is `public-gateway`, `private-gateway`, or `internal-gateway-service`. Add one
+   `needsReview:` entry: "HTTPRoute `<name>` still has the old parent mapping (`<parents>`).
+   Reconcile with core-mesh-crs-to-istio `reconcileParents: true`, which rewrites only
+   `spec.parentRefs` and preserves consumer edits, or regenerate. Add-missing-only does not
+   refresh parents." A single non-border Service parent is a mesh route, not this finding.
+   Do not edit parents in this step.
+6. **Do not modify any file in this step.** It only reports.
 
 ## Step 4 — Flag imperative control-plane calls
 
