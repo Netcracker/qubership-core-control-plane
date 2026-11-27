@@ -73,3 +73,37 @@ Compare with `tests/header-matchers-expected-output.yaml`.
 | 4 | `presentMatch: true` | `value: .*` |
 | 5 | `invertMatch: true` | header match dropped, `# ⚠ MANUAL REVIEW` — the rule now matches more than the original |
 | 6 | `rangeMatch` | header match dropped, `# ⚠ MANUAL REVIEW` |
+
+Note: the CR's `gateways: ["public-gateway-service"]` is a border gateway name, so the generated
+HTTPRoute's `parentRefs` are widened to all three (`public-gateway`, `private-gateway`,
+`internal-gateway-service`) per [parent-refs-resolution.md](../parent-refs-resolution.md)
+PRIORITY 0 — see `tests/header-matchers-expected-output.yaml`.
+
+---
+
+## Access control — allowed/deny/regExp, and border-gateway widening
+
+Per [docs/istio/allowed-and-forbidden-routes.md](https://github.com/Netcracker/qubership-core-control-plane/blob/main/docs/istio/allowed-and-forbidden-routes.md):
+`allowed: false` and `deny: true` rules are never emitted (no 404-rule equivalent on Istio); a
+CR on any one border gateway is widened to all three; and `regExp` matches are reduced to
+`PathPrefix` roots instead of `RegularExpression`, flagged only when the reduced root is too
+general to name an API resource.
+
+```text
+Run skill `core-mesh-crs-to-istio` on
+`agent-packages/core-mesh-crs-to-istio/.apm/skills/core-mesh-crs-to-istio/tests/access-control-input.yaml`.
+
+Compare the result with `tests/access-control-expected-output.yaml` and report any differences.
+Also check the skill's report (`.mesh-migration/reports/core-mesh-crs-to-istio.yaml`) for the
+`accessControl` block described in the table below.
+```
+
+| # | CR | Input condition | Expected output |
+|---|----|-----------------|-----------------|
+| 1 | `billing-public-routes` | plain `allowed: true` on `public-gateway-service` | emitted rule; recorded in `accessControl.legacyPublic[]` |
+| 2 | `billing-public-routes` | `allowed: false`, no method header matcher | not emitted; `# ⚠ MANUAL REVIEW` (border gateway); recorded in `accessControl.forbidden[]` with no `methods` |
+| 3 | `billing-public-routes` | `allowed: false` + `:method` matcher `DELETE` | not emitted; `# ⚠ MANUAL REVIEW`; recorded in `accessControl.forbidden[]` with `methods: [DELETE]` |
+| 4 | `billing-public-routes` | `deny: true` | not emitted; `# ⚠ MANUAL REVIEW`; recorded in `accessControl.deny[]` |
+| 5 | `billing-public-routes` | `regExp: /api/v1/billing/accounts/[a-f0-9-]+` | reduced to `PathPrefix` root `/api/v1/billing/accounts` — no flag in the YAML; recorded in `accessControl.legacyPublic[]` with `matchType: reduced-regexp` |
+| 6 | `billing-public-routes` | `regExp: /api/v1/.*` | reduces to too-general root `/api/v1` — not emitted, `# ⚠ MANUAL REVIEW` |
+| 7 | `billing-private-routes` | plain `allowed: true` on `private-gateway-service` | emitted rule, widened `parentRefs` to all three border gateways — **not** added to `accessControl.legacyPublic[]` (CR was never on `public-gateway-service`) |

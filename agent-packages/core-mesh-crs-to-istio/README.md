@@ -25,6 +25,7 @@ pick up a new version.
   - [`facade-service-mapping.md`](.apm/skills/core-mesh-crs-to-istio/facade-service-mapping.md)
   - [`gateway-mapping.md`](.apm/skills/core-mesh-crs-to-istio/gateway-mapping.md)
   - [`route-configuration-mapping.md`](.apm/skills/core-mesh-crs-to-istio/route-configuration-mapping.md)
+  - [`parent-refs-resolution.md`](.apm/skills/core-mesh-crs-to-istio/parent-refs-resolution.md)
   - [`tls-def-mapping.md`](.apm/skills/core-mesh-crs-to-istio/tls-def-mapping.md)
   - [`stateful-session-rule-mapping.md`](.apm/skills/core-mesh-crs-to-istio/stateful-session-rule-mapping.md)
   - [`stateful-session-mapping.md`](.apm/skills/core-mesh-crs-to-istio/stateful-session-mapping.md)
@@ -34,6 +35,10 @@ pick up a new version.
 - The shared rule-sorting procedure lives in its own package,
   [`path-specificity-sorting`](../path-specificity-sorting) (declared as a
   dependency), referenced as a sibling skill once installed.
+- The recommended (and, on request, generated) public-gateway
+  `AuthorizationPolicy` workflow lives in its own package,
+  [`public-gateway-authz-policy`](../public-gateway-authz-policy) (declared as a
+  dependency), fed by this skill's `accessControl` report block.
 - An instruction that fires when you work on Helm templates containing mesh CRs,
   steering the agent to the skill.
 - E2E test fixtures under
@@ -53,3 +58,10 @@ It wraps the originals in `SERVICE_MESH_TYPE=Core` guards, generates
 `-istio.yaml` siblings guarded by `SERVICE_MESH_TYPE=Istio`, updates
 `values.yaml` / `values.schema.json`, and reports the detected backend
 reference, output labels, and any `⚠ MANUAL REVIEW` items.
+
+Per [`docs/istio/allowed-and-forbidden-routes.md`](../../docs/istio/allowed-and-forbidden-routes.md),
+routes on any border gateway (`public-gateway-service` / `private-gateway-service` /
+`internal-gateway-service`) are widened to register on all three; `allowed: false` / `deny: true`
+rules are never emitted (no 404 rule exists on Istio); and `regExp` path matches are reduced to
+`PathPrefix` roots instead of `RegularExpression`. It never generates an `AuthorizationPolicy` —
+see [`public-gateway-authz-policy`](../public-gateway-authz-policy).

@@ -10,6 +10,12 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: public-gateway
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: private-gateway
+  - group: ''
+    kind: Service
+    name: internal-gateway-service
   rules:
   # ⚠ MANUAL REVIEW: x-debug used invertMatch, which Gateway API cannot express.
   # The header match is dropped, so this rule now matches requests the original
@@ -19,9 +25,11 @@ spec:
         type: PathPrefix
         value: /api/v1/inverted
     backendRefs:
-    - kind: Service
+    - group: ''
+      kind: Service
       name: echo
       port: 8080
+      weight: 1
   - matches:
     - path:
         type: PathPrefix
@@ -31,9 +39,11 @@ spec:
         type: RegularExpression
         value: .*
     backendRefs:
-    - kind: Service
+    - group: ''
+      kind: Service
       name: echo
       port: 8080
+      weight: 1
   - matches:
     - path:
         type: PathPrefix
@@ -43,9 +53,11 @@ spec:
         type: RegularExpression
         value: v1\.2.*
     backendRefs:
-    - kind: Service
+    - group: ''
+      kind: Service
       name: echo
       port: 8080
+      weight: 1
   - matches:
     - path:
         type: PathPrefix
@@ -55,9 +67,11 @@ spec:
         type: RegularExpression
         value: .*\.internal
     backendRefs:
-    - kind: Service
+    - group: ''
+      kind: Service
       name: echo
       port: 8080
+      weight: 1
   # ⚠ MANUAL REVIEW: x-weight used rangeMatch [1,10), which has no Gateway API
   # equivalent. The header match is dropped, widening this rule.
   - matches:
@@ -65,9 +79,11 @@ spec:
         type: PathPrefix
         value: /api/v1/range
     backendRefs:
-    - kind: Service
+    - group: ''
+      kind: Service
       name: echo
       port: 8080
+      weight: 1
   - matches:
     - path:
         type: PathPrefix
@@ -77,7 +93,9 @@ spec:
         type: RegularExpression
         value: "[0-9a-f]{8}"
     backendRefs:
-    - kind: Service
+    - group: ''
+      kind: Service
       name: echo
       port: 8080
+      weight: 1
 {{- end }}

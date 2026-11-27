@@ -31,7 +31,7 @@ require (
 	github.com/netcracker/qubership-core-lib-go-dbaas-base-client/v3 v3.9.0
 	github.com/netcracker/qubership-core-lib-go-dbaas-postgres-client/v4 v4.6.0
 	github.com/netcracker/qubership-core-lib-go-error-handling/v3 v3.8.0
-	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.12.0
+	github.com/netcracker/qubership-core-lib-go-rest-utils/v2 v2.12.1-0.20261127110133-31cf2681e66c
 	github.com/netcracker/qubership-core-lib-go-stomp-websocket/v3 v3.7.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.16.0
 	github.com/pkg/errors v0.9.1
@@ -125,7 +125,7 @@ require (
 	github.com/molecule-man/go-brrr v1.3.1 // indirect
 	github.com/morikuni/aec v1.1.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3 v3.0.0-20261117090351-2e20d8539382
+	github.com/netcracker/qubership-core-lib-go-fiber-server-utils/v3 v3.0.0-20261127125851-b1545d1dfd49
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect

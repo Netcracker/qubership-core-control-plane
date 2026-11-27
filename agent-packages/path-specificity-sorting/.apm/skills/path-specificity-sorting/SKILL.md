@@ -10,14 +10,17 @@ description: >
 
 # Shared rule — sort HTTPRoute rules by path specificity
 
-This is a shared procedure reused by multiple skills and generators
-(`httproute-from-code`, `core-mesh-crs-to-istio`, `httproutes-generator-maven-plugin`).
-Apply it before emitting
-an HTTPRoute so the most specific path match appears first in `rules[]`.
+This is a shared procedure reused by `httproute-from-code` and
+`core-mesh-crs-to-istio`. Apply it before emitting an HTTPRoute so the most
+specific path match appears first in `rules[]`. (The Maven plugins —
+`httproutes-generator-maven-plugin` / `httproutes-generator-spring-maven-plugin` —
+do not use this procedure; they sort by match value, not segment count. See
+each plugin's README for details.)
 
-The path to sort on is the rule's prefix/path match value (the `from` path for
-code-registered routes, or the `match.prefix` / `match.path` / `match.regExp`
-value for converted `RouteConfiguration` rules).
+The path to sort on is the rule's reduced `PathPrefix` match value — the `from`
+path (after root reduction) for code-registered routes, or `match.prefix` /
+`match.path` / the reduced root for a former `match.regExp` for converted
+`RouteConfiguration` rules.
 
 ## Specificity ordering rules
 
