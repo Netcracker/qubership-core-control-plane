@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	errs "github.com/netcracker/qubership-core-lib-go-error-handling/v3/errors"
 	"github.com/netcracker/qubership-core-lib-go-error-handling/v3/tmf"
 	"github.com/stretchr/testify/assert"
@@ -30,6 +30,7 @@ func TestMultiCauseErrorWithTwoDifferentErrors(t *testing.T) {
 	err := multiCauseError.Handle(ctx)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusInternalServerError, ctx.Response().StatusCode())
+	assert.Equal(t, "application/json", string(ctx.Response().Header.ContentType()), "Content-Type")
 	tmfResponse := readTmfResponse(t, ctx)
 	assert.Equal(t, testCpError.Code, tmfResponse.Code)
 
@@ -104,7 +105,7 @@ func containError(expectedErrors []CpErrCodeError, actualErr tmf.Error) bool {
 	return false
 }
 
-func readTmfResponse(t *testing.T, ctx *fiber.Ctx) tmf.Response {
+func readTmfResponse(t *testing.T, ctx fiber.Ctx) tmf.Response {
 	tmfResponse := tmf.Response{}
 	err := json.Unmarshal(ctx.Response().Body(), &tmfResponse)
 	assert.Nil(t, err)

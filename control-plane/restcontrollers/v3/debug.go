@@ -7,7 +7,7 @@ import (
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/services/debug"
 	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 type DebugService interface {
@@ -35,8 +35,8 @@ func NewDebugController(service DebugService) *DebugController {
 // @Success 200 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /debug/data-dump [get]
-func (c *DebugController) HandleGetDump(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *DebugController) HandleGetDump(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	if snapshot, err := c.service.DumpDataSnapshot(); err == nil {
 		return restutils.RespondWithJson(fiberCtx, 200, snapshot)
 	} else {
@@ -58,8 +58,8 @@ func (c *DebugController) HandleGetDump(fiberCtx *fiber.Ctx) error {
 // @Success 200 {file} file "ZIP file"
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/debug/internal/dump [get]
-func (c *DebugController) HandleGetMeshDump(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *DebugController) HandleGetMeshDump(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	snapshot, err := c.service.DumpDataSnapshot()
 
 	if err != nil {
@@ -86,8 +86,8 @@ func (c *DebugController) HandleGetMeshDump(fiberCtx *fiber.Ctx) error {
 // @Success 200 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v3/debug/config-validation [get]
-func (c *DebugController) HandleGetConfigValidation(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *DebugController) HandleGetConfigValidation(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	problem, err := c.service.ValidateConfig()
 	if err != nil {
 		msg := fmt.Sprintf("Can't validate config: %v.", err)

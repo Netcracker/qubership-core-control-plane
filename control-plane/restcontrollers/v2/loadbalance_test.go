@@ -3,7 +3,7 @@ package v2
 import (
 	"bytes"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/hashicorp/go-memdb"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/dao"
 	"github.com/netcracker/qubership-core-control-plane/control-plane/v2/domain"
@@ -225,7 +225,7 @@ func prepareClusterWithEndpoints(t *testing.T, clusterName string, dao dao.Repos
 	return endpoint1.Id
 }
 
-func (c *LoadBalanceController) PostLBUnsecure(ctx *fiber.Ctx) error {
+func (c *LoadBalanceController) PostLBUnsecure(ctx fiber.Ctx) error {
 	return c.HandlePostLoadBalance(ctx)
 }
 
