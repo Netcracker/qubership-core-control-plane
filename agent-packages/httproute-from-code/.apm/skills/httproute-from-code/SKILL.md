@@ -69,7 +69,7 @@ generatedAt: <ISO-8601>
 inputsUsed: {backendRefName: <v>, backendRefPort: <v>, routeLabels: <map>}
 filesGenerated: [<paths>]   # empty when no routes were found
 routesGenerated: <N>        # 0 is valid
-accessControl:              # omit entirely when both lists are empty
+accessControl:              # always present, even when both lists are empty ([])
   legacyPublic:             # emitted routes whose legacy type was Public
     - {from: <original path>, source: <file:line>, matchType: prefix}
   forbidden:                # Forbidden:true / allowed:false — never emitted

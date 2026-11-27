@@ -54,9 +54,10 @@ status: complete            # complete | failed
 generatedAt: <ISO-8601>
 recommendation: manual      # always "manual"
 candidates:
-  legacyPublic: [{path: <path>, matchType: <prefix|exact|reduced-regexp>}]               # matchType optional
-  forbidden: [{path: <path>, methods: [..], matchType: <prefix|exact|reduced-regexp>}]   # methods optional
-  deny:      [{path: <path>, methods: [..], matchType: <...>}]
+  # matchType optional (missing = prefix); methods optional; gateways only from core-mesh-crs-to-istio
+  legacyPublic: [{path: <path>, matchType: <prefix|exact|reduced-regexp>}]
+  forbidden: [{path: <path>, methods: [..], matchType: <prefix|exact|reduced-regexp>, gateways: [..]}]
+  deny:      [{path: <path>, methods: [..], matchType: <...>, gateways: [..]}]
   javaAnnotated: [<path>, ...]
 generated: false            # true only if a draft file was written this run
 fileGenerated: <path or null>
@@ -72,8 +73,9 @@ and report a contract mismatch. On an unrecoverable error set `status: failed` a
 
 ### Side effects
 
-With `generate: false`: nothing except the report. With `generate: true`: one new file,
-`<chartPath>/templates/public-gateway-authorization-policy.yaml`.
+With `generate: false`: nothing except the report. With `generate: true`: at most one new file,
+`<chartPath>/templates/public-gateway-authorization-policy.yaml`. Step 4 writes no file when a
+sibling report is stale, or when there is neither a base path nor a public-gateway deny entry.
 
 ---
 
@@ -88,7 +90,14 @@ Step 2 so the candidates are reported.
 ## Step 2 — Collect candidates
 
 1. From `accessControl` (input, else the two sibling report files; missing files are not an error):
-   `legacyPublic[]`, `forbidden[]`, `deny[]` (keep `methods` and `matchType` when present).
+   `legacyPublic[]`, `forbidden[]`, `deny[]`. Copy each entry's `from` to `path`, and keep
+   `methods`, `matchType`, and `gateways` when present.
+   A sibling report file that exists but has no `accessControl` key was written by a version that
+   omitted the block (`core-mesh-crs-to-istio` before 3.1.0, `httproute-from-code` before 2.2.0),
+   so an empty inventory cannot be told apart from one that was never collected. Do not read
+   candidates from it. Add `needsReview:`
+   "`<report file>` predates access-control collection — rerun `<skill>` before relying on these
+   candidates." and treat the inventory as stale in Step 4.
 2. Best-effort Java scan of `<codePath>/**/*.java` (skip `target/`, `src/test/`) for routes that were
    public: `@Route(type = RouteType.PUBLIC)`, `@Route(value = RouteType.PUBLIC)`,
    `@Route(gateways = "public-gateway-service")`. A bare `@Route` is `INTERNAL`, **not** public.
@@ -146,37 +155,73 @@ With `interactive: true` and `generate` unset (and no `existingPolicy`), ask onc
 
 ## Step 4 — Generate a draft (only when `generate: true` and `existingPolicy` is null)
 
+If Step 2 found a stale report, write no file: the candidate lists may be missing routes. Record
+`needsReview:` "No draft written — rerun the converters listed above, then rerun this skill." and
+stop.
+
 **Base paths** = `candidates.legacyPublic` plus `candidates.javaAnnotated` (tell the user both were
-included). Replace any `{var}` path segment with `{*}`.
+included). A `javaAnnotated` path is a `prefix` (code routes always render as `PathPrefix`). Replace
+any `{var}` path segment with `{*}`.
+
+**Expand by match type.** Every path written to `paths` or `notPaths` below is expanded from its
+entry's `matchType`:
+
+- `exact` → `p` only. Never add `p/*`: that would open every descendant of an exact public route.
+- `prefix` → `p` and `p/*`.
+- `reduced-regexp` → `p` and `p/*` (item 4 below adds the review entry).
+- no `matchType` → treat as `prefix`.
+
+An entry **lies under** a base path `b` when its path equals `b`, or, only if `b` is a `prefix` or
+`reduced-regexp` entry, when its path starts with `<b>/`.
+
+**Public deny entries** = the `deny[]` entries whose `gateways` includes `public-gateway-service`
+(see item 3).
 
 - If **base paths** are empty, **do not emit an `ALLOW` policy** (an `ALLOW` policy with only
   `notPaths` would allow every path on `public-gateway`). Still emit the `DENY` policy below if
-  `deny[]` is non-empty; if both are empty, write no file, record `needsReview:` "No public
-  candidates found — write a policy by hand, or skip it if the service has no public endpoints."
-  and stop.
+  there are public deny entries. If there are none either, write no file, keep `generated: false`
+  and `fileGenerated: null`, record the item 3 `needsReview:` entries for any other `deny[]`
+  entries plus "No public candidates found — write a policy by hand, or skip it if the service has
+  no public endpoints.", and stop.
 
 Write one file wrapped in `{{- if eq .Values.SERVICE_MESH_TYPE "Istio" }}` … `{{- end }}`, starting
 with a comment `# DRAFT — generated on request; review every path before merging.`:
 
 1. **ALLOW policy** `{{ .Values.SERVICE_NAME }}-public-gateway-allow` (only when base paths are
-   non-empty): one rule, `paths` = every base path `p` as `p` and `p/*`.
-2. **Forbidden candidates** (`forbidden[]`) that lie under a base path (equal to it or starting with
-   `<base>/`); ignore the rest (already denied by default):
-   - no `methods` → add `p` and `p/*` to the rule's `notPaths`;
-   - with `methods` → add `p` and `p/*` to `notPaths` **and** add a second rule
-     `to.operation: {paths: [p, p/*], notMethods: [<methods>]}`.
-3. **DENY policy** `{{ .Values.SERVICE_NAME }}-public-gateway-deny`, only if `deny[]` is non-empty:
-   one rule per entry, `paths: [p, p/*]`, plus `methods: [...]` when the entry has them. Required
-   because `deny: true` overrode paths allowed by *other* policies, which only DENY can do.
+   non-empty): one rule, `paths` = every base path, expanded by match type.
+2. **Forbidden candidates** (`forbidden[]`) that lie under a base path; ignore the rest (already
+   denied by default). Add each one, expanded, to the first rule's `notPaths`. This fails closed:
+   an entry that has `gateways` without `public-gateway-service` was forbidden only on another
+   gateway, so also add `needsReview:` "Forbidden route `<path>` applied on `<gateways>`; the draft
+   blocks it on public-gateway too — remove it from `notPaths` if it must stay public."
+   Then, for an entry with `methods`, add a method exception
+   `to.operation: {paths: [<exception paths>], notMethods: [<methods>]}` as a separate rule, where
+   the exception paths are the entry's expanded paths limited to what its base path opens: under an
+   `exact` base that is `p` only, never `p/*`. Skip the exception **if the entry overlaps another
+   forbidden entry**, with or without `methods`. Two entries overlap when one lies under the other
+   (the same test as for base paths). ALLOW rules are OR-ed, so an exception rule for one entry
+   would allow requests that the overlapping entry blocks. For every overlapping pair, emit no
+   exception rule for either entry (both stay fully excluded through `notPaths`) and add
+   `needsReview:` "Forbidden entries `<path A>` and `<path B>` overlap — the draft blocks both on
+   every method; restore the allowed methods by hand."
+3. **DENY policy** `{{ .Values.SERVICE_NAME }}-public-gateway-deny`: one rule per `deny[]` entry
+   whose `gateways` includes `public-gateway-service`, with `paths` expanded by match type, plus
+   `methods: [...]` when the entry has them. Required because `deny: true` overrode paths allowed
+   by *other* policies, which only DENY can do. Do not draft any other `deny[]` entry on
+   `public-gateway`: a public DENY for a path denied on another gateway can block a public route
+   that a different policy allows. Report it instead, with `needsReview:` "Deny route `<path>`
+   applied on `<gateways>`, not on public-gateway — not drafted." An entry with no `gateways`
+   (written by an older converter) gets the same treatment, with `<gateways>` given as `unknown`.
+   Emit the DENY policy only when at least one entry qualifies.
 4. **Regex-derived entries** (`matchType: reduced-regexp`) use their reduced prefix; add a
    `needsReview:` entry for each. Never write a regex into `paths`/`notPaths`.
 5. Apply `routeLabels` to `metadata.labels` if provided; otherwise omit labels.
 6. Record `fileGenerated:`, `generated: true`, and `needsReview:` "Generated policy is a draft —
    verify every path."
 
-Example — candidates `legacyPublic: [/api/v1/billing/invoices]`,
-`forbidden: [{path: /api/v1/billing/invoices/bulk, methods: [DELETE]}]`,
-`deny: [{path: /api/v1/billing/invoices/internal}]`:
+Example — candidates `legacyPublic: [{path: /api/v1/billing/invoices, matchType: prefix}]`,
+`forbidden: [{path: /api/v1/billing/invoices/bulk, matchType: prefix, methods: [DELETE]}]`,
+`deny: [{path: /api/v1/billing/invoices/internal, matchType: prefix, gateways: [public-gateway-service]}]`:
 
 ```yaml
 rules:   # ALLOW policy
@@ -195,6 +240,53 @@ rules:
       - operation:
           paths: [/api/v1/billing/invoices/internal, /api/v1/billing/invoices/internal/*]
 ```
+
+Example — an exact public route with a private descendant. Candidates
+`legacyPublic: [{path: /api/v1/billing/status, matchType: exact}]`; the private route
+`/api/v1/billing/status/details` is not a candidate. The ALLOW rule opens the exact path only, so
+the descendant stays blocked by Cloud-Core's default policy:
+
+```yaml
+rules:   # ALLOW policy
+  - to:
+      - operation:
+          paths: [/api/v1/billing/status]
+```
+
+Example — overlapping method-restricted entries. Candidates
+`legacyPublic: [{path: /api/v1/orders, matchType: prefix}]`,
+`forbidden: [{path: /api/v1/orders/admin, matchType: prefix, methods: [DELETE]},
+{path: /api/v1/orders/admin/purge, matchType: prefix, methods: [POST]}]`. Separate exceptions would
+let `POST /api/v1/orders/admin/purge` through the first entry's `notMethods: [DELETE]` rule. The
+entries overlap, so neither gets an exception, and `needsReview:` names the pair:
+
+```yaml
+rules:   # ALLOW policy
+  - to:
+      - operation:
+          paths: [/api/v1/orders, /api/v1/orders/*]
+          notPaths: [/api/v1/orders/admin, /api/v1/orders/admin/*,
+                     /api/v1/orders/admin/purge, /api/v1/orders/admin/purge/*]
+```
+
+Example — a deny entry from another gateway. Candidates
+`deny: [{path: /api/v1/billing/ledger/export, matchType: prefix, gateways: [private-gateway-service]}]`
+and nothing else. There is no ALLOW policy (no base paths) and no DENY policy (no entry on
+`public-gateway-service`), so no file is written. `needsReview:` reports the deny route against
+`private-gateway-service`.
+
+Example — overlap with an entry that has no methods. Candidates
+`legacyPublic: [{path: /api/v1/orders, matchType: prefix}]`,
+`forbidden: [{path: /api/v1/orders/admin, matchType: prefix},
+{path: /api/v1/orders/admin/report, matchType: prefix, methods: [DELETE]}]`. An exception rule for
+the second entry would reopen `GET /api/v1/orders/admin/report`, which the first entry blocks on
+every method. Both paths go to `notPaths`, no exception rule is written, and `needsReview:` names
+the pair.
+
+Example — a deny entry with no `gateways` (from a converter before 3.1.0). Candidates
+`legacyPublic: [{path: /api/v1/billing/invoices, matchType: prefix}]`,
+`deny: [{path: /api/v1/billing/invoices/internal, matchType: prefix}]`. The ALLOW policy is written
+as usual, the DENY policy is not, and `needsReview:` reports the deny route against `unknown`.
 
 ## Non-goals
 

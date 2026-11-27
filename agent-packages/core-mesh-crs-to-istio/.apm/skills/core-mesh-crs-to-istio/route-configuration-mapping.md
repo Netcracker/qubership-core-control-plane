@@ -222,6 +222,9 @@ Instead, record it in the skill's report under `accessControl.forbidden[]`:
 - `matchType`: `prefix`, `exact` (from `path`) or `reduced-regexp`. A `reduced-regexp` entry also
   gets a `needsReview:` entry, since the reduced root may cover more than the regex did.
 - `cr`: the source `RouteConfiguration`/`Mesh` CR name.
+- `gateways`: the source CR's `spec.gateways`, verbatim. The policy skill drafts a public-gateway
+  DENY only for a `deny[]` entry whose `gateways` include `public-gateway-service`, and flags a
+  `forbidden[]` entry from another gateway that its draft blocks on public-gateway.
 - `methods`: include **only** when the rule's `match.headers[]` contains a matcher on the
   pseudo-header `:method` (i.e. a legacy method restriction); omit the field otherwise.
 
@@ -247,9 +250,11 @@ Gateway API has no per-gateway deny rule. **Do not emit the rule at all** — sa
 plain forbidden route, since it was overriding something already allowed elsewhere).
 
 Record it in the report under `accessControl.deny[]`, using the same fields as `forbidden[]`
-(`from`, `matchType`, `cr`, optional `methods`), and a `needsReview:` entry: "Deny route `<from>` — exclude
-this path from the service's public-gateway AuthorizationPolicy (it was overriding an
-already-allowed OOB route)."
+(`from`, `matchType`, `cr`, `gateways`, optional `methods`), and a `needsReview:` entry. When
+`gateways` includes `public-gateway-service`: "Deny route `<from>` — exclude this path from the
+service's public-gateway AuthorizationPolicy (it was overriding an already-allowed OOB route)."
+Otherwise: "Deny route `<from>` applied on `<gateways>`, not on public-gateway — decide by hand how
+to keep it blocked there."
 
 ### RouteMatch
 
@@ -287,11 +292,12 @@ matcher `safeRegexMatch` etc. are unaffected — see HeaderMatcher below). Reduc
 5. **Specific root — no flag.** Any other reduced prefix is emitted as a normal `PathPrefix` rule.
    Note the conversion in the chat Output Summary (not `needsReview:`) so the regex-to-prefix
    narrowing/widening is visible, but it does not block the migration.
-6. **Merge against an existing rule with the same reduced root:** if another rule in the same
-   `RouteV3`/virtualService already emits that exact `PathPrefix` value with the same rewrite and
-   backend, drop the duplicate silently (same rule, same target). If the rewrite or backend
-   differs, keep both and add `# ⚠ MANUAL REVIEW` — the regex conversion is ambiguous and a human
-   must confirm which one is authoritative.
+6. **Merge against an existing rule with the same reduced root:** drop the reduced rule silently
+   only when another rule in the same `RouteV3`/virtualService is equivalent in full: the same
+   `PathPrefix` value, the same header, query, and method matches, the same filters (rewrite
+   included), the same timeouts, and the same backends. If any of these differ, keep both rules and
+   add `# ⚠ MANUAL REVIEW`: the regex conversion is ambiguous, and a human must confirm which rule
+   is authoritative.
 
 ---
 

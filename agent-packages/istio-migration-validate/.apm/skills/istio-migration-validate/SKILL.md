@@ -51,7 +51,7 @@ renderChecks:
 duplicateGroups: <N>
 oversizedHttpRoutes: <N>      # HTTPRoutes with >16 rules (Gateway API CRD maxItems: 16)
 accessControlLint:            # Step 3b — read-only, additive
-  noBackendRules: <N>          # rules with no backendRefs (leftover forbidden-route emulation)
+  noBackendRules: <N>          # rules with no backendRefs and no RequestRedirect filter
   regexMatches: <N>            # matches[].path.type: RegularExpression still present
   publicGatewayPolicies: <N>   # AuthorizationPolicies targeting Gateway public-gateway
 controlPlaneCalls: <N>        # imperative control-plane calls found by Step 4
@@ -103,15 +103,22 @@ Render to a file first so a template error is never mistaken for an empty result
 
 ```bash
 helm dependency update <chartPath>
-helm template <chartPath> --set SERVICE_MESH_TYPE=Istio > /tmp/istio-render.yaml   # must exit 0
-helm template <chartPath> --set SERVICE_MESH_TYPE=Core  > /tmp/core-render.yaml    # must exit 0
+tmp=$(mktemp -d) && trap 'rm -rf "$tmp"' EXIT
+api='^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/'
+
+helm template <chartPath> --set SERVICE_MESH_TYPE=Istio > "$tmp/istio-render.yaml"; echo "istio render exit=$?"
+helm template <chartPath> --set SERVICE_MESH_TYPE=Core  > "$tmp/core-render.yaml";  echo "core render exit=$?"
 
 # Istio mode: must find at least one match (grep exit 0)
-grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' /tmp/istio-render.yaml
+grep -E "$api" "$tmp/istio-render.yaml"; echo "istio grep exit=$?"
 
 # Core mode: must find NONE. grep exit code 1 (no match) is the PASSING result.
-grep -E '^apiVersion: (gateway\.networking\.k8s\.io|networking\.istio\.io|security\.istio\.io|extensions\.istio\.io)/' /tmp/core-render.yaml
+grep -E "$api" "$tmp/core-render.yaml"; echo "core grep exit=$?"
 ```
+
+Run the block as **one** shell invocation: the private directory from `mktemp -d` keeps parallel
+validations of different charts from reading each other's renders, and `trap` removes it when the
+shell exits. Evaluate a mode's grep only when that mode's render exited 0.
 
 Record each command and exit code under `commandsRun:` and the outcomes under
 `renderChecks:`.
@@ -164,7 +171,8 @@ for the public gateway is an `AuthorizationPolicy`, normally written by hand (se
 it never edits or generates anything.
 
 1. **No-backend rules.** Across every HTTPRoute file guarded by `SERVICE_MESH_TYPE=Istio`, count
-   rules with no `backendRefs` at all. A rule with no backend has no Istio equivalent of the
+   rules with no `backendRefs` at all, except rules with a `RequestRedirect` filter: a redirect
+   has no backend by design. Any other rule with no backend has no Istio equivalent of the
    legacy forced-404 route and usually means an older, unmigrated conversion slipped through.
    Record the count under `accessControlLint.noBackendRules:`; for each one found, add a
    `needsReview:` entry naming the file and rule.

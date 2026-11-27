@@ -67,4 +67,5 @@ spec:
       name: billing-service
       port: 8080
       weight: 1
+  # ⚠ MANUAL REVIEW: /api/v1/billing/ledger/export (deny: true, private-gateway-service) not emitted; it applied on private-gateway-service, not on public-gateway.
 {{- end }}

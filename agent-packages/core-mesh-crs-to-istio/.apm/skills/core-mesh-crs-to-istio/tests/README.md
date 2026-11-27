@@ -107,3 +107,8 @@ Also check the skill's report (`.mesh-migration/reports/core-mesh-crs-to-istio.y
 | 5 | `billing-public-routes` | `regExp: /api/v1/billing/accounts/[a-f0-9-]+` | reduced to `PathPrefix` root `/api/v1/billing/accounts` — no flag in the YAML; recorded in `accessControl.legacyPublic[]` with `matchType: reduced-regexp` |
 | 6 | `billing-public-routes` | `regExp: /api/v1/.*` | reduces to too-general root `/api/v1` — not emitted, `# ⚠ MANUAL REVIEW` |
 | 7 | `billing-private-routes` | plain `allowed: true` on `private-gateway-service` | emitted rule, widened `parentRefs` to all three border gateways — **not** added to `accessControl.legacyPublic[]` (CR was never on `public-gateway-service`) |
+| 8 | `billing-private-routes` | `deny: true` on `private-gateway-service` | not emitted; `# ⚠ MANUAL REVIEW`; recorded in `accessControl.deny[]` with `gateways: [private-gateway-service]` |
+
+Every `forbidden[]` and `deny[]` entry carries `gateways` (the source CR's `spec.gateways`): rows 2–4
+have `[public-gateway-service]`. The report always contains the `accessControl` block; a run on
+input with no access-control rules writes it with three empty lists.

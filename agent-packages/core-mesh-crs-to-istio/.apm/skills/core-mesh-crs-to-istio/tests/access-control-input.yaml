@@ -70,3 +70,9 @@ spec:
               - match:
                   prefix: /api/v1/billing/ledger
                 allowed: true
+              # Deny rule on a private-only CR — omitted entirely, recorded in
+              # accessControl.deny[] with gateways: [private-gateway-service], so the
+              # policy skill never drafts it as a public-gateway DENY.
+              - match:
+                  prefix: /api/v1/billing/ledger/export
+                deny: true
