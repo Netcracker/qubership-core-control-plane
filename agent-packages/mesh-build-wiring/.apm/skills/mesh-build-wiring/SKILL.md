@@ -85,11 +85,10 @@ Apply only to languages actually present in the repo.
 (never invent or guess a newer one — you may have no registry access); leave an already higher
 version as is.
 
-**Quarkus `routes-registrator` floor** (the only place this skill states it): `10.4.2`, the latest
-release (`cloud-core-quarkus-10.4.2`). Use it with or without `httproutes-generator-maven-plugin`.
-Plugin `1.2.2` is built against this version, so a 9.1.x BOM does not meet the floor. Step 1 and
-Step 3 both mean this floor. Record the version you left in the file under
-`versions.routesRegistrator`. Do not repeat the numbers in the plugin branches.
+**Quarkus `routes-registrator` floor** (the only place this skill states it): `10.4.2`. Use it with
+or without `httproutes-generator-maven-plugin`. Step 1 and Step 3 both mean this floor. Record the
+version you left in the file under `versions.routesRegistrator`. Do not repeat the number in the
+plugin branches.
 
 ### Java
 
@@ -244,8 +243,8 @@ present below `1.2.2`, bump the version.
        to `<chartPath>/templates/annotations-httproutes.yaml`.
      - `<backendRefVal>` **always set explicitly** to the `backendRefName` input, e.g.
        `<backendRefVal>{{ .Values.SERVICE_NAME }}</backendRefVal>` (the default when nothing was
-       detected). Do not rely on the plugin's own default (it changed in 1.2.0) — set the value so
-       it matches the migration-wide `backendRefName`.
+       detected). Do not rely on the plugin default. Set the value so it matches the
+       migration-wide `backendRefName`.
      - `<labels>` set to the `routeLabels` input, in Maven plugin label format:
        `<labels><label><key>my/special-key</key><value>value1</value></label></labels>`.
        Do not invent values.

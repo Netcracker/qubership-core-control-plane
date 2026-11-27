@@ -210,8 +210,7 @@ Using common BOM
 The effective `routes-registrator` version is the floor from
 [`mesh-build-wiring`](../../../agent-packages/mesh-build-wiring/.apm/skills/mesh-build-wiring/SKILL.md):
 `>= 10.4.2` with or without `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin`.
-Plugin `1.2.2` is built against `routes-registrator` `10.4.2`, so a BOM import at `9.1.0` does not
-meet the floor. Both recipes below have to resolve to `10.4.2`.
+Both recipes below have to resolve to `10.4.2`.
 
 ```xml
 <dependency>
@@ -229,7 +228,7 @@ Using BOM
             <dependency>
                 <groupId>com.netcracker.cloud</groupId>
                 <artifactId>cloud-core-quarkus-bom-publish</artifactId>
-                <version>10.4.2<!-- >= 10.4.2; a 9.1.x import does not meet the routes-registrator floor --></version>
+                <version>10.4.2<!-- >= 10.4.2 --></version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -345,8 +344,8 @@ continuing.
 Use plugin coordinates `com.netcracker.cloud.plugins:httproutes-generator-spring-maven-plugin`
 (Spring) or `com.netcracker.cloud.plugins:httproutes-generator-maven-plugin` (Quarkus), and pick
 the latest release, `1.2.2`, and never a lower version. **Always set
-`<backendRefVal>` explicitly** — the plugin's own default changed from
-`{{ .Values.DEPLOYMENT_RESOURCE_NAME }}` to `{{ .Values.SERVICE_NAME }}` in 1.2.0.
+`<backendRefVal>` explicitly** to `{{ .Values.SERVICE_NAME }}`. Do not rely on
+the plugin default.
 
 ```xml
 <build>
