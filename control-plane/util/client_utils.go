@@ -157,7 +157,8 @@ func doRequestWithToken(logContext context.Context, method string, url string, d
 		return nil, errors.New(errMsg)
 	}
 	if response.StatusCode() >= fasthttp.StatusInternalServerError {
-		logger.WarnC(logContext, "Secure %s request to %s failed with 5xx http status code: %d", method, url, response.StatusCode())
+		errMsg = fmt.Sprintf("Secure %s request to %s failed with 5xx http status code: %d", method, url, response.StatusCode())
+		logger.WarnC(logContext, "%s", errMsg)
 		fasthttp.ReleaseResponse(response)
 		return nil, errors.New(errMsg)
 	} else {
